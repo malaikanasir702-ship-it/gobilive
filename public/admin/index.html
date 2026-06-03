@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gobilive Admin Panel</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      color: #f4f2ff;
+      background: #04020a;
+      accent-color: #7c5cff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      overflow-x: hidden;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      min-height: 100%;
+      background: radial-gradient(circle at top, rgba(124, 92, 255, 0.18), transparent 32%),
+        linear-gradient(180deg, #07040f 0%, #06020b 100%);
+      color: #f4f2ff;
+    }
+
+    body {
+      min-height: 100vh;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 20% 10%, rgba(124, 92, 255, 0.14), transparent 22%),
+        radial-gradient(circle at 80% 15%, rgba(255, 255, 255, 0.08), transparent 15%);
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(18px);
+      background: rgba(5, 4, 16, 0.78);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 22px 26px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .brand h1 {
+      font-size: clamp(1.45rem, 2vw, 2rem);
+      letter-spacing: -0.03em;
+      font-weight: 700;
+      color: #fdfcff;
+    }
+
+    .brand p {
+      font-size: 0.95rem;
+      color: #d3ccf7;
+      opacity: 0.85;
+    }
+
+    main {
+      width: min(1200px, calc(100% - 36px));
+      margin: 0 auto;
+      padding: 28px 0 36px;
+    }
+
+    .control-panel {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    input,
+    button,
+    select {
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(14, 8, 28, 0.88);
+      color: #f4f2ff;
+      font: inherit;
+      transition: transform 240ms ease, border-color 240ms ease, box-shadow 240ms ease;
+    }
+
+    input {
+      min-width: 220px;
+      padding: 14px 16px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: rgba(124, 92, 255, 0.75);
+      box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.12);
+      transform: translateY(-1px);
+    }
+
+    button {
+      padding: 14px 20px;
+      min-width: 132px;
+      border: none;
+      cursor: pointer;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      background: linear-gradient(135deg, #8f79ff, #6744ff);
+      color: white;
+      box-shadow: 0 18px 50px rgba(58, 41, 171, 0.15);
+    }
+
+    button.secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: #e7e5ff;
+      box-shadow: 0 16px 34px rgba(9, 6, 23, 0.12);
+    }
+
+    button:hover,
+    .tab:hover {
+      transform: translateY(-1px);
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .tab {
+      padding: 12px 20px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #dcd8f7;
+      cursor: pointer;
+      transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
+      white-space: nowrap;
+    }
+
+    .tab.active {
+      background: linear-gradient(135deg, rgba(124, 92, 255, 0.18), rgba(124, 92, 255, 0.04));
+      border-color: rgba(124, 92, 255, 0.9);
+      color: #fff;
+      box-shadow: 0 12px 30px rgba(124, 92, 255, 0.12);
+    }
+
+    .hero {
+      display: grid;
+      gap: 18px;
+      margin-bottom: 28px;
+    }
+
+    .hero-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: linear-gradient(180deg, rgba(12, 6, 27, 0.9), rgba(15, 7, 42, 0.9));
+      padding: 28px 32px;
+      box-shadow: 0 28px 80px rgba(7, 3, 24, 0.28);
+    }
+
+    .hero-card::after {
+      content: '';
+      position: absolute;
+      inset: -40%;
+      background: radial-gradient(circle at top right, rgba(124, 92, 255, 0.22), transparent 30%);
+      pointer-events: none;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .stat-card,
+    .card {
+      border-radius: 22px;
+      padding: 18px 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(18px);
+      transition: transform 240ms ease, box-shadow 240ms ease;
+      position: relative;
+    }
+
+    .stat-card:hover,
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+    }
+
+    .stat-card h3,
+    .card h3 {
+      font-size: 0.78rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #b9b1ff;
+      margin-bottom: 12px;
+    }
+
+    .stat-card p,
+    .card p {
+      font-size: clamp(1.5rem, 2vw, 2.2rem);
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.05;
+    }
+
+    .status-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 10px;
+      margin-top: 10px;
+      font-size: 0.92rem;
+      color: #e8e2ff;
+    }
+
+    th,
+    td {
+      padding: 16px 14px;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th {
+      color: #bdb6ee;
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0.82;
+    }
+
+    td {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 18px;
+    }
+
+    tbody tr {
+      transition: transform 160ms ease, box-shadow 160ms ease;
+    }
+
+    tbody tr:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    }
+
+    tbody tr td:first-child {
+      border-top-left-radius: 18px;
+      border-bottom-left-radius: 18px;
+    }
+
+    tbody tr td:last-child {
+      border-top-right-radius: 18px;
+      border-bottom-right-radius: 18px;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-bottom: 22px;
+      align-items: center;
+    }
+
+    .section-card {
+      border-radius: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(12, 7, 27, 0.88);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+      padding: 28px;
+      margin-bottom: 24px;
+    }
+
+    section {
+      display: none;
+    }
+
+    section.active {
+      display: block;
+    }
+
+    section > h2 {
+      margin-bottom: 18px;
+      color: #efe7ff;
+      font-size: 1.15rem;
+    }
+
+    .error {
+      color: #ff8ca4;
+      margin: 10px 0 0;
+      font-size: 0.95rem;
+      min-height: 1.2rem;
+    }
+
+    label {
+      display: grid;
+      gap: 8px;
+      width: min(320px, 100%);
+      color: #cbc3f0;
+      font-size: 0.92rem;
+    }
+
+    .tab-content {
+      display: grid;
+      gap: 20px;
+    }
+
+    p {
+      color: #d3cfee;
+    }
+
+    @media (max-width: 720px) {
+      header {
+        padding: 18px 20px;
+      }
+
+      .control-panel {
+        width: 100%;
+      }
+
+      .tabs {
+        justify-content: center;
+      }
+
+      .hero-card,
+      .section-card {
+        padding: 24px;
+      }
+
+      th, td {
+        padding: 14px 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>Gobilive Admin</h1>
+      <p>Premium control room for live streaming operations.</p>
+    </div>
+    <div class="control-panel">
+      <input type="password" id="adminKey" placeholder="Admin API Key" />
+      <input type="text" id="apiBase" placeholder="API Base" value="http://192.168.100.18:5000" />
+      <button onclick="loadDashboard()">Connect</button>
+    </div>
+  </header>
+  <main>
+    <div class="tabs">
+      <div class="tab active" data-tab="dashboard">Dashboard</div>
+      <div class="tab" data-tab="users">Users</div>
+      <div class="tab" data-tab="streams">Live Streams</div>
+      <div class="tab" data-tab="posts">Posts</div>
+      <div class="tab" data-tab="withdrawals">Withdrawals</div>
+      <div class="tab" data-tab="settings">Pricing & Settings</div>
+      <div class="tab" data-tab="agencies">Agencies</div>
+      <div class="tab" data-tab="sellers">Coin Sellers</div>
+      <div class="tab" data-tab="reports">Reports</div>
+    </div>
+    <p id="err" class="error"></p>
+
+    <section id="dashboard" class="section-card active">
+      <div class="hero-card">
+        <div class="hero-grid" id="statsGrid"></div>
+      </div>
+      <h2>Recent Transactions</h2>
+      <div class="section-card" id="recentTx"></div>
+    </section>
+
+    <section id="users" class="section-card">
+      <div class="row">
+        <input id="adjustUserId" placeholder="User ID" />
+        <input id="adjustDiamonds" type="number" placeholder="Diamonds +/- " />
+        <input id="adjustRcoins" type="number" placeholder="Rcoins +/- " />
+        <button onclick="adjustWallet()">Adjust Wallet</button>
+      </div>
+      <div id="usersTable"></div>
+    </section>
+
+    <section id="streams" class="section-card"><div id="streamsTable"></div></section>
+    <section id="posts" class="section-card"><div id="postsTable"></div></section>
+    <section id="withdrawals" class="section-card"><div id="withdrawalsTable"></div></section>
+    <section id="reports" class="section-card"><div id="reportsTable"></div></section>
+
+    <section id="settings" class="section-card">
+      <div class="row" id="settingsForm"></div>
+      <button onclick="saveSettings()">Save Settings</button>
+    </section>
+
+    <section id="agencies" class="section-card"><div id="agenciesTable"></div></section>
+    <section id="sellers" class="section-card"><div id="sellersTable"></div></section>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const headers = () => ({ 'Content-Type': 'application/json', 'x-admin-key': $('adminKey').value });
+    const base = () => $('apiBase').value.replace(/\/$/, '');
+
+    document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
+      document.querySelectorAll('section').forEach((x) => x.classList.remove('active'));
+      t.classList.add('active');
+      $(t.dataset.tab).classList.add('active');
+    }));
+
+    async function api(path, opts = {}) {
+      const res = await fetch(base() + path, { ...opts, headers: { ...headers(), ...(opts.headers || {}) } });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || res.statusText);
+      return data;
+    }
+
+    function table(headers, rows) {
+      return `<table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+        rows.map(r => `<tr>${r.map(c=>`<td>${c ?? ''}</td>`).join('')}</tr>`).join('')
+      }</tbody></table>`;
+    }
+
+    async function loadDashboard() {
+      try {
+        $('err').textContent = '';
+        const d = await api('/api/admin/dashboard');
+        $('statsGrid').innerHTML = Object.entries(d.stats).map(([k,v]) =>
+          `<div class="card"><h3>${k}</h3><p>${v}</p></div>`).join('');
+        $('recentTx').innerHTML = table(['User','Type','Amount','Status','Date'], d.recentTransactions.map(t =>
+          [t.userId?.username || t.userId, t.type, t.amount, t.status, new Date(t.createdAt).toLocaleString()]));
+
+        const users = await api('/api/admin/users');
+        $('usersTable').innerHTML = table(['Username','Level','Diamonds','Rcoins','VIP','Status','Action'], users.users.map(u => [
+          u.username,
+          u.level,
+          u.diamonds,
+          u.rcoins,
+          u.isVIP ? 'Yes' : 'No',
+          u.isSuspended ? '<span style="color:#ff6b8a;font-weight:bold">Suspended</span>' : '<span style="color:#81c784">Active</span>',
+          u.isSuspended 
+            ? `<button class="secondary" onclick="toggleSuspend('${u._id}', false)">Unsuspend</button>`
+            : `<button onclick="toggleSuspend('${u._id}', true)">Suspend</button>`
+        ]));
+
+        const streams = await api('/api/admin/streams');
+        $('streamsTable').innerHTML = table(['Channel','Host','Title','Viewers'], streams.streams.map(s =>
+          [s.channelName, s.hostUsername, s.title, s.viewerCount]));
+
+        const posts = await api('/api/admin/posts');
+        $('postsTable').innerHTML = table(['User','Caption','Likes','Public'], posts.posts.map(p =>
+          [p.username || p.userId, (p.caption || '').slice(0, 40), p.likesCount, p.isPublic ? 'Yes' : 'No']));
+
+        const withdrawals = await api('/api/admin/withdrawals/pending');
+        $('withdrawalsTable').innerHTML = withdrawals.withdrawals.length === 0
+          ? '<p>No pending withdrawals.</p>'
+          : table(['User','Rcoins','Status','Date','Action'], withdrawals.withdrawals.map(w => [
+              w.userId?.username || w.userId,
+              w.rcoinsDelta || w.amount,
+              w.status,
+              new Date(w.createdAt).toLocaleString(),
+              `<button class="secondary" onclick="processWithdrawal('${w._id}','completed')">Approve</button>
+               <button class="secondary" onclick="processWithdrawal('${w._id}','rejected')">Reject</button>`
+            ]));
+
+        const settings = await api('/api/admin/settings');
+        $('settingsForm').innerHTML = Object.entries(settings.settings).filter(([k]) => !k.startsWith('_') && k !== '__v').map(([k,v]) =>
+          `<label>${k} <input id="set_${k}" value="${v}" /></label>`).join('');
+
+        const agencies = await api('/api/admin/agencies');
+        $('agenciesTable').innerHTML = table(['Name','Owner','Streamers','Commission'], agencies.agencies.map(a =>
+          [a.name, a.ownerUsername, a.streamerIds?.length || 0, a.commissionPercent + '%']));
+
+        const sellers = await api('/api/admin/coin-sellers');
+        $('sellersTable').innerHTML = table(['Business','User','Approved','Sold','Action'], sellers.sellers.map(s => [
+          s.businessName,
+          s.username || s.userId,
+          s.isApproved ? 'Yes' : 'Pending',
+          s.diamondsSold,
+          s.isApproved ? '—' : `<button onclick="approveSeller('${s._id}')">Approve</button>`
+        ]));
+
+        const reports = await api('/api/admin/reports');
+        $('reportsTable').innerHTML = reports.reports.length === 0
+          ? '<p>No stream reports.</p>'
+          : table(['Reporter','Host','Room ID','Reason','Date','Action'], reports.reports.map(r => [
+              r.reporterUsername,
+              r.hostUsername,
+              r.roomId,
+              r.reason,
+              new Date(r.createdAt).toLocaleString(),
+              `<button onclick="suspendByUsername('${r.hostUsername}', true)">Suspend Host</button>
+               <button class="secondary" style="margin-left:5px" onclick="suspendByUsername('${r.hostUsername}', false)">Unsuspend Host</button>`
+            ]));
+
+      } catch (e) { $('err').textContent = e.message; }
+    }
+
+    async function adjustWallet() {
+      try {
+        await api('/api/admin/users/wallet-adjust', {
+          method: 'POST',
+          body: JSON.stringify({
+            userId: $('adjustUserId').value,
+            diamonds: parseInt($('adjustDiamonds').value) || 0,
+            rcoins: parseInt($('adjustRcoins').value) || 0,
+            reason: 'Admin panel adjustment',
+          }),
+        });
+        alert('Wallet adjusted');
+        loadDashboard();
+      } catch (e) { $('err').textContent = e.message; }
+    }
+
+    async function saveSettings() {
+      const body = {};
+      document.querySelectorAll('[id^="set_"]').forEach((el) => {
+        body[el.id.replace('set_','')] = parseFloat(el.value) || el.value;
+      });
+      try {
+        await api('/api/admin/settings', { method: 'PATCH', body: JSON.stringify(body) });
+        alert('Settings saved');
+      } catch (e) { $('err').textContent = e.message; }
+    }
+
+    async function processWithdrawal(txId, status) {
+      try {
+        await api('/api/admin/withdrawals/process', {
+          method: 'POST',
+          body: JSON.stringify({ txId, status }),
+        });
+        loadDashboard();
+      } catch (e) { $('err').textContent = e.message; }
+    }
+
+    async function approveSeller(id) {
+      try {
+        await api(`/api/admin/coin-sellers/${id}/approve`, { method: 'POST' });
+        loadDashboard();
+      } catch (e) { $('err').textContent = e.message; }
+    }
+
+    async function toggleSuspend(userId, suspend) {
+      try {
+        await api(`/api/admin/users/${userId}/suspend`, {
+          method: 'POST',
+          body: JSON.stringify({ suspend }),
+        });
+        alert(suspend ? 'User suspended' : 'User unsuspended');
+        loadDashboard();
+      } catch (e) { $('err').textContent = e.message; }
+    }
+
+    async function suspendByUsername(username, suspend) {
+      try {
+        await api('/api/admin/users/suspend-by-username', {
+          method: 'POST',
+          body: JSON.stringify({ username, suspend }),
+        });
+        alert(suspend ? `@${username} suspended` : `@${username} unsuspended`);
+        loadDashboard();
+      } catch (e) { $('err').textContent = e.message; }
+    }
+  </script>
+</body>
+</html>

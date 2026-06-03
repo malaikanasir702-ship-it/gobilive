@@ -1,0 +1,266 @@
+import { Response } from 'express';
+import { Types } from 'mongoose';
+import { Post } from './post.model';
+import { Comment } from './comment.model';
+import { PostLike } from './post_like.model';
+import { User } from '../auth/user.model';
+import { AuthRequest } from '../../core/middlewares/auth.middleware';
+
+// GET /feed?page=1&limit=10&userId=xxx&likedBy=xxx
+export const getFeed = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const page  = parseInt(req.query.page  as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip  = (page - 1) * limit;
+
+    const filter: any = { isPublic: true };
+
+    if (req.query.userId) {
+      filter.userId = new Types.ObjectId(req.query.userId as string);
+    } else if (req.query.likedBy) {
+      // Dynamic liked posts: fetch popular posts with likes
+      filter.likesCount = { $gt: 0 };
+    }
+
+    const posts = await Post.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('userId', 'profilePic')
+      .lean() as any[];
+
+    const enrichedPosts = posts.map(post => {
+      const p = { ...post };
+      if (post.userId && typeof post.userId === 'object') {
+        p.userProfilePic = post.userId.profilePic || post.userProfilePic;
+        p.userId = post.userId._id;
+      }
+      return p;
+    });
+
+    // Attach isLiked for current user (so UI can toggle like/unlike correctly)
+    if (req.user && enrichedPosts.length > 0) {
+      const postIds = enrichedPosts.map(p => new Types.ObjectId(p._id ?? p.id));
+      const likes = await PostLike.find({
+        userId: new Types.ObjectId(req.user.id),
+        postId: { $in: postIds },
+      }).select('postId').lean();
+
+      const likedSet = new Set(likes.map(l => String(l.postId)));
+      for (const p of enrichedPosts) {
+        const pid = String(p._id ?? p.id);
+        p.isLiked = likedSet.has(pid);
+      }
+    }
+
+    const total = await Post.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      posts: enrichedPosts,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /feed  (create post)
+export const createPost = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+
+    const {
+      videoUrl,
+      imageUrls,
+      thumbnailUrl,
+      caption,
+      tags,
+      duration,
+      isPublic,
+      postType,
+      location,
+      allowComments,
+    } = req.body;
+
+    const hasVideo = !!videoUrl;
+    const hasImages = Array.isArray(imageUrls) && imageUrls.length > 0;
+    if (!hasVideo && !hasImages) {
+      res.status(400).json({ success: false, message: 'videoUrl or imageUrls required' });
+      return;
+    }
+
+    const user = await User.findById(req.user.id).select('username profilePic');
+    if (!user)   { res.status(404).json({ success: false, message: 'User not found' }); return; }
+
+    const resolvedType = postType || (hasVideo ? 'video' : 'image');
+
+    const post = await Post.create({
+      userId:         new Types.ObjectId(req.user.id),
+      username:       user.username,
+      userProfilePic: user.profilePic,
+      postType:       resolvedType,
+      videoUrl:       videoUrl || '',
+      imageUrls:      hasImages ? imageUrls : [],
+      thumbnailUrl:   thumbnailUrl || (hasImages ? imageUrls[0] : ''),
+      caption:        caption      || '',
+      tags:           tags         || [],
+      duration:       duration     || 0,
+      isPublic:       isPublic !== false,
+      location:       location || '',
+      allowComments:  allowComments !== false,
+    });
+
+    res.status(201).json({ success: true, post });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /feed/:id/like
+export const likePost = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+
+    const postId = new Types.ObjectId(req.params.id as string);
+    const userId = new Types.ObjectId(req.user.id);
+
+    const postExists = await Post.findById(postId).select('_id likesCount');
+    if (!postExists) { res.status(404).json({ success: false, message: 'Post not found' }); return; }
+
+    const existing = await PostLike.findOne({ postId, userId }).select('_id');
+
+    let isLiked = false;
+    let updated: any;
+    if (existing) {
+      await PostLike.deleteOne({ _id: existing._id });
+      updated = await Post.findByIdAndUpdate(
+        postId,
+        { $inc: { likesCount: -1 } },
+        { new: true }
+      ).select('likesCount userId');
+      // Safety clamp (in case of data mismatch)
+      if (updated && updated.likesCount < 0) {
+        updated.likesCount = 0;
+        await updated.save();
+      }
+      // Decrement post owner's total likes count
+      if (updated?.userId) {
+        await User.findByIdAndUpdate(updated.userId, { $inc: { likesCount: -1 } });
+      }
+      isLiked = false;
+    } else {
+      // Unique index prevents multi-likes even if client spams the button quickly
+      try {
+        await PostLike.create({ postId, userId });
+        updated = await Post.findByIdAndUpdate(
+          postId,
+          { $inc: { likesCount: 1 } },
+          { new: true }
+        ).select('likesCount userId');
+        // Increment post owner's total likes count
+        if (updated?.userId) {
+          await User.findByIdAndUpdate(updated.userId, { $inc: { likesCount: 1 } });
+        }
+        isLiked = true;
+      } catch (e: any) {
+        // In case of race condition: treat as already liked
+        const stillExists = await PostLike.findOne({ postId, userId }).select('_id');
+        isLiked = !!stillExists;
+        updated = await Post.findById(postId).select('likesCount userId');
+      }
+    }
+
+    res.status(200).json({ success: true, likesCount: updated?.likesCount ?? 0, isLiked });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// GET /feed/:id/comments
+export const getComments = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const comments = await Comment.find({ postId: new Types.ObjectId(req.params.id as string) })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .populate('userId', 'profilePic')
+      .lean() as any[];
+
+    const enrichedComments = comments.map(comment => {
+      const c = { ...comment };
+      if (comment.userId && typeof comment.userId === 'object') {
+        c.userProfilePic = comment.userId.profilePic || comment.userProfilePic;
+        c.userId = comment.userId._id;
+      }
+      return c;
+    });
+
+    res.status(200).json({ success: true, comments: enrichedComments });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /feed/:id/share
+export const sharePost = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const post = await Post.findByIdAndUpdate(
+      new Types.ObjectId(req.params.id as string),
+      { $inc: { sharesCount: 1 } },
+      { new: true }
+    );
+    if (!post) {
+      res.status(404).json({ success: false, message: 'Post not found' });
+      return;
+    }
+    res.status(200).json({ success: true, sharesCount: post.sharesCount });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /feed/:id/view
+// Simple view counter: increments viewsCount by 1 per request.
+export const viewPost = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const post = await Post.findByIdAndUpdate(
+      new Types.ObjectId(req.params.id as string),
+      { $inc: { viewsCount: 1 } },
+      { new: true }
+    );
+    if (!post) {
+      res.status(404).json({ success: false, message: 'Post not found' });
+      return;
+    }
+    res.status(200).json({ success: true, viewsCount: post.viewsCount });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /feed/:id/comments
+export const addComment = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+
+    const { text } = req.body;
+    if (!text) { res.status(400).json({ success: false, message: 'text is required' }); return; }
+
+    const user = await User.findById(req.user.id).select('username profilePic');
+    if (!user) { res.status(404).json({ success: false, message: 'User not found' }); return; }
+
+    const comment = await Comment.create({
+      postId:         new Types.ObjectId(req.params.id as string),
+      userId:         new Types.ObjectId(req.user.id),
+      username:       user.username,
+      userProfilePic: user.profilePic,
+      text,
+    });
+
+    await Post.findByIdAndUpdate(new Types.ObjectId(req.params.id as string), { $inc: { commentsCount: 1 } });
+
+    res.status(201).json({ success: true, comment });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
