@@ -73,7 +73,7 @@ const UserSchema = new Schema<IUser>({
   bio: { type: String, default: 'Hello, I am using Gobilive!' },
   profilePic: { type: String, default: '' },
   level: { type: Number, default: 1 },
-  diamonds: { type: Number, default: 0 },
+  diamonds: { type: Number, default: 1000 },
   rcoins: { type: Number, default: 0 },
   isVIP: { type: Boolean, default: false },
   vipFrame: { type: String, default: '' },

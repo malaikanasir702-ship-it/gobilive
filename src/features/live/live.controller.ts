@@ -14,9 +14,8 @@ export const getActiveRooms = async (req: Request, res: Response) => {
     const category = (req.query.category as string || '').trim().toLowerCase();
     const viewerId = (req as any).user?.id;
 
-    if (!followingOnly) {
-      await ensureLiveDiscoverySeed();
-    }
+    // Delete any previously seeded demo rooms so they are removed from the database
+    await LiveRoom.deleteMany({ channelName: { $regex: /^seed_/ } });
 
     // Get viewer's hidden creators list
     let hiddenHosts: string[] = [];

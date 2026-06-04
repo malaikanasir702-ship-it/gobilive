@@ -13,10 +13,12 @@ export const getFeed = async (req: AuthRequest, res: Response): Promise<void> =>
     const limit = parseInt(req.query.limit as string) || 10;
     const skip  = (page - 1) * limit;
 
-    const filter: any = { isPublic: true };
+    const filter: any = { isPublic: true, isArchived: { $ne: true } };
 
     if (req.query.userId) {
       filter.userId = new Types.ObjectId(req.query.userId as string);
+      // Exclude archived posts from public profile view
+      filter.isArchived = { $ne: true };
     } else if (req.query.likedBy) {
       // Dynamic liked posts: fetch popular posts with likes
       filter.likesCount = { $gt: 0 };
@@ -260,6 +262,126 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
     await Post.findByIdAndUpdate(new Types.ObjectId(req.params.id as string), { $inc: { commentsCount: 1 } });
 
     res.status(201).json({ success: true, comment });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// DELETE /feed/:id  — permanently delete own post
+export const deletePost = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+
+    const post = await Post.findById(req.params.id);
+    if (!post) { res.status(404).json({ success: false, message: 'Post not found' }); return; }
+
+    if (String(post.userId) !== String(req.user.id)) {
+      res.status(403).json({ success: false, message: 'Forbidden: not your post' });
+      return;
+    }
+
+    await Post.findByIdAndDelete(req.params.id);
+    res.status(200).json({ success: true, message: 'Post deleted' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// PATCH /feed/:id/archive  — archive own post (hide from profile)
+export const archivePost = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+
+    const post = await Post.findById(req.params.id);
+    if (!post) { res.status(404).json({ success: false, message: 'Post not found' }); return; }
+
+    if (String(post.userId) !== String(req.user.id)) {
+      res.status(403).json({ success: false, message: 'Forbidden: not your post' });
+      return;
+    }
+
+    post.isArchived = true;
+    await post.save();
+
+    res.status(200).json({ success: true, message: 'Post archived', post });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// PATCH /feed/:id/restore  — restore archived post back to profile
+export const restorePost = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+
+    const post = await Post.findById(req.params.id);
+    if (!post) { res.status(404).json({ success: false, message: 'Post not found' }); return; }
+
+    if (String(post.userId) !== String(req.user.id)) {
+      res.status(403).json({ success: false, message: 'Forbidden: not your post' });
+      return;
+    }
+
+    post.isArchived = false;
+    await post.save();
+
+    res.status(200).json({ success: true, message: 'Post restored', post });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// PATCH /feed/:id  — edit caption / tags / isPublic of own post
+export const editPost = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+
+    const post = await Post.findById(req.params.id);
+    if (!post) { res.status(404).json({ success: false, message: 'Post not found' }); return; }
+
+    if (String(post.userId) !== String(req.user.id)) {
+      res.status(403).json({ success: false, message: 'Forbidden: not your post' });
+      return;
+    }
+
+    const { caption, tags, isPublic } = req.body;
+
+    if (caption !== undefined) post.caption  = caption;
+    if (tags    !== undefined) post.tags     = tags;
+    if (isPublic !== undefined) post.isPublic = isPublic;
+
+    await post.save();
+
+    res.status(200).json({ success: true, post });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// GET /feed/archived  — get current user's archived posts
+export const getArchivedPosts = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+
+    const page  = parseInt(req.query.page  as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 30;
+    const skip  = (page - 1) * limit;
+
+    const posts = await Post.find({
+      userId:     new Types.ObjectId(req.user.id),
+      isArchived: true,
+    })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    const total = await Post.countDocuments({
+      userId:     new Types.ObjectId(req.user.id),
+      isArchived: true,
+    });
+
+    res.status(200).json({ success: true, posts, pagination: { page, limit, total } });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }

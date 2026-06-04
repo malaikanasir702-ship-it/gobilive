@@ -1,17 +1,38 @@
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
-import path from 'path';
-
-// Ensure .env is loaded correctly in both src (dev) and dist (start)
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 export const connectDB = async (): Promise<void> => {
+  const connStr = process.env.MONGO_URI;
+
+  if (!connStr) {
+    console.error('❌ MONGO_URI is not defined in environment variables.');
+    process.exit(1);
+  }
+
+  // Attach persistent connection event listeners (fire once, not per-call)
+  mongoose.connection.on('connected', () => {
+    console.log('📦 MongoDB Atlas connected.');
+  });
+  mongoose.connection.on('disconnected', () => {
+    console.warn('⚠️  MongoDB Atlas disconnected. Mongoose will auto-reconnect.');
+  });
+  mongoose.connection.on('error', (err) => {
+    console.error('❌ MongoDB connection error:', err.message);
+  });
+
   try {
-    const connStr = process.env.MONGO_URI || 'mongodb://localhost:27017/gobilive';
-    await mongoose.connect(connStr);
-    console.log('📦 MongoDB Connected successfully.');
+    await mongoose.connect(connStr, {
+      // Fail fast if Atlas cluster is recovering — prevents server freeze on boot
+      serverSelectionTimeoutMS: 5000,
+      // Keep streaming sockets alive under variable cross-cloud latency
+      socketTimeoutMS: 45000,
+      // Aggressively retry initial connection (useful after Railway cold starts)
+      connectTimeoutMS: 10000,
+      // Keep the pool lean for a single-instance Railway deployment
+      maxPoolSize: 10,
+      minPoolSize: 2,
+    });
   } catch (error) {
-    console.error('❌ Database connection error:', error);
+    console.error('❌ Initial MongoDB connection failed:', (error as Error).message);
     process.exit(1);
   }
 };

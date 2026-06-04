@@ -115,7 +115,9 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
     });
   } catch (error: any) {
     console.error('[sendGiftToHost]', error);
-    res.status(error.status || 500).json({
+    const knownClientErrors = ['Insufficient diamonds.', 'Sender not found.', 'Live room not found.'];
+    const statusCode = knownClientErrors.includes(error.message) ? 400 : (error.status || 500);
+    res.status(statusCode).json({
       success: false,
       message: error.message || 'Failed to send gift.',
     });

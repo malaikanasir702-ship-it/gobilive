@@ -18,6 +18,7 @@ export interface IPost extends Document {
   viewsCount: number;
   duration: number; // in seconds
   isPublic: boolean;
+  isArchived: boolean;
   createdAt: Date;
 }
 
@@ -39,6 +40,7 @@ const PostSchema = new Schema<IPost>({
   viewsCount:     { type: Number, default: 0 },
   duration:       { type: Number, default: 0 },
   isPublic:       { type: Boolean, default: true },
+  isArchived:     { type: Boolean, default: false },
   createdAt:      { type: Date, default: Date.now },
 });
 
