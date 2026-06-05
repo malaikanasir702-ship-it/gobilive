@@ -65,7 +65,7 @@ export const listUsers = async (req: AdminAuthRequest, res: Response): Promise<v
 
 export const getUserProfile = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const user = await User.findById(id)
       .select('-passwordHash -fcmTokens -twoFactorSecret -twoFactorPendingSecret')
       .lean();
@@ -100,7 +100,7 @@ export const getUserProfile = async (req: AdminAuthRequest, res: Response): Prom
 
 export const blockUser = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { type, duration } = req.body; // type: 'permanent' | 'temporary', duration: '2h'|'3h'|'5h'|'1d'
 
     if (!type || !['permanent', 'temporary'].includes(type)) {
@@ -150,7 +150,7 @@ export const blockUser = async (req: AdminAuthRequest, res: Response): Promise<v
 
 export const unblockUser = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const user = await User.findByIdAndUpdate(
       id,
       { isBlocked: false, $unset: { blockedUntil: 1, blockType: 1 } },
