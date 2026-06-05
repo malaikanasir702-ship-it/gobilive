@@ -28,7 +28,7 @@ export const approveTopUpAgent = async (req: AdminAuthRequest, res: Response): P
   try {
     const { id } = req.params;
     const user = await User.findByIdAndUpdate(id, { isSuspended: false }, { new: true }).select('username isSuspended');
-    if (!user) return res.status(404).json({ success: false, message: 'Agent not found.' });
+    if (!user) { res.status(404).json({ success: false, message: 'Agent not found.' }); return; }
     await logActivity({ actorId: req.adminUser!.id, actorRole: req.adminUser!.role, actionType: 'approve_top_up_agent', targetEntityType: 'User', targetEntityId: id, description: `Approved top-up agent ${user.username}` });
     res.status(200).json({ success: true, user });
   } catch (err: any) { res.status(500).json({ success: false, message: err.message }); }
@@ -38,7 +38,7 @@ export const rejectTopUpAgent = async (req: AdminAuthRequest, res: Response): Pr
   try {
     const { id } = req.params; const { reason } = req.body;
     const user = await User.findByIdAndUpdate(id, { isTerminated: true }, { new: true }).select('username isTerminated');
-    if (!user) return res.status(404).json({ success: false, message: 'Agent not found.' });
+    if (!user) { res.status(404).json({ success: false, message: 'Agent not found.' }); return; }
     await logActivity({ actorId: req.adminUser!.id, actorRole: req.adminUser!.role, actionType: 'reject_top_up_agent', targetEntityType: 'User', targetEntityId: id, description: `Rejected top-up agent ${user.username}. Reason: ${reason || 'N/A'}` });
     res.status(200).json({ success: true, user });
   } catch (err: any) { res.status(500).json({ success: false, message: err.message }); }
@@ -51,7 +51,7 @@ export const blockTopUpAgent = async (req: AdminAuthRequest, res: Response): Pro
     if (type === 'temporary' && durationHours) update.blockedUntil = new Date(Date.now() + Number(durationHours) * 3600 * 1000);
     else if (type === 'permanent') { update.blockType = 'permanent'; update.$unset = { blockedUntil: 1 }; }
     const user = await User.findByIdAndUpdate(id, update, { new: true }).select('username isBlocked blockedUntil blockType');
-    if (!user) return res.status(404).json({ success: false, message: 'Agent not found.' });
+    if (!user) { res.status(404).json({ success: false, message: 'Agent not found.' }); return; }
     await logActivity({ actorId: req.adminUser!.id, actorRole: req.adminUser!.role, actionType: 'block_top_up_agent', targetEntityType: 'User', targetEntityId: id, description: `Blocked top-up agent ${user.username}` });
     res.status(200).json({ success: true, user });
   } catch (err: any) { res.status(500).json({ success: false, message: err.message }); }
@@ -61,7 +61,7 @@ export const unblockTopUpAgent = async (req: AdminAuthRequest, res: Response): P
   try {
     const { id } = req.params;
     const user = await User.findByIdAndUpdate(id, { isBlocked: false, $unset: { blockedUntil: 1, blockType: 1 } }, { new: true }).select('username isBlocked');
-    if (!user) return res.status(404).json({ success: false, message: 'Agent not found.' });
+    if (!user) { res.status(404).json({ success: false, message: 'Agent not found.' }); return; }
     await logActivity({ actorId: req.adminUser!.id, actorRole: req.adminUser!.role, actionType: 'unblock_top_up_agent', targetEntityType: 'User', targetEntityId: id, description: `Unblocked top-up agent ${user.username}` });
     res.status(200).json({ success: true, user });
   } catch (err: any) { res.status(500).json({ success: false, message: err.message }); }
@@ -82,19 +82,19 @@ export const listResellers = async (req: AdminAuthRequest, res: Response): Promi
 };
 
 export const approveReseller = async (req: AdminAuthRequest, res: Response): Promise<void> => {
-  try { const { id } = req.params; const user = await User.findByIdAndUpdate(id, { isSuspended: false }, { new: true }).select('username isSuspended'); if (!user) return res.status(404).json({ success: false, message: 'Reseller not found.' }); await logActivity({ actorId: req.adminUser!.id, actorRole: req.adminUser!.role, actionType: 'approve_reseller', targetEntityType: 'User', targetEntityId: id, description: `Approved reseller ${user.username}` }); res.status(200).json({ success: true, user }); } catch (err: any) { res.status(500).json({ success: false, message: err.message }); }
+  try { const { id } = req.params; const user = await User.findByIdAndUpdate(id, { isSuspended: false }, { new: true }).select('username isSuspended'); if (!user) { res.status(404).json({ success: false, message: 'Reseller not found.' }); return; } await logActivity({ actorId: req.adminUser!.id, actorRole: req.adminUser!.role, actionType: 'approve_reseller', targetEntityType: 'User', targetEntityId: id, description: `Approved reseller ${user.username}` }); res.status(200).json({ success: true, user }); } catch (err: any) { res.status(500).json({ success: false, message: err.message }); }
 };
 
 export const rejectReseller = async (req: AdminAuthRequest, res: Response): Promise<void> => {
-  try { const { id } = req.params; const { reason } = req.body; const user = await User.findByIdAndUpdate(id, { isTerminated: true }, { new: true }).select('username isTerminated'); if (!user) return res.status(404).json({ success: false, message: 'Reseller not found.' }); await logActivity({ actorId: req.adminUser!.id, actorRole: req.adminUser!.role, actionType: 'reject_reseller', targetEntityType: 'User', targetEntityId: id, description: `Rejected reseller ${user.username}. Reason: ${reason || 'N/A'}` }); res.status(200).json({ success: true, user }); } catch (err: any) { res.status(500).json({ success: false, message: err.message }); }
+  try { const { id } = req.params; const { reason } = req.body; const user = await User.findByIdAndUpdate(id, { isTerminated: true }, { new: true }).select('username isTerminated'); if (!user) { res.status(404).json({ success: false, message: 'Reseller not found.' }); return; } await logActivity({ actorId: req.adminUser!.id, actorRole: req.adminUser!.role, actionType: 'reject_reseller', targetEntityType: 'User', targetEntityId: id, description: `Rejected reseller ${user.username}. Reason: ${reason || 'N/A'}` }); res.status(200).json({ success: true, user }); } catch (err: any) { res.status(500).json({ success: false, message: err.message }); }
 };
 
 export const blockReseller = async (req: AdminAuthRequest, res: Response): Promise<void> => {
-  try { const { id } = req.params; const update: any = { isBlocked: true }; const { type, durationHours } = req.body; if (type === 'temporary' && durationHours) update.blockedUntil = new Date(Date.now() + Number(durationHours) * 3600 * 1000); else if (type === 'permanent') { update.blockType = 'permanent'; update.$unset = { blockedUntil: 1 }; } const user = await User.findByIdAndUpdate(id, update, { new: true }).select('username isBlocked blockedUntil blockType'); if (!user) return res.status(404).json({ success: false, message: 'Reseller not found.' }); await logActivity({ actorId: req.adminUser!.id, actorRole: req.adminUser!.role, actionType: 'block_reseller', targetEntityType: 'User', targetEntityId: id, description: `Blocked reseller ${user.username}` }); res.status(200).json({ success: true, user }); } catch (err: any) { res.status(500).json({ success: false, message: err.message }); }
+  try { const { id } = req.params; const update: any = { isBlocked: true }; const { type, durationHours } = req.body; if (type === 'temporary' && durationHours) update.blockedUntil = new Date(Date.now() + Number(durationHours) * 3600 * 1000); else if (type === 'permanent') { update.blockType = 'permanent'; update.$unset = { blockedUntil: 1 }; } const user = await User.findByIdAndUpdate(id, update, { new: true }).select('username isBlocked blockedUntil blockType'); if (!user) { res.status(404).json({ success: false, message: 'Reseller not found.' }); return; } await logActivity({ actorId: req.adminUser!.id, actorRole: req.adminUser!.role, actionType: 'block_reseller', targetEntityType: 'User', targetEntityId: id, description: `Blocked reseller ${user.username}` }); res.status(200).json({ success: true, user }); } catch (err: any) { res.status(500).json({ success: false, message: err.message }); }
 };
 
 export const unblockReseller = async (req: AdminAuthRequest, res: Response): Promise<void> => {
-  try { const { id } = req.params; const user = await User.findByIdAndUpdate(id, { isBlocked: false, $unset: { blockedUntil: 1, blockType: 1 } }, { new: true }).select('username isBlocked'); if (!user) return res.status(404).json({ success: false, message: 'Reseller not found.' }); await logActivity({ actorId: req.adminUser!.id, actorRole: req.adminUser!.role, actionType: 'unblock_reseller', targetEntityType: 'User', targetEntityId: id, description: `Unblocked reseller ${user.username}` }); res.status(200).json({ success: true, user }); } catch (err: any) { res.status(500).json({ success: false, message: err.message }); }
+  try { const { id } = req.params; const user = await User.findByIdAndUpdate(id, { isBlocked: false, $unset: { blockedUntil: 1, blockType: 1 } }, { new: true }).select('username isBlocked'); if (!user) { res.status(404).json({ success: false, message: 'Reseller not found.' }); return; } await logActivity({ actorId: req.adminUser!.id, actorRole: req.adminUser!.role, actionType: 'unblock_reseller', targetEntityType: 'User', targetEntityId: id, description: `Unblocked reseller ${user.username}` }); res.status(200).json({ success: true, user }); } catch (err: any) { res.status(500).json({ success: false, message: err.message }); }
 };
 
 // Bean requests to company_admin (paginated)
@@ -117,7 +117,7 @@ export const submitBeanRequest = async (req: AdminAuthRequest, res: Response): P
   session.startTransaction();
   try {
     const { amount, transferSlipUrl } = req.body;
-    if (!amount || amount <= 0) return res.status(400).json({ success: false, message: 'Amount must be positive.' });
+    if (!amount || amount <= 0) { res.status(400).json({ success: false, message: 'Amount must be positive.' }); return; }
     const tx = await BeanTransaction.create([
       { type: 'request', fromId: req.adminUser!.id, fromRole: req.adminUser!.role, toId: undefined as any, toRole: 'company_admin', amount, transferSlipUrl, status: 'pending' },
     ], { session });
@@ -146,14 +146,14 @@ export const submitBeanTransfer = async (req: AdminAuthRequest, res: Response): 
   session.startTransaction();
   try {
     const { recipientId, amount, transferSlipUrl } = req.body;
-    if (!recipientId || !amount || amount <= 0) return res.status(400).json({ success: false, message: 'recipientId and positive amount required.' });
+    if (!recipientId || !amount || amount <= 0) { res.status(400).json({ success: false, message: 'recipientId and positive amount required.' }); return; }
 
     const sender = await User.findById(req.adminUser!.id).session(session).select('beanWallet role username');
-    if (!sender) return res.status(404).json({ success: false, message: 'Sender not found.' });
-    if (sender.beanWallet < amount) return res.status(400).json({ success: false, message: 'Insufficient bean wallet.' });
+    if (!sender) { res.status(404).json({ success: false, message: 'Sender not found.' }); return; }
+    if (sender.beanWallet < amount) { res.status(400).json({ success: false, message: 'Insufficient bean wallet.' }); return; }
 
     const recipient = await User.findById(recipientId).session(session).select('beanWallet username role');
-    if (!recipient) return res.status(404).json({ success: false, message: 'Recipient not found.' });
+    if (!recipient) { res.status(404).json({ success: false, message: 'Recipient not found.' }); return; }
 
     await User.findByIdAndUpdate(sender._id, { $inc: { beanWallet: -amount } }, { session });
     await User.findByIdAndUpdate(recipient._id, { $inc: { beanWallet: amount } }, { session });
