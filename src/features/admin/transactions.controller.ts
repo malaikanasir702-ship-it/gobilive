@@ -57,7 +57,7 @@ export async function listTransactions(req: Request, res: Response) {
 
 export async function getTransaction(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const doc = await WalletTransaction.findById(id).populate('userId', 'username email').lean();
     if (!doc) return res.status(404).json({ success: false, message: 'Not found' });
     res.json({ success: true, data: doc });
@@ -67,7 +67,7 @@ export async function getTransaction(req: Request, res: Response) {
 }
 
 export async function refundTransaction(req: Request, res: Response) {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const adminId = (req as any).adminUser?.id || 'system';
   const adminRole = (req as any).adminUser?.role || 'company_admin';
 

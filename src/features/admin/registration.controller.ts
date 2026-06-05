@@ -27,7 +27,7 @@ export async function listRegistrationRequests(req: Request, res: Response) {
 
 export async function getRegistrationRequest(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const doc = await RegistrationRequest.findById(id).lean();
     if (!doc) return res.status(404).json({ success: false, message: 'Not found' });
     res.json({ success: true, data: doc });
@@ -38,7 +38,7 @@ export async function getRegistrationRequest(req: Request, res: Response) {
 
 export async function approveRegistration(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const adminId = (req as any).adminUser?.id || 'system';
     const adminRole = (req as any).adminUser?.role || 'company_admin';
 
@@ -111,7 +111,7 @@ export async function approveRegistration(req: Request, res: Response) {
 
 export async function rejectRegistration(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { reason } = req.body;
     const adminId = (req as any).adminUser?.id || 'system';
     const adminRole = (req as any).adminUser?.role || 'company_admin';

@@ -27,7 +27,7 @@ export const listSuperAdmins = async (req: AdminAuthRequest, res: Response): Pro
 // Approve Super Admin (un-suspend / activate)
 export const approveSuperAdmin = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const user = await User.findByIdAndUpdate(id, { isSuspended: false, isTerminated: false }, { new: true }).select('username isSuspended isTerminated');
     if (!user) {
       res.status(404).json({ success: false, message: 'Super admin not found.' });
@@ -49,7 +49,7 @@ export const approveSuperAdmin = async (req: AdminAuthRequest, res: Response): P
 
 export const rejectSuperAdmin = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { reason } = req.body;
     const user = await User.findByIdAndUpdate(id, { isTerminated: true }, { new: true }).select('username isTerminated');
     if (!user) {
@@ -72,7 +72,7 @@ export const rejectSuperAdmin = async (req: AdminAuthRequest, res: Response): Pr
 
 export const blockSuperAdmin = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { type, durationHours } = req.body;
     const update: any = { isBlocked: true };
     if (type === 'temporary' && durationHours) {
@@ -103,7 +103,7 @@ export const blockSuperAdmin = async (req: AdminAuthRequest, res: Response): Pro
 
 export const unblockSuperAdmin = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const user = await User.findByIdAndUpdate(id, { isBlocked: false, $unset: { blockedUntil: 1, blockType: 1 } }, { new: true }).select('username isBlocked');
     if (!user) {
       res.status(404).json({ success: false, message: 'Super admin not found.' });
@@ -126,15 +126,22 @@ export const unblockSuperAdmin = async (req: AdminAuthRequest, res: Response): P
 // Fire super admin: set terminated and optionally transfer agencies
 export const fireSuperAdmin = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-    const { transferToSuperAdminId } = req.body;
+    const id = String(req.params.id);
+    const { transferToSuperAdminId } = req.body as { transferToSuperAdminId?: string };
     const user = await User.findByIdAndUpdate(id, { isTerminated: true }, { new: true }).select('username isTerminated');
     if (!user) {
       res.status(404).json({ success: false, message: 'Super admin not found.' });
       return;
     }
     if (transferToSuperAdminId) {
-      await Agency.updateMany({ superAdminId: id }, { superAdminId: transferToSuperAdminId });
+      if (!Types.ObjectId.isValid(transferToSuperAdminId) || !Types.ObjectId.isValid(id)) {
+        res.status(400).json({ success: false, message: 'Invalid super admin id(s) provided.' });
+        return;
+      }
+      await Agency.updateMany(
+        { superAdminId: new Types.ObjectId(id) },
+        { superAdminId: new Types.ObjectId(transferToSuperAdminId) }
+      );
     }
     await logActivity({
       actorId: req.adminUser!.id,
@@ -152,8 +159,8 @@ export const fireSuperAdmin = async (req: AdminAuthRequest, res: Response): Prom
 
 export const transferAgencies = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
-    const { fromSuperAdminId } = req.params;
-    const { toSuperAdminId, agencyIds } = req.body;
+    const fromSuperAdminId = String((req.params as any).fromSuperAdminId);
+    const { toSuperAdminId, agencyIds } = req.body as { toSuperAdminId?: string; agencyIds?: string[] };
     if (!toSuperAdminId) {
       res.status(400).json({ success: false, message: 'toSuperAdminId is required.' });
       return;
@@ -162,8 +169,15 @@ export const transferAgencies = async (req: AdminAuthRequest, res: Response): Pr
       res.status(400).json({ success: false, message: 'agencyIds array is required.' });
       return;
     }
+    if (!Types.ObjectId.isValid(fromSuperAdminId) || !Types.ObjectId.isValid(toSuperAdminId)) {
+      res.status(400).json({ success: false, message: 'Invalid super admin id(s) provided.' });
+      return;
+    }
     const ids = agencyIds.map((a: string) => new Types.ObjectId(a));
-    const result = await Agency.updateMany({ _id: { $in: ids }, superAdminId: fromSuperAdminId }, { superAdminId: toSuperAdminId });
+    const result = await Agency.updateMany(
+      { _id: { $in: ids }, superAdminId: new Types.ObjectId(fromSuperAdminId) },
+      { superAdminId: new Types.ObjectId(toSuperAdminId) }
+    );
     await logActivity({
       actorId: req.adminUser!.id,
       actorRole: req.adminUser!.role,

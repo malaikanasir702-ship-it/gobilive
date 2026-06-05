@@ -29,7 +29,7 @@ export async function listWithdrawals(req: Request, res: Response) {
 
 export async function getWithdrawal(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const doc = await WithdrawalRequest.findById(id).lean();
     if (!doc) return res.status(404).json({ success: false, message: 'Not found' });
     res.json({ success: true, data: doc });
@@ -40,7 +40,7 @@ export async function getWithdrawal(req: Request, res: Response) {
 
 export async function approveWithdrawal(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const adminId = (req as any).adminUser?.id || 'system';
     const adminRole = (req as any).adminUser?.role || 'super_admin';
     const doc = await WithdrawalRequest.findByIdAndUpdate(
@@ -64,7 +64,7 @@ export async function approveWithdrawal(req: Request, res: Response) {
 
 export async function rejectWithdrawal(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { reason } = req.body;
     const adminId = (req as any).adminUser?.id || 'system';
     const adminRole = (req as any).adminUser?.role || 'super_admin';
@@ -88,7 +88,7 @@ export async function rejectWithdrawal(req: Request, res: Response) {
 }
 
 export async function markWithdrawalDone(req: Request, res: Response) {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const adminId = (req as any).adminUser?.id || 'system';
   const adminRole = (req as any).adminUser?.role || 'super_admin';
   const slipFile = (req as any).file as Express.Multer.File | undefined;
@@ -152,7 +152,7 @@ export async function markWithdrawalDone(req: Request, res: Response) {
 
 export async function attachTransferSlip(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { transferSlipUrl } = req.body;
     if (!transferSlipUrl) return res.status(400).json({ success: false, message: 'transferSlipUrl required' });
     const doc = await WithdrawalRequest.findByIdAndUpdate(id, { transferSlipUrl }, { new: true });
@@ -165,7 +165,7 @@ export async function attachTransferSlip(req: Request, res: Response) {
 
 export async function attachSlipFile(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const file = (req as any).file as Express.Multer.File | undefined;
     if (!file) return res.status(400).json({ success: false, message: 'No file uploaded' });
     const url = `${req.protocol}://${req.get('host')}/uploads/${file.filename}`;
