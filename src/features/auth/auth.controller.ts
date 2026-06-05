@@ -114,6 +114,27 @@ export const login = async (req: AuthRequest, res: Response): Promise<void> => {
       return;
     }
 
+    // Account block/termination/suspension checks with auto-expiry for temporary blocks
+    if (user.isBlocked) {
+      if (user.blockedUntil && user.blockedUntil < new Date()) {
+        await User.findByIdAndUpdate(user._id, { isBlocked: false, $unset: { blockedUntil: 1, blockType: 1 } });
+      } else {
+        const until = user.blockedUntil ? `until ${user.blockedUntil.toISOString()}` : 'permanently';
+        res.status(403).json({ success: false, message: `Your account has been blocked ${until}.` });
+        return;
+      }
+    }
+
+    if (user.isTerminated) {
+      res.status(403).json({ success: false, message: 'Your account has been terminated.' });
+      return;
+    }
+
+    if (user.isSuspended) {
+      res.status(403).json({ success: false, message: 'Your account has been suspended.' });
+      return;
+    }
+
     // Sign Token
     const token = generateToken(user.id, user.username, user.tokenVersion ?? 0);
     const safeUser = await getSafeUser(user.id);
@@ -462,5 +483,97 @@ export const unlinkGoogleAccount = async (req: AuthRequest, res: Response): Prom
     res.status(200).json({ success: true, message: 'Google account unlinked.', user: safeUser });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message || 'Error occurred while unlinking Google account.' });
+  }
+};
+
+// --- Admin panel auth helpers ---
+export const adminLogin = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { identity, password } = req.body;
+    if (!identity || !password) {
+      res.status(400).json({ success: false, message: 'Identity and password are required.' });
+      return;
+    }
+
+    const user = await User.findOne({
+      $or: [{ username: identity }, { email: identity }, { phone: identity }],
+    });
+
+    if (!user) {
+      res.status(401).json({ success: false, message: 'Invalid credentials.' });
+      return;
+    }
+
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    if (!isMatch) {
+      res.status(401).json({ success: false, message: 'Invalid credentials.' });
+      return;
+    }
+
+    // Admin-only roles
+    const adminRoles = [
+      'company_admin',
+      'super_admin',
+      'sub_admin',
+      'agency',
+      'sub_agency',
+      'top_up_agent',
+      'reseller',
+    ];
+
+    if (!adminRoles.includes(user.role)) {
+      res.status(403).json({ success: false, message: 'Admin access only.' });
+      return;
+    }
+
+    // Block/termination checks (auto-expire temp blocks)
+    if (user.isBlocked) {
+      if (user.blockedUntil && user.blockedUntil < new Date()) {
+        await User.findByIdAndUpdate(user._id, { isBlocked: false, $unset: { blockedUntil: 1, blockType: 1 } });
+      } else {
+        const until = user.blockedUntil ? `until ${user.blockedUntil.toISOString()}` : 'permanently';
+        res.status(403).json({ success: false, message: `Your account has been blocked ${until}.` });
+        return;
+      }
+    }
+
+    if (user.isTerminated) {
+      res.status(403).json({ success: false, message: 'Your account has been terminated.' });
+      return;
+    }
+
+    if (user.isSuspended) {
+      res.status(403).json({ success: false, message: 'Your account has been suspended.' });
+      return;
+    }
+
+    const token = generateToken(user.id, user.username, user.tokenVersion ?? 0);
+    const safeUser = await getSafeUser(user.id);
+
+    res.status(200).json({ success: true, message: 'Admin signed in.', token, user: safeUser });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Error during admin login.' });
+  }
+};
+
+export const adminLogout = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Unauthorized.' });
+      return;
+    }
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found.' });
+      return;
+    }
+
+    // Increment token version to invalidate tokens
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'Signed out.' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Error during logout.' });
   }
 };

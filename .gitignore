@@ -17,6 +17,9 @@ firebase-service-account.json
 # Local uploads (user-generated content, not source code)
 uploads/
 
+# Admin panel source (built output goes to public/admin — that IS committed)
+admin-panel/
+
 # Logs
 *.log
 npm-debug.log*

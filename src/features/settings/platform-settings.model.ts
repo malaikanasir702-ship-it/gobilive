@@ -8,6 +8,11 @@ export interface IPlatformSettings extends Document {
   dailyLoginDiamonds: number;
   referralBonusDiamonds: number;
   videoCallRcoinCost: number;
+  // Bean economy settings
+  beanDollarRateUsd: number;
+  beanDollarRateBeans: number;
+  diamondToBeanCommission: number;
+  diamondToBeanRate: number;
   updatedAt: Date;
 }
 
@@ -20,6 +25,11 @@ const PlatformSettingsSchema = new Schema<IPlatformSettings>(
     dailyLoginDiamonds: { type: Number, default: 25 },
     referralBonusDiamonds: { type: Number, default: 100 },
     videoCallRcoinCost: { type: Number, default: 5 },
+    // Bean economy defaults
+    beanDollarRateUsd: { type: Number, default: 10 },
+    beanDollarRateBeans: { type: Number, default: 100000 },
+    diamondToBeanCommission: { type: Number, default: 80 },
+    diamondToBeanRate: { type: Number, default: 10 },
   },
   { timestamps: true }
 );

@@ -15,12 +15,20 @@ import { Post } from '../feed/post.model';
 
 export const getDashboard = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const [userCount, activeStreams, pendingWithdrawals, agencies, coinSellers] = await Promise.all([
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
+
+    const [userCount, activeStreams, pendingWithdrawals, agencies, coinSellers, newUsers7d, activeUsers30d, pendingRegs, openSupportChats] = await Promise.all([
       User.countDocuments(),
       LiveRoom.countDocuments({ isActive: true }),
       WalletTransaction.countDocuments({ type: 'withdraw_rcoins', status: 'pending' }),
       Agency.countDocuments({ isActive: true }),
       CoinSeller.countDocuments({ isApproved: true }),
+      User.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
+      WalletTransaction.distinct('userId', { createdAt: { $gte: thirtyDaysAgo } }).then((a) => a.length),
+      (await import('../registration/registration-request.model')).RegistrationRequest.countDocuments({ status: 'pending' }),
+      (await import('../support/support-chat.model')).SupportChat.countDocuments({ closedAt: { $exists: false } }),
     ]);
 
     const recentTx = await WalletTransaction.find()
@@ -29,9 +37,34 @@ export const getDashboard = async (_req: AuthRequest, res: Response): Promise<vo
       .populate('userId', 'username')
       .lean();
 
+    // diamonds spent / purchased in last 30 days
+    const diamondsAgg = await WalletTransaction.aggregate([
+      { $match: { currency: 'diamonds', createdAt: { $gte: thirtyDaysAgo } } },
+      {
+        $group: {
+          _id: null,
+          purchased: { $sum: { $cond: [{ $eq: ['$type', 'purchase_diamonds'] }, '$amount', 0] } },
+          spent: { $sum: { $cond: [{ $lt: ['$diamondsDelta', 0] }, { $abs: '$diamondsDelta' }, 0] } },
+        },
+      },
+    ]);
+
+    const diamondsSummary = (diamondsAgg && diamondsAgg[0]) || { purchased: 0, spent: 0 };
+
     res.status(200).json({
       success: true,
-      stats: { userCount, activeStreams, pendingWithdrawals, agencies, coinSellers },
+      stats: {
+        userCount,
+        newUsers7d,
+        activeUsers30d,
+        activeStreams,
+        pendingWithdrawals,
+        pendingRegistrations: pendingRegs,
+        openSupportChats,
+        agencies,
+        coinSellers,
+      },
+      diamondsSummary,
       recentTransactions: recentTx,
     });
   } catch (error: any) {

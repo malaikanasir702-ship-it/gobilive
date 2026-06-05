@@ -14,9 +14,27 @@ import giftsRouter from './features/gifts/gifts.route';
 import agencyRouter from './features/agency/agency.route';
 import coinSellerRouter from './features/coin-seller/coin-seller.route';
 import adminRouter from './features/admin/admin.route';
+import adminPanelAuthRouter from './features/admin-panel/auth.route';
 import videoCallRouter from './features/video-call/video-call.route';
 import uploadRouter from './features/upload/upload.route';
 import gameRouter from './features/game/game.route';
+import beansRouter from './features/beans/beans.route';
+import usersAdminRouter from './features/admin/users-admin.route';
+import agenciesAdminRouter from './features/admin/agencies-admin.route';
+import hostsAdminRouter from './features/admin/hosts-admin.route';
+import superAdminsRouter from './features/admin/super-admins.route';
+import subAdminsRouter from './features/admin/sub-admins.route';
+import topUpsRouter from './features/admin/top-ups.route';
+import withdrawalsRouter from './features/admin/withdrawals.route';
+import diamondRecordsRouter from './features/admin/diamond-records.route';
+import transactionsRouter from './features/admin/transactions.route';
+import policiesRouter from './features/admin/policies.route';
+import registrationRouter from './features/admin/registration.route';
+import activityLogsRouter from './features/admin/activity-logs.route';
+import supportRouter from './features/admin/support.route';
+import reportsRouter from './features/admin/reports.route';
+import gamesRouter from './features/admin/games.route';
+import dashboardAdminRouter from './features/admin/dashboard-admin.route';
 import { stripeWebhook } from './features/wallet/wallet.controller';
 
 // dotenv is loaded once in index.ts — this call is a safe no-op if already loaded.
@@ -58,6 +76,15 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/admin', express.static(path.join(__dirname, '../public/admin')));
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
+// SPA fallback — any /admin/* path that doesn't match a static file
+// serves index.html so React Router handles it client-side
+app.get('/admin/*', (_req, res) => {
+  const indexPath = path.join(__dirname, '../public/admin/index.html');
+  res.sendFile(indexPath, (err) => {
+    if (err) res.status(404).json({ success: false, message: 'Admin panel not built yet.' });
+  });
+});
+
 app.use('/api/upload', uploadRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/feed', feedRouter);
@@ -71,8 +98,26 @@ app.use('/api/gifts', giftsRouter);
 app.use('/api/agency', agencyRouter);
 app.use('/api/coin-seller', coinSellerRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/admin-panel/v1/auth', adminPanelAuthRouter);
 app.use('/api/video-call', videoCallRouter);
 app.use('/api/game', gameRouter);
+app.use('/api/admin-panel/v1/beans', beansRouter);
+app.use('/api/admin-panel/v1/users', usersAdminRouter);
+app.use('/api/admin-panel/v1/agencies', agenciesAdminRouter);
+app.use('/api/admin-panel/v1/hosts', hostsAdminRouter);
+app.use('/api/admin-panel/v1/super-admins', superAdminsRouter);
+app.use('/api/admin-panel/v1/sub-admins', subAdminsRouter);
+app.use('/api/admin-panel/v1/top-ups', topUpsRouter);
+app.use('/api/admin-panel/v1/withdrawals', withdrawalsRouter);
+app.use('/api/admin-panel/v1/diamonds', diamondRecordsRouter);
+app.use('/api/admin-panel/v1/transactions', transactionsRouter);
+app.use('/api/admin-panel/v1/policies', policiesRouter);
+app.use('/api/admin-panel/v1/registrations', registrationRouter);
+app.use('/api/admin-panel/v1/activity-logs', activityLogsRouter);
+app.use('/api/admin-panel/v1/support', supportRouter);
+app.use('/api/admin-panel/v1/reports', reportsRouter);
+app.use('/api/admin-panel/v1/games', gamesRouter);
+app.use('/api/admin-panel/v1/dashboard', dashboardAdminRouter);
 
 // Health Check — Railway uses this to verify the container is alive.
 app.get('/health', (_req, res) => {

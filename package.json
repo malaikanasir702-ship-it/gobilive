@@ -7,6 +7,8 @@
     "dev": "nodemon src/index.ts",
     "build": "tsc --project tsconfig.json",
     "build:clean": "npx rimraf dist && tsc --project tsconfig.json",
+    "build:admin": "cd ../admin-panel && npm install && npm run build",
+    "build:all": "npm run build:clean && npm run build:admin",
     "start": "NODE_ENV=production node dist/index.js",
     "test": "npm run build && node --test tests/*.test.mjs",
     "seed:live": "npx ts-node src/scripts/seed-live.ts"

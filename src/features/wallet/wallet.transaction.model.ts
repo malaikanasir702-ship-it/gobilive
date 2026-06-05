@@ -13,7 +13,11 @@ export type WalletTxType =
   | 'daily_reward'
   | 'ad_reward'
   | 'video_call_spend'
-  | 'video_call_earn';
+  | 'video_call_earn'
+  | 'bean_assign'
+  | 'bean_transfer'
+  | 'bean_request'
+  | 'bean_generate';
 
 export type WalletTxStatus = 'pending' | 'completed' | 'failed' | 'cancelled';
 
@@ -30,6 +34,7 @@ export interface IWalletTransaction extends Document {
   stripePaymentIntentId?: string;
   description: string;
   metadata?: Record<string, unknown>;
+  transferSlipUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -52,6 +57,10 @@ const WalletTransactionSchema = new Schema<IWalletTransaction>(
         'ad_reward',
         'video_call_spend',
         'video_call_earn',
+        'bean_assign',
+        'bean_transfer',
+        'bean_request',
+        'bean_generate',
       ],
       required: true,
     },
@@ -69,6 +78,7 @@ const WalletTransactionSchema = new Schema<IWalletTransaction>(
     stripePaymentIntentId: { type: String, index: true, sparse: true },
     description: { type: String, default: '' },
     metadata: { type: Schema.Types.Mixed },
+    transferSlipUrl: { type: String },
   },
   { timestamps: true }
 );

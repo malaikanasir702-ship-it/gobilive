@@ -8,6 +8,18 @@ export interface INotificationPrefs {
   liveAlerts: boolean;
 }
 
+export type UserRole =
+  | 'user'
+  | 'agency'
+  | 'coin_seller'
+  | 'admin'
+  | 'company_admin'
+  | 'super_admin'
+  | 'sub_admin'
+  | 'sub_agency'
+  | 'top_up_agent'
+  | 'reseller';
+
 export interface IUser extends Document {
   username: string;
   email?: string;
@@ -52,11 +64,27 @@ export interface IUser extends Document {
   hiddenCreators: string[];
   isSuspended: boolean;
   tokenVersion: number;
-  role: 'user' | 'agency' | 'coin_seller' | 'admin';
+  role: UserRole;
   agencyId?: string;
   thought?: string;
   thoughtUpdatedAt?: Date;
   createdAt: Date;
+  // Admin panel extensions
+  beanWallet: number;
+  isBlocked: boolean;
+  blockedUntil?: Date;
+  blockType?: 'permanent' | 'temporary';
+  isTerminated: boolean;
+  parentId?: Schema.Types.ObjectId;
+  // Identity / KYC fields (for admin roles)
+  idCardNumber?: string;
+  idCardDocUrl?: string;
+  faceVerificationUrl?: string;
+  region?: string;
+  country?: string;
+  cardNumber?: string;
+  // Share & commission
+  sharePercent?: number;
 }
 
 const UserSchema = new Schema<IUser>({
@@ -118,11 +146,31 @@ const UserSchema = new Schema<IUser>({
   hiddenCreators: { type: [String], default: [] },
   isSuspended: { type: Boolean, default: false },
   tokenVersion: { type: Number, default: 0 },
-  role: { type: String, enum: ['user', 'agency', 'coin_seller', 'admin'], default: 'user' },
+  role: {
+    type: String,
+    enum: ['user', 'agency', 'coin_seller', 'admin', 'company_admin', 'super_admin', 'sub_admin', 'sub_agency', 'top_up_agent', 'reseller'],
+    default: 'user',
+  },
   agencyId: { type: String },
   thought: { type: String, default: '' },
   thoughtUpdatedAt: { type: Date },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  // Admin panel extensions
+  beanWallet: { type: Number, default: 0 },
+  isBlocked: { type: Boolean, default: false },
+  blockedUntil: { type: Date },
+  blockType: { type: String, enum: ['permanent', 'temporary'], sparse: true },
+  isTerminated: { type: Boolean, default: false },
+  parentId: { type: Schema.Types.ObjectId, ref: 'User', sparse: true },
+  // Identity / KYC
+  idCardNumber: { type: String },
+  idCardDocUrl: { type: String },
+  faceVerificationUrl: { type: String },
+  region: { type: String },
+  country: { type: String },
+  cardNumber: { type: String },
+  // Share
+  sharePercent: { type: Number },
 });
 
 UserSchema.pre('save', function () {
