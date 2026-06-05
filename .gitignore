@@ -18,7 +18,8 @@ firebase-service-account.json
 uploads/
 
 # Admin panel source (built output goes to public/admin — that IS committed)
-admin-panel/
+# Note: /admin-panel/ scoped to root so src/features/admin-panel/ is NOT ignored
+/admin-panel/
 
 # Logs
 *.log

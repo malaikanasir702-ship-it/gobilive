@@ -139,8 +139,8 @@ export const fireSuperAdmin = async (req: AdminAuthRequest, res: Response): Prom
         return;
       }
       await Agency.updateMany(
-        { superAdminId: { $in: [new Types.ObjectId(id)] } },
-        { $set: { superAdminId: new Types.ObjectId(transferToSuperAdminId) } }
+        { superAdminId: id },
+        { $set: { superAdminId: transferToSuperAdminId } }
       );
     }
     await logActivity({
@@ -173,10 +173,10 @@ export const transferAgencies = async (req: AdminAuthRequest, res: Response): Pr
       res.status(400).json({ success: false, message: 'Invalid super admin id(s) provided.' });
       return;
     }
-    const ids = agencyIds.map((a: string) => new Types.ObjectId(a));
+    const ids = agencyIds.map((a: string) => String(a));
     const result = await Agency.updateMany(
-      { _id: { $in: ids }, superAdminId: { $in: [new Types.ObjectId(fromSuperAdminId)] } },
-      { $set: { superAdminId: new Types.ObjectId(toSuperAdminId) } }
+      { _id: { $in: ids }, superAdminId: fromSuperAdminId },
+      { $set: { superAdminId: toSuperAdminId } }
     );
     await logActivity({
       actorId: req.adminUser!.id,
