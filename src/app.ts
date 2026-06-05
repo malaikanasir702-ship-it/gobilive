@@ -78,7 +78,8 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // SPA fallback — any /admin/* path that doesn't match a static file
 // serves index.html so React Router handles it client-side
-app.get('/admin/*', (_req, res) => {
+// Note: Express v5 requires named wildcard param — use '*path' not '*'
+app.get('/admin/*path', (_req, res) => {
   const indexPath = path.join(__dirname, '../public/admin/index.html');
   res.sendFile(indexPath, (err) => {
     if (err) res.status(404).json({ success: false, message: 'Admin panel not built yet.' });
