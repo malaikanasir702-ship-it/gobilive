@@ -139,8 +139,8 @@ export const fireSuperAdmin = async (req: AdminAuthRequest, res: Response): Prom
         return;
       }
       await Agency.updateMany(
-        { superAdminId: new Types.ObjectId(id) },
-        { superAdminId: new Types.ObjectId(transferToSuperAdminId) }
+        { superAdminId: { $in: [new Types.ObjectId(id)] } },
+        { $set: { superAdminId: new Types.ObjectId(transferToSuperAdminId) } }
       );
     }
     await logActivity({
@@ -175,8 +175,8 @@ export const transferAgencies = async (req: AdminAuthRequest, res: Response): Pr
     }
     const ids = agencyIds.map((a: string) => new Types.ObjectId(a));
     const result = await Agency.updateMany(
-      { _id: { $in: ids }, superAdminId: new Types.ObjectId(fromSuperAdminId) },
-      { superAdminId: new Types.ObjectId(toSuperAdminId) }
+      { _id: { $in: ids }, superAdminId: { $in: [new Types.ObjectId(fromSuperAdminId)] } },
+      { $set: { superAdminId: new Types.ObjectId(toSuperAdminId) } }
     );
     await logActivity({
       actorId: req.adminUser!.id,
