@@ -32,7 +32,7 @@ export async function listReports(req: Request, res: Response) {
 
 export async function getReport(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const rpt = await StreamReport.findById(id).lean();
     if (!rpt) return res.status(404).json({ success: false, message: 'Not found' });
     res.json({ success: true, data: rpt });
@@ -43,7 +43,7 @@ export async function getReport(req: Request, res: Response) {
 
 export async function dismissReport(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const adminId = (req as any).adminUser?.id || 'system';
     const adminRole = (req as any).adminUser?.role || 'company_admin';
 
@@ -64,7 +64,7 @@ export async function dismissReport(req: Request, res: Response) {
 
 export async function escalateReport(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { action } = req.body; // 'suspend' | 'block' | 'terminate'
     const adminId = (req as any).adminUser?.id || 'system';
     const adminRole = (req as any).adminUser?.role || 'company_admin';

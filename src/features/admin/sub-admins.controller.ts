@@ -24,7 +24,7 @@ export const listSubAdmins = async (req: AdminAuthRequest, res: Response): Promi
 
 export const approveSubAdmin = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const user = await User.findByIdAndUpdate(id, { isSuspended: false }, { new: true }).select('username isSuspended');
     if (!user) {
       res.status(404).json({ success: false, message: 'Sub admin not found.' });
@@ -46,7 +46,7 @@ export const approveSubAdmin = async (req: AdminAuthRequest, res: Response): Pro
 
 export const rejectSubAdmin = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { reason } = req.body;
     const user = await User.findByIdAndUpdate(id, { isTerminated: true }, { new: true }).select('username isTerminated');
     if (!user) {
@@ -69,7 +69,7 @@ export const rejectSubAdmin = async (req: AdminAuthRequest, res: Response): Prom
 
 export const blockSubAdmin = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { type, durationHours } = req.body;
     const update: any = { isBlocked: true };
     if (type === 'temporary' && durationHours) {
@@ -100,7 +100,7 @@ export const blockSubAdmin = async (req: AdminAuthRequest, res: Response): Promi
 
 export const unblockSubAdmin = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const user = await User.findByIdAndUpdate(id, { isBlocked: false, $unset: { blockedUntil: 1, blockType: 1 } }, { new: true }).select('username isBlocked');
     if (!user) {
       res.status(404).json({ success: false, message: 'Sub admin not found.' });
@@ -122,13 +122,13 @@ export const unblockSubAdmin = async (req: AdminAuthRequest, res: Response): Pro
 
 export const getSubAdminDetail = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const user = await User.findById(id).select('-passwordHash').lean();
     if (!user) {
       res.status(404).json({ success: false, message: 'Sub admin not found.' });
       return;
     }
-    const agencies = await Agency.find({ subAdminId: id }).limit(50).lean();
+    const agencies = await Agency.find({ subAdminId: id } as any).limit(50).lean();
     res.status(200).json({ success: true, user, agencies });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });

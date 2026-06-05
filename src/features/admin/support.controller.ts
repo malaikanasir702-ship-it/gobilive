@@ -51,7 +51,7 @@ export async function getSupportChat(req: Request, res: Response) {
 
 export async function replyToSupportChat(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { message, attachmentUrl } = req.body;
     const adminUser = (req as any).adminUser;
 
@@ -89,7 +89,7 @@ export async function replyToSupportChat(req: Request, res: Response) {
 
 export async function closeSupportChat(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const adminUser = (req as any).adminUser;
     const chat = await SupportChat.findByIdAndUpdate(
       id,

@@ -181,7 +181,7 @@ export const unblockUser = async (req: AdminAuthRequest, res: Response): Promise
 
 export const suspendUser = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { suspend } = req.body;
 
     const user = await User.findByIdAndUpdate(

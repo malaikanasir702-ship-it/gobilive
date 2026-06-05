@@ -14,6 +14,7 @@ import giftsRouter from './features/gifts/gifts.route';
 import agencyRouter from './features/agency/agency.route';
 import coinSellerRouter from './features/coin-seller/coin-seller.route';
 import adminRouter from './features/admin/admin.route';
+import adminPanelAuthRouter from './features/admin-panel/auth.route';
 import videoCallRouter from './features/video-call/video-call.route';
 import uploadRouter from './features/upload/upload.route';
 import gameRouter from './features/game/game.route';
