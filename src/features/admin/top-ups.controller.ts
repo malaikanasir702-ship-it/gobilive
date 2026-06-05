@@ -1,9 +1,9 @@
 import { Response } from 'express';
 import mongoose from 'mongoose';
-import { User } from '../../auth/user.model';
-import { BeanTransaction } from '../../beans/bean-transaction.model';
-import { logActivity } from '../../activity-log/activity-log.service';
-import { AdminAuthRequest } from '../../../core/middlewares/rbac.middleware';
+import { User } from '../auth/user.model';
+import { BeanTransaction } from '../beans/bean-transaction.model';
+import { logActivity } from '../activity-log/activity-log.service';
+import { AdminAuthRequest } from '../../core/middlewares/rbac.middleware';
 
 // List Top Up Agents
 export const listTopUpAgents = async (req: AdminAuthRequest, res: Response): Promise<void> => {

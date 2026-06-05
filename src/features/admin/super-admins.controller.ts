@@ -1,9 +1,9 @@
 import { Response } from 'express';
 import { Types } from 'mongoose';
-import { User } from '../../auth/user.model';
-import { Agency } from '../../agency/agency.model';
-import { logActivity } from '../../activity-log/activity-log.service';
-import { AdminAuthRequest } from '../../../core/middlewares/rbac.middleware';
+import { User } from '../auth/user.model';
+import { Agency } from '../agency/agency.model';
+import { logActivity } from '../activity-log/activity-log.service';
+import { AdminAuthRequest } from '../../core/middlewares/rbac.middleware';
 
 // List Super Admins
 export const listSuperAdmins = async (req: AdminAuthRequest, res: Response): Promise<void> => {
