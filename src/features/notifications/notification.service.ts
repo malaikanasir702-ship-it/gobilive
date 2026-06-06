@@ -119,17 +119,17 @@ export const NotificationTriggers = {
   }),
   // ── Feed interaction triggers ──
   postLiked: (liker: string): NotificationPayload => ({
-    title: 'New Like ❤️',
+    title: 'New Like',
     body: `@${liker} liked your video`,
     data: { type: 'post_like' },
   }),
   postCommented: (commenter: string, preview: string): NotificationPayload => ({
-    title: 'New Comment 💬',
+    title: 'New Comment',
     body: `@${commenter}: ${preview.slice(0, 80)}`,
     data: { type: 'post_comment' },
   }),
   postSaved: (saver: string): NotificationPayload => ({
-    title: 'Video Saved 🔖',
+    title: 'Video Saved',
     body: `@${saver} saved your video`,
     data: { type: 'post_save' },
   }),
