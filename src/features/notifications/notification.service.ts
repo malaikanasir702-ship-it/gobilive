@@ -1,5 +1,6 @@
 import { getMessaging, isFirebaseConfigured, initFirebase } from '../../config/firebase';
 import { User } from '../auth/user.model';
+import Notification, { NotificationType } from './notification.model';
 
 export type NotificationPayload = {
   title: string;
@@ -116,4 +117,61 @@ export const NotificationTriggers = {
     body: `@${caller} tried to call you`,
     data: { type: 'missed_call' },
   }),
+  // ── Feed interaction triggers ──
+  postLiked: (liker: string): NotificationPayload => ({
+    title: 'New Like ❤️',
+    body: `@${liker} liked your video`,
+    data: { type: 'post_like' },
+  }),
+  postCommented: (commenter: string, preview: string): NotificationPayload => ({
+    title: 'New Comment 💬',
+    body: `@${commenter}: ${preview.slice(0, 80)}`,
+    data: { type: 'post_comment' },
+  }),
+  postSaved: (saver: string): NotificationPayload => ({
+    title: 'Video Saved 🔖',
+    body: `@${saver} saved your video`,
+    data: { type: 'post_save' },
+  }),
 };
+
+// ─────────────────────────────────────────────
+// Convenience: persist to DB + fire FCM in one call
+// ─────────────────────────────────────────────
+
+/**
+ * Saves the notification to MongoDB (for the notification page history)
+ * and fires the FCM push (for the lock-screen / status-bar banner).
+ *
+ * Non-throwing — logs errors so feed actions never fail because of a
+ * notification issue.
+ */
+export async function createAndSend(opts: {
+  recipientId: string;
+  actorId?: string;
+  actorUsername?: string;
+  actorProfilePic?: string;
+  type: NotificationType;
+  payload: NotificationPayload;
+  referenceId?: string;
+}): Promise<void> {
+  try {
+    // 1. Persist to DB
+    await Notification.create({
+      recipientId: opts.recipientId,
+      actorId: opts.actorId,
+      actorUsername: opts.actorUsername ?? '',
+      actorProfilePic: opts.actorProfilePic ?? '',
+      type: opts.type,
+      title: opts.payload.title,
+      body: opts.payload.body,
+      referenceId: opts.referenceId,
+      isRead: false,
+    });
+
+    // 2. Fire FCM push
+    await sendToUser(opts.recipientId, opts.payload);
+  } catch (err) {
+    console.error('[Notification] createAndSend error:', (err as Error).message);
+  }
+}

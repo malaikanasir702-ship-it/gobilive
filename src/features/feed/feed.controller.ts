@@ -6,6 +6,7 @@ import { PostLike } from './post_like.model';
 import { PostSave } from './post_save.model';
 import { User } from '../auth/user.model';
 import { AuthRequest } from '../../core/middlewares/auth.middleware';
+import { createAndSend, NotificationTriggers } from '../notifications/notification.service';
 
 // GET /feed?page=1&limit=10&userId=xxx&likedBy=xxx
 export const getFeed = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -171,6 +172,21 @@ export const likePost = async (req: AuthRequest, res: Response): Promise<void> =
           await User.findByIdAndUpdate(updated.userId, { $inc: { likesCount: 1 } });
         }
         isLiked = true;
+
+        // ── Notify post owner (skip self-likes) ──
+        const ownerId = updated?.userId?.toString();
+        if (ownerId && ownerId !== req.user!.id) {
+          const actor = await User.findById(req.user!.id).select('username profilePic').lean();
+          createAndSend({
+            recipientId: ownerId,
+            actorId: req.user!.id,
+            actorUsername: actor?.username ?? req.user!.username,
+            actorProfilePic: actor?.profilePic ?? '',
+            type: 'post_like',
+            payload: NotificationTriggers.postLiked(actor?.username ?? req.user!.username),
+            referenceId: String(postId),
+          }).catch(() => {}); // fire-and-forget
+        }
       } catch (e: any) {
         // In case of race condition: treat as already liked
         const stillExists = await PostLike.findOne({ postId, userId }).select('_id');
@@ -266,6 +282,21 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
     });
 
     await Post.findByIdAndUpdate(new Types.ObjectId(req.params.id as string), { $inc: { commentsCount: 1 } });
+
+    // ── Notify post owner (skip self-comments) ──
+    const parentPost = await Post.findById(req.params.id).select('userId').lean();
+    const ownerId = parentPost?.userId?.toString();
+    if (ownerId && ownerId !== req.user.id) {
+      createAndSend({
+        recipientId: ownerId,
+        actorId: req.user.id,
+        actorUsername: user.username,
+        actorProfilePic: user.profilePic ?? '',
+        type: 'post_comment',
+        payload: NotificationTriggers.postCommented(user.username, text),
+        referenceId: req.params.id as string,
+      }).catch(() => {});
+    }
 
     res.status(201).json({ success: true, comment });
   } catch (err: any) {
@@ -410,6 +441,22 @@ export const savePost = async (req: AuthRequest, res: Response): Promise<void> =
     } else {
       await PostSave.create({ postId, userId });
       isSaved = true;
+
+      // ── Notify post owner (skip self-saves) ──
+      const savedPost = await Post.findById(postId).select('userId').lean();
+      const ownerId = savedPost?.userId?.toString();
+      if (ownerId && ownerId !== req.user!.id) {
+        const actor = await User.findById(req.user!.id).select('username profilePic').lean();
+        createAndSend({
+          recipientId: ownerId,
+          actorId: req.user!.id,
+          actorUsername: actor?.username ?? '',
+          actorProfilePic: actor?.profilePic ?? '',
+          type: 'post_save',
+          payload: NotificationTriggers.postSaved(actor?.username ?? ''),
+          referenceId: String(postId),
+        }).catch(() => {});
+      }
     }
 
     res.status(200).json({ success: true, isSaved });
