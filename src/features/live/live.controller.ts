@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import LiveRoom from './live.model';
+import LiveRoom, { SeatLayoutCount } from './live.model';
 import StreamReport from './report.model';
 import { buildAgoraRtcToken } from '../../config/agora';
 import { getPlatformSettings } from '../settings/platform-settings.model';
