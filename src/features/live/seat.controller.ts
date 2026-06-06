@@ -59,6 +59,15 @@ function user(req: Request) {
   return (req as any).user as { id: string; username: string };
 }
 
+/**
+ * Express v5 types req.params values as `string | string[]`.
+ * This helper always returns a plain string, safe to pass anywhere.
+ */
+function param(req: Request, key: string): string {
+  const v = (req.params as Record<string, string | string[]>)[key];
+  return Array.isArray(v) ? v[0] : (v ?? '');
+}
+
 function badRequest(res: Response, msg: string) {
   return res.status(400).json({ success: false, message: msg });
 }
@@ -83,7 +92,7 @@ function forbidden(res: Response, msg = 'Forbidden.') {
 export const initSeats = async (req: Request, res: Response): Promise<void> => {
   try {
     const me = user(req);
-    const { channelName } = req.params;
+    const channelName = param(req, 'channelName');
     const { seatLayoutCount, roomType } = req.body as {
       seatLayoutCount: SeatLayoutCount;
       roomType?: 'multi-broadcast' | 'audio';
@@ -146,7 +155,8 @@ export const initSeats = async (req: Request, res: Response): Promise<void> => {
 export const requestSeat = async (req: Request, res: Response): Promise<void> => {
   try {
     const me = user(req);
-    const { channelName, idx } = req.params;
+    const channelName = param(req, 'channelName');
+    const idx = param(req, 'idx');
     const seatIndex = parseInt(idx, 10);
 
     const room = await LiveRoom.findOne({ channelName, isActive: true });
@@ -209,7 +219,8 @@ export const requestSeat = async (req: Request, res: Response): Promise<void> =>
 export const acceptSeat = async (req: Request, res: Response): Promise<void> => {
   try {
     const me = user(req);
-    const { channelName, idx } = req.params;
+    const channelName = param(req, 'channelName');
+    const idx = param(req, 'idx');
     const { userId, isAudioOnly = true } = req.body as {
       userId: string;
       isAudioOnly?: boolean;
@@ -275,7 +286,8 @@ export const acceptSeat = async (req: Request, res: Response): Promise<void> => 
 export const rejectSeat = async (req: Request, res: Response): Promise<void> => {
   try {
     const me = user(req);
-    const { channelName, idx } = req.params;
+    const channelName = param(req, 'channelName');
+    const idx = param(req, 'idx');
     const { userId } = req.body as { userId: string };
     const seatIndex = parseInt(idx, 10);
 
@@ -305,7 +317,8 @@ export const rejectSeat = async (req: Request, res: Response): Promise<void> => 
 export const leaveSeat = async (req: Request, res: Response): Promise<void> => {
   try {
     const me = user(req);
-    const { channelName, idx } = req.params;
+    const channelName = param(req, 'channelName');
+    const idx = param(req, 'idx');
     const seatIndex = parseInt(idx, 10);
 
     const room = await LiveRoom.findOne({ channelName, isActive: true });
@@ -367,7 +380,8 @@ export const leaveSeat = async (req: Request, res: Response): Promise<void> => {
 export const muteSeat = async (req: Request, res: Response): Promise<void> => {
   try {
     const me = user(req);
-    const { channelName, idx } = req.params;
+    const channelName = param(req, 'channelName');
+    const idx = param(req, 'idx');
     const { muted } = req.body as { muted: boolean };
     const seatIndex = parseInt(idx, 10);
 
@@ -408,7 +422,8 @@ export const muteSeat = async (req: Request, res: Response): Promise<void> => {
 export const setCamPermission = async (req: Request, res: Response): Promise<void> => {
   try {
     const me = user(req);
-    const { channelName, idx } = req.params;
+    const channelName = param(req, 'channelName');
+    const idx = param(req, 'idx');
     const { allowed } = req.body as { allowed: boolean };
     const seatIndex = parseInt(idx, 10);
 
@@ -444,7 +459,7 @@ export const setCamPermission = async (req: Request, res: Response): Promise<voi
 // ─────────────────────────────────────────────
 export const getSeats = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { channelName } = req.params;
+    const channelName = param(req, 'channelName');
     const room = await LiveRoom.findOne({ channelName, isActive: true })
       .select('seats seatLayoutCount roomType vips sideCallers hostUsername')
       .lean();
@@ -475,7 +490,7 @@ export const getSeats = async (req: Request, res: Response): Promise<void> => {
 export const getSeatToken = async (req: Request, res: Response): Promise<void> => {
   try {
     const me = user(req);
-    const { channelName } = req.params;
+    const channelName = param(req, 'channelName');
 
     const tokenResult = await buildSeatToken(channelName, me.id);
 
@@ -502,7 +517,7 @@ export const getSeatToken = async (req: Request, res: Response): Promise<void> =
 export const requestSideCaller = async (req: Request, res: Response): Promise<void> => {
   try {
     const me = user(req);
-    const { channelName } = req.params;
+    const channelName = param(req, 'channelName');
     const { isAudioOnly = false } = req.body as { isAudioOnly?: boolean };
 
     const room = await LiveRoom.findOne({ channelName, isActive: true });
@@ -560,8 +575,8 @@ export const requestSideCaller = async (req: Request, res: Response): Promise<vo
 export const acceptSideCaller = async (req: Request, res: Response): Promise<void> => {
   try {
     const me = user(req);
-    const { channelName } = req.params;
-    const callerUid = parseInt(req.params.uid, 10);
+    const channelName = param(req, 'channelName');
+    const callerUid = parseInt(param(req, 'uid'), 10);
 
     const room = await LiveRoom.findOne({ channelName, hostId: me.id, isActive: true });
     if (!room) { notFound(res, 'Active room not found or not owned by you.'); return; }
@@ -600,8 +615,8 @@ export const acceptSideCaller = async (req: Request, res: Response): Promise<voi
 export const removeSideCaller = async (req: Request, res: Response): Promise<void> => {
   try {
     const me = user(req);
-    const { channelName } = req.params;
-    const callerUid = parseInt(req.params.uid, 10);
+    const channelName = param(req, 'channelName');
+    const callerUid = parseInt(param(req, 'uid'), 10);
 
     const room = await LiveRoom.findOne({ channelName, hostId: me.id, isActive: true });
     if (!room) { notFound(res, 'Active room not found or not owned by you.'); return; }
@@ -640,7 +655,7 @@ export const removeSideCaller = async (req: Request, res: Response): Promise<voi
 export const setVips = async (req: Request, res: Response): Promise<void> => {
   try {
     const me = user(req);
-    const { channelName } = req.params;
+    const channelName = param(req, 'channelName');
     const { vips } = req.body as {
       vips: Array<{
         userId: string;

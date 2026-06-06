@@ -99,10 +99,9 @@ export const createRoom = async (req: Request, res: Response) => {
     const resolvedRoomType = validRoomTypes.includes(roomType) ? roomType : 'live';
 
     // Validate seatLayoutCount — only used for multi-broadcast / audio
-    const validLayouts = [2, 4, 9, 13, 16];
-    const resolvedLayout = validLayouts.includes(Number(seatLayoutCount))
-      ? Number(seatLayoutCount)
-      : 9;
+    const validLayouts: SeatLayoutCount[] = [2, 4, 9, 13, 16];
+    const parsed = Number(seatLayoutCount) as SeatLayoutCount;
+    const resolvedLayout: SeatLayoutCount = validLayouts.includes(parsed) ? parsed : 9;
 
     const channelName = `room_${user.id}_${Date.now()}`;
     const token = buildAgoraRtcToken(channelName, 0, 'publisher');
