@@ -55,13 +55,15 @@ export const getActiveRooms = async (req: Request, res: Response) => {
       );
     }
 
-    // Attach isLiked, isSaved, likesCount per room for current viewer
+    // Attach isLiked, isSaved, likesCount, roomType per room for current viewer
     const enriched = rooms.map((r) => ({
       ...r,
       hostProfilePic: r.hostId?.profilePic ?? '',
       likesCount: r.likedBy?.length ?? 0,
       isLiked: viewerId ? r.likedBy?.some((id: any) => id.toString() === viewerId) ?? false : false,
       isSaved: viewerId ? r.savedBy?.some((id: any) => id.toString() === viewerId) ?? false : false,
+      roomType: r.roomType ?? 'live',
+      seatLayoutCount: r.seatLayoutCount ?? 9,
     }));
 
     res.status(200).json({ success: true, rooms: enriched });
@@ -73,7 +75,15 @@ export const getActiveRooms = async (req: Request, res: Response) => {
 export const createRoom = async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
-    const { title, privacyMode = 'public', category = '' } = req.body;
+    const {
+      title,
+      privacyMode = 'public',
+      category = '',
+      // NEW: multi-broadcast fields (optional — safe default 'live')
+      roomType = 'live',
+      seatLayoutCount = 9,
+    } = req.body;
+
     const settings = await getPlatformSettings();
     const dbUser = await User.findById(user.id);
 
@@ -83,6 +93,16 @@ export const createRoom = async (req: Request, res: Response) => {
         message: `Minimum level ${settings.minLevelToGoLive} required to go live.`,
       });
     }
+
+    // Validate roomType — fall back gracefully if unknown value sent
+    const validRoomTypes = ['live', 'multi-broadcast', 'audio'];
+    const resolvedRoomType = validRoomTypes.includes(roomType) ? roomType : 'live';
+
+    // Validate seatLayoutCount — only used for multi-broadcast / audio
+    const validLayouts = [2, 4, 9, 13, 16];
+    const resolvedLayout = validLayouts.includes(Number(seatLayoutCount))
+      ? Number(seatLayoutCount)
+      : 9;
 
     const channelName = `room_${user.id}_${Date.now()}`;
     const token = buildAgoraRtcToken(channelName, 0, 'publisher');
@@ -96,6 +116,8 @@ export const createRoom = async (req: Request, res: Response) => {
       privacyMode,
       category: category || '',
       isActive: true,
+      roomType: resolvedRoomType,
+      seatLayoutCount: resolvedLayout,
     });
 
     res.status(201).json({
