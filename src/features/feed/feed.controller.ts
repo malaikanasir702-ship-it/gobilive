@@ -3,6 +3,7 @@ import { Types } from 'mongoose';
 import { Post } from './post.model';
 import { Comment } from './comment.model';
 import { PostLike } from './post_like.model';
+import { PostSave } from './post_save.model';
 import { User } from '../auth/user.model';
 import { AuthRequest } from '../../core/middlewares/auth.middleware';
 
@@ -40,18 +41,23 @@ export const getFeed = async (req: AuthRequest, res: Response): Promise<void> =>
       return p;
     });
 
-    // Attach isLiked for current user (so UI can toggle like/unlike correctly)
+    // Attach isLiked + isSaved for current user
     if (req.user && enrichedPosts.length > 0) {
       const postIds = enrichedPosts.map(p => new Types.ObjectId(p._id ?? p.id));
-      const likes = await PostLike.find({
-        userId: new Types.ObjectId(req.user.id),
-        postId: { $in: postIds },
-      }).select('postId').lean();
+      const userId = new Types.ObjectId(req.user.id);
+
+      const [likes, saves] = await Promise.all([
+        PostLike.find({ userId, postId: { $in: postIds } }).select('postId').lean(),
+        PostSave.find({ userId, postId: { $in: postIds } }).select('postId').lean(),
+      ]);
 
       const likedSet = new Set(likes.map(l => String(l.postId)));
+      const savedSet = new Set(saves.map(s => String(s.postId)));
+
       for (const p of enrichedPosts) {
         const pid = String(p._id ?? p.id);
         p.isLiked = likedSet.has(pid);
+        p.isSaved = savedSet.has(pid);
       }
     }
 
@@ -382,6 +388,60 @@ export const getArchivedPosts = async (req: AuthRequest, res: Response): Promise
     });
 
     res.status(200).json({ success: true, posts, pagination: { page, limit, total } });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /feed/:id/save  — toggle save/unsave a post
+export const savePost = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+
+    const postId = new Types.ObjectId(req.params.id as string);
+    const userId = new Types.ObjectId(req.user.id);
+
+    const existing = await PostSave.findOne({ postId, userId });
+    let isSaved: boolean;
+
+    if (existing) {
+      await PostSave.deleteOne({ _id: existing._id });
+      isSaved = false;
+    } else {
+      await PostSave.create({ postId, userId });
+      isSaved = true;
+    }
+
+    res.status(200).json({ success: true, isSaved });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// GET /feed/saved  — get current user's saved posts
+export const getSavedPosts = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+
+    const page  = parseInt(req.query.page  as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 30;
+    const skip  = (page - 1) * limit;
+
+    const saves = await PostSave.find({ userId: new Types.ObjectId(req.user.id) })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select('postId')
+      .lean();
+
+    const postIds = saves.map(s => s.postId);
+    const posts = await Post.find({ _id: { $in: postIds }, isArchived: { $ne: true } }).lean();
+
+    // Preserve save order
+    const postMap = new Map(posts.map(p => [String(p._id), { ...p, isSaved: true }]));
+    const orderedPosts = postIds.map(id => postMap.get(String(id))).filter(Boolean);
+
+    res.status(200).json({ success: true, posts: orderedPosts });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }
