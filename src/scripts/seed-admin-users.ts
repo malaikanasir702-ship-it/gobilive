@@ -11,7 +11,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 import { connectDB } from '../config/db';
-import { User } from '../features/auth/user.model';
+import { User, UserRole } from '../features/auth/user.model';
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
@@ -19,7 +19,7 @@ interface SeedUser {
   username: string;
   email: string;
   password: string;
-  role: string;
+  role: UserRole;
 }
 
 const SEED_USERS: SeedUser[] = [
