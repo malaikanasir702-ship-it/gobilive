@@ -30,7 +30,7 @@ export const adminLogin = async (req: Request, res: Response): Promise<void> => 
       : { phone: phone.trim() };
 
     const user = await User.findOne(query).select(
-      '+passwordHash role isBlocked blockedUntil isTerminated isSuspended tokenVersion'
+      'username email role isBlocked blockedUntil blockType isTerminated isSuspended tokenVersion passwordHash profilePic beanWallet'
     );
 
     if (!user) {
