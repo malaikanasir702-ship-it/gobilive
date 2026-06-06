@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import dotenv from 'dotenv';
+import { v2 as cloudinary } from 'cloudinary';
 import authRouter from './features/auth/auth.route';
 import feedRouter from './features/feed/feed.route';
 import liveRouter from './features/live/live.route';
@@ -39,6 +40,13 @@ import { stripeWebhook } from './features/wallet/wallet.controller';
 
 // dotenv is loaded once in index.ts — this call is a safe no-op if already loaded.
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+// --- Cloudinary Configuration ---
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const app = express();
 
