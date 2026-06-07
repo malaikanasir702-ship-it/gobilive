@@ -4,7 +4,10 @@ import WalletTransaction from '../wallet/wallet.transaction.model';
 import { logActivity } from '../activity-log/activity-log.service';
 
 const BUILTIN_GAMES = [
-  { gameId: 'spin', name: 'Spin Wheel', description: 'Daily spin wheel for diamonds and coins' },
+  { gameId: 'spin',       name: 'Lucky Spin',   description: 'Daily spin wheel for diamonds' },
+  { gameId: 'teen_patti', name: 'Teen Patti',   description: '3-card poker vs dealer. Bet 10–500 💎' },
+  { gameId: 'dice',       name: 'Dice Roll',    description: 'Roll 2 dice — Over/Under/Exact. Bet 10–500 💎' },
+  { gameId: 'plinko',     name: 'Plinko',       description: 'Drop a ball through pegs. Bet 10–500 💎' },
 ];
 
 export async function listGames(_req: Request, res: Response) {
