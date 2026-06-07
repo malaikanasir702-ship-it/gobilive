@@ -28,7 +28,7 @@ import { injectIo } from './seat.controller';
 // ─────────────────────────────────────────────
 interface JoinRoomPayload { roomId: string; username: string; }
 interface CommentPayload  { roomId: string; username: string; text: string; level: number; }
-interface GiftPayload     { roomId: string; sender: string; giftName: string; count: number; cost: number; }
+interface GiftPayload     { roomId: string; sender: string; giftName: string; count: number; cost: number; giftType?: string; svgaUrl?: string | null; emoji?: string; }
 interface PkStartPayload  { roomId: string; opponentRoomId: string; opponentHost: string; durationSeconds: number; }
 interface PkScorePayload  { roomId: string; change: number; side: 'left' | 'right'; }
 interface ChangeFilterPayload {

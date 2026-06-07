@@ -6,6 +6,7 @@ import { registerStreamSignaling } from './features/live/stream.signaling';
 import { registerChatSignaling } from './features/chat/chat.signaling';
 import { initFirebase } from './config/firebase';
 import { ensureLiveDiscoverySeed } from './features/live/live.seed';
+import { seedGiftCatalogIfEmpty } from './features/gifts/gifts.controller';
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -48,6 +49,7 @@ const startServer = async () => {
     initFirebase();
     await connectDB();
     await ensureLiveDiscoverySeed();
+    await seedGiftCatalogIfEmpty();
 
     server.listen(PORT, () => {
       console.log(`🚀 Gobilive Server active on port ${PORT}`);
