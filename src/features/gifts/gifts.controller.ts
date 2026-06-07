@@ -35,13 +35,12 @@ export const svgaUploadMiddleware = multer({
   storage: _storage,
   limits: { fileSize: 8 * 1024 * 1024 }, // 8 MB max
   fileFilter: (_req, file, cb) => {
-    // Accept .svga files (sent as application/octet-stream or custom MIME)
-    const allowed = ['.svga', '.zip'];
+    // Accept Lottie .json files
     const ext = path.extname(file.originalname).toLowerCase();
-    if (allowed.includes(ext) || file.mimetype === 'application/octet-stream') {
+    if (ext === '.json' || file.mimetype === 'application/json' || file.mimetype === 'application/octet-stream') {
       cb(null, true);
     } else {
-      cb(new Error('Only .svga files are allowed.'));
+      cb(new Error('Only Lottie .json files are allowed.'));
     }
   },
 }).single('file');
