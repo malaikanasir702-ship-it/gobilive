@@ -61,7 +61,7 @@ export async function seedGiftCatalogIfEmpty(): Promise<void> {
       isVipOnly: g.isVipOnly,
       animation: g.animation,
       giftType: 'emoji' as const,
-      svgaUrl: null,
+      svgaUrl: undefined,
       isActive: true,
       sortOrder: i,
     }));
@@ -115,7 +115,7 @@ export const createEmojiGift = async (req: AuthRequest, res: Response): Promise<
       isVipOnly: Boolean(isVipOnly),
       animation: animation ?? 'float',
       giftType: 'emoji',
-      svgaUrl: null,
+      svgaUrl: undefined,
       isActive: true,
       sortOrder: Number(sortOrder ?? 99),
     });
@@ -283,7 +283,7 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
         res.status(400).json({ success: false, message: `Invalid gift id: ${giftId}` });
         return;
       }
-      gift = { ...staticGift, giftType: 'emoji', svgaUrl: null };
+      gift = { ...staticGift, giftType: 'emoji', svgaUrl: undefined };
     }
 
     const room = await LiveRoom.findOne({ channelName });
