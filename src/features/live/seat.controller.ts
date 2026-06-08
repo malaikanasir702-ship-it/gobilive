@@ -154,11 +154,21 @@ export const initSeats = async (req: Request, res: Response): Promise<void> => {
 
     broadcastSeatUpdate(channelName, room.seats);
 
+    // Issue a host token so the Flutter client can join the Agora channel immediately
+    const hostTokenResult = await buildSeatToken(channelName, me.id);
+
     res.status(200).json({
       success: true,
       seatLayoutCount,
       roomType: room.roomType,
       seats: room.seats,
+      agora: {
+        appId: process.env.AGORA_APP_ID || '',
+        channelName,
+        uid: hostTokenResult.uid,
+        token: hostTokenResult.token,
+        role: hostTokenResult.role,
+      },
     });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
@@ -492,12 +502,17 @@ export const setCamPermission = async (req: Request, res: Response): Promise<voi
 // ─────────────────────────────────────────────
 export const getSeats = async (req: Request, res: Response): Promise<void> => {
   try {
+    const me = user(req);
     const channelName = param(req, 'channelName');
     const room = await LiveRoom.findOne({ channelName, isActive: true })
       .select('seats seatLayoutCount roomType vips sideCallers hostUsername')
       .lean();
 
     if (!room) { notFound(res); return; }
+
+    // Issue a viewer (or seated broadcaster) token so the Flutter client
+    // can join the Agora channel as soon as it loads the seat grid.
+    const viewerTokenResult = await buildSeatToken(channelName, me.id);
 
     res.status(200).json({
       success: true,
@@ -506,6 +521,14 @@ export const getSeats = async (req: Request, res: Response): Promise<void> => {
       seats: room.seats,
       vips: room.vips,
       sideCallers: room.sideCallers,
+      agora: {
+        appId: process.env.AGORA_APP_ID || '',
+        channelName,
+        uid: viewerTokenResult.uid,
+        token: viewerTokenResult.token,
+        role: viewerTokenResult.role,
+        isHost: viewerTokenResult.isHost,
+      },
     });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
