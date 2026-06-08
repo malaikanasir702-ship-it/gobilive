@@ -115,16 +115,37 @@ export const initSeats = async (req: Request, res: Response): Promise<void> => {
     }
 
     // Build fresh seat array
-    const newSeats = Array.from({ length: seatLayoutCount }, (_, i) => ({
-      seatIndex: i,
-      userId: null,
-      username: '',
-      profilePic: '',
-      agoraUid: seatIndexToAgoraUid(i),
-      isMutedByHost: false,
-      isCamAllowedByHost: false,
-      isAudioOnly: true,
-    }));
+    // Seat 0 is always the "Anchor Seat" — automatically assigned to the host.
+    // Remaining seats (1..N-1) start empty and are available for guests.
+    const hostUser = await User.findById(me.id).select('username profilePic').lean();
+
+    const newSeats = Array.from({ length: seatLayoutCount }, (_, i) => {
+      if (i === 0) {
+        // ── Anchor Seat: pre-assigned to host ──────────────────────────────
+        return {
+          seatIndex:          0,
+          userId:             new mongoose.Types.ObjectId(me.id),
+          username:           hostUser?.username ?? me.username,
+          profilePic:         hostUser?.profilePic ?? '',
+          agoraUid:           seatIndexToAgoraUid(0),
+          isMutedByHost:      false,
+          isCamAllowedByHost: true,   // host always has camera
+          isAudioOnly:        false,  // host broadcasts video by default
+          occupiedAt:         new Date(),
+        };
+      }
+      // ── Guest seats: empty ─────────────────────────────────────────────
+      return {
+        seatIndex:          i,
+        userId:             null,
+        username:           '',
+        profilePic:         '',
+        agoraUid:           seatIndexToAgoraUid(i),
+        isMutedByHost:      false,
+        isCamAllowedByHost: false,
+        isAudioOnly:        true,
+      };
+    });
 
     room.seats = newSeats as any;
     room.seatLayoutCount = seatLayoutCount;
@@ -165,6 +186,12 @@ export const requestSeat = async (req: Request, res: Response): Promise<void> =>
     // Block the room host from using the seat flow
     if (room.hostId.toString() === me.id) {
       badRequest(res, 'Host cannot request a seat — you are always the broadcaster.');
+      return;
+    }
+
+    // Seat 0 is reserved as the host anchor seat — guests cannot request it
+    if (seatIndex === 0) {
+      badRequest(res, 'Seat 0 is reserved for the host.');
       return;
     }
 
@@ -334,6 +361,12 @@ export const leaveSeat = async (req: Request, res: Response): Promise<void> => {
 
     if (!isHost && !isOccupant) {
       forbidden(res, 'Only the host or the seat occupant can vacate this seat.');
+      return;
+    }
+
+    // Seat 0 is the host anchor seat — it cannot be vacated
+    if (seatIndex === 0) {
+      badRequest(res, 'Seat 0 is the host anchor seat and cannot be vacated.');
       return;
     }
 
