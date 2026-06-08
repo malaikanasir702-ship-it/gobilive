@@ -7,6 +7,11 @@ import { getPlatformSettings } from '../settings/platform-settings.model';
 import { User } from '../auth/user.model';
 import { Follow } from '../auth/follow.model';
 import { ensureLiveDiscoverySeed } from './live.seed';
+import { injectIo as _injectSeatIo } from './seat.controller';
+
+// Keep a reference to io for broadcasting live_ended
+let _io: import('socket.io').Server | null = null;
+export function injectLiveControllerIo(io: import('socket.io').Server) { _io = io; }
 
 export const getActiveRooms = async (req: Request, res: Response) => {
   try {
@@ -207,6 +212,13 @@ export const endRoom = async (req: Request, res: Response) => {
       endedAt: new Date(),
     };
     await room.save();
+
+    // Notify all viewers in the room that the host ended the live
+    _io?.to(room.channelName).emit('live_ended', {
+      channelName: room.channelName,
+      hostUsername: room.hostUsername,
+      sessionSummary: room.sessionSummary,
+    });
 
     res.status(200).json({ success: true, room, sessionSummary: room.sessionSummary });
   } catch (err: any) {

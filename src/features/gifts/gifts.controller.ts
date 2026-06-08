@@ -12,6 +12,13 @@ import { addXpFromDiamondSpend } from '../auth/leveling.service';
 import LiveRoom from '../live/live.model';
 import { User } from '../auth/user.model';
 
+// Lazy import to avoid circular deps — seat.controller exports _io via getIo
+let _getIo: (() => import('socket.io').Server | null) | null = null;
+export function injectGiftIo(fn: () => import('socket.io').Server | null) {
+  _getIo = fn;
+}
+function getIo() { return _getIo?.() ?? null; }
+
 // ─── Admin guard middleware ───────────────────────────────────────────────────
 /** Allows only company_admin and super_admin roles (via regular JWT auth). */
 export const requireAdminJwt = (req: AuthRequest, res: Response, next: NextFunction): void => {
@@ -265,7 +272,8 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    const { giftId, channelName, count = 1 } = req.body;
+    // targetUserId — optional: gift a specific seat member instead of host
+    const { giftId, channelName, count = 1, targetUserId } = req.body;
     if (!giftId || !channelName) {
       res.status(400).json({ success: false, message: 'giftId and channelName are required.' });
       return;
@@ -276,7 +284,6 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
       await Gift.findOne({ id: giftId, isActive: true }).lean();
 
     if (!gift) {
-      // Legacy fallback: static config
       const staticGift = getGiftById(giftId);
       if (!staticGift) {
         res.status(400).json({ success: false, message: `Invalid gift id: ${giftId}` });
@@ -295,13 +302,53 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
     const totalCost = gift.diamondCost * safeCount;
     const totalRcoins = gift.rcoinEarned * safeCount;
 
-    await processGiftPayment(req.user.id, room.hostId.toString(), totalCost, totalRcoins, gift.name);
+    // Determine the actual recipient: targetUserId if provided & valid, else room host
+    let recipientId = room.hostId.toString();
+    let recipientUsername = room.hostUsername;
+    if (targetUserId && targetUserId !== req.user.id) {
+      // Validate that the target is actually in a seat in this room
+      const targetSeat = room.seats.find(
+        (s) => s.userId && s.userId.toString() === targetUserId
+      );
+      if (targetSeat) {
+        recipientId = targetUserId;
+        const targetUser = await User.findById(targetUserId).select('username').lean();
+        recipientUsername = targetUser?.username ?? targetSeat.username ?? 'Unknown';
+      }
+    }
+
+    await processGiftPayment(req.user.id, recipientId, totalCost, totalRcoins, gift.name);
 
     room.totalGifts += safeCount;
     room.totalDiamondsEarned += totalCost;
     await room.save();
 
     try { await addXpFromDiamondSpend(req.user.id, totalCost); } catch (_) {}
+
+    // Fetch updated balances so the live UI can show them in real-time
+    const [senderUpdated, recipientUpdated] = await Promise.all([
+      User.findById(req.user.id).select('diamonds username').lean(),
+      User.findById(recipientId).select('diamonds rcoins username').lean(),
+    ]);
+
+    // Broadcast diamond balance updates to the live room via Socket.IO
+    const io = getIo();
+    if (io) {
+      io.to(channelName).emit('diamond_balance_update', {
+        roomId: channelName,
+        sender: {
+          userId: req.user.id,
+          username: req.user.username,
+          diamonds: senderUpdated?.diamonds ?? 0,
+        },
+        recipient: {
+          userId: recipientId,
+          username: recipientUsername,
+          diamonds: recipientUpdated?.diamonds ?? 0,
+          rcoins: recipientUpdated?.rcoins ?? 0,
+        },
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -316,8 +363,11 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
         totalCost,
         totalRcoins,
       },
+      recipientId,
+      recipientUsername,
       hostId: room.hostId,
       senderUsername: req.user.username,
+      senderDiamonds: senderUpdated?.diamonds ?? 0,
     });
   } catch (error: any) {
     console.error('[sendGiftToHost]', error);

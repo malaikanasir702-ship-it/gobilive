@@ -22,6 +22,8 @@ import { Server, Socket } from 'socket.io';
 import LiveRoom from './live.model';
 import { NotificationTriggers, sendToUser } from '../notifications/notification.service';
 import { injectIo } from './seat.controller';
+import { injectGiftIo } from '../gifts/gifts.controller';
+import { injectLiveControllerIo } from './live.controller';
 
 // ─────────────────────────────────────────────
 // Existing in-memory state (untouched)
@@ -230,6 +232,10 @@ function cleanupSocketRooms(socket: Socket) {
 export function registerStreamSignaling(io: Server) {
   // Inject the io instance into the seat controller so it can emit events
   injectIo(io);
+  // Inject into gift controller for diamond balance broadcasts
+  injectGiftIo(() => io);
+  // Inject into live controller for live_ended broadcast
+  injectLiveControllerIo(io);
 
   io.on('connection', (socket) => {
     console.log(`🔌 Socket Connected: ${socket.id}`);
