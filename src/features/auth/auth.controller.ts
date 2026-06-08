@@ -29,29 +29,30 @@ export const register = async (req: AuthRequest, res: Response): Promise<void> =
       return;
     }
 
-    // Check duplicate username
-    const existingUsername = await User.findOne({ username });
-    if (existingUsername) {
-      res.status(400).json({ success: false, message: 'Username is already taken.' });
-      return;
-    }
+    // Check duplicate username / email / phone in a single query.
+    const existingUser = await User.findOne({
+      $or: [
+        { username },
+        ...(email ? [{ email }] : []),
+        ...(phone ? [{ phone }] : []),
+      ],
+    }).lean();
 
-    // Check duplicate email
-    if (email) {
-      const existingEmail = await User.findOne({ email });
-      if (existingEmail) {
+    if (existingUser) {
+      if (existingUser.username === username) {
+        res.status(400).json({ success: false, message: 'Username is already taken.' });
+        return;
+      }
+      if (email != null && existingUser.email === email) {
         res.status(400).json({ success: false, message: 'Email is already registered.' });
         return;
       }
-    }
-
-    // Check duplicate phone
-    if (phone) {
-      const existingPhone = await User.findOne({ phone });
-      if (existingPhone) {
+      if (phone != null && existingUser.phone === phone) {
         res.status(400).json({ success: false, message: 'Phone number is already registered.' });
         return;
       }
+      res.status(400).json({ success: false, message: 'Account already exists with the provided identity.' });
+      return;
     }
 
     // Hashing password
@@ -93,16 +94,16 @@ export const login = async (req: AuthRequest, res: Response): Promise<void> => {
       return;
     }
 
-    // Locate user by username, email or phone
+    // Locate user by username, email or phone as a plain object for a lighter login path.
     const user = await User.findOne({
       $or: [
         { username: identity },
         { email: identity },
         { phone: identity }
       ]
-    });
+    }).lean({ virtuals: true }) as any;
 
-    if (!user) {
+    if (!user || !user.passwordHash) {
       res.status(401).json({ success: false, message: 'Invalid credentials.' });
       return;
     }
@@ -136,8 +137,10 @@ export const login = async (req: AuthRequest, res: Response): Promise<void> => {
     }
 
     // Sign Token
-    const token = generateToken(user.id, user.username, user.tokenVersion ?? 0);
-    const safeUser = await getSafeUser(user.id);
+    const userId = user.id ?? user._id;
+    const token = generateToken(userId.toString(), user.username, user.tokenVersion ?? 0);
+    const safeUser = { ...user };
+    delete safeUser.passwordHash;
 
     res.status(200).json({
       success: true,
