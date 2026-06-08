@@ -89,7 +89,7 @@ export const NotificationTriggers = {
   }),
   withdrawalSubmitted: (amount: number): NotificationPayload => ({
     title: 'Withdrawal Submitted',
-    body: `Your withdrawal of ${amount} Rcoins is being processed.`,
+    body: `Your withdrawal of ${amount} Beans is being processed.`,
     data: { type: 'withdrawal' },
   }),
   liveGift: (sender: string, giftName: string): NotificationPayload => ({
