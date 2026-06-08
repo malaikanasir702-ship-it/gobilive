@@ -60,7 +60,7 @@ async function applyBalanceChangeNoTx(
     const exists = await User.findById(userId).select('_id');
     if (!exists) throw new WalletServiceError('User not found.', 404);
     if (diamondsDelta < 0) throw new WalletServiceError('Insufficient diamonds.');
-    if (rcoinsDelta < 0) throw new WalletServiceError('Insufficient Rcoins.');
+    if (rcoinsDelta < 0) throw new WalletServiceError('Insufficient Beans.');
     throw new WalletServiceError('Balance update failed.');
   }
 
@@ -111,7 +111,7 @@ async function applyBalanceChange(
   const newRcoins = user.rcoins + rcoinsDelta;
 
   if (newDiamonds < 0) throw new WalletServiceError('Insufficient diamonds.');
-  if (newRcoins < 0) throw new WalletServiceError('Insufficient Rcoins.');
+  if (newRcoins < 0) throw new WalletServiceError('Insufficient Beans.');
 
   user.diamonds = newDiamonds;
   user.rcoins = newRcoins;
@@ -246,7 +246,7 @@ export async function convertDiamondsToRcoins(userId: string, diamondAmount: num
         type: 'convert_diamonds_to_rcoins',
         currency: 'diamonds',
         amount: diamondAmount,
-        description: `Converted ${diamondAmount} diamonds → ${rcoinsGained} Rcoins`,
+        description: `Converted ${diamondAmount} diamonds → ${rcoinsGained} Beans`,
         metadata: { rate: DIAMOND_TO_RCOIN_RATE },
       },
       session
@@ -260,7 +260,7 @@ export async function convertDiamondsToRcoins(userId: string, diamondAmount: num
         type: 'convert_diamonds_to_rcoins',
         currency: 'diamonds',
         amount: diamondAmount,
-        description: `Converted ${diamondAmount} diamonds → ${rcoinsGained} Rcoins`,
+        description: `Converted ${diamondAmount} diamonds → ${rcoinsGained} Beans`,
         metadata: { rate: DIAMOND_TO_RCOIN_RATE },
       });
     }
@@ -277,7 +277,7 @@ export async function withdrawRcoins(
   payoutDetails: string
 ) {
   if (rcoinAmount < MIN_WITHDRAW_RCOINS) {
-    throw new WalletServiceError(`Minimum withdrawal is ${MIN_WITHDRAW_RCOINS} Rcoins.`);
+    throw new WalletServiceError(`Minimum withdrawal is ${MIN_WITHDRAW_RCOINS} Beans.`);
   }
 
   const session = await mongoose.startSession();
@@ -290,7 +290,7 @@ export async function withdrawRcoins(
         type: 'withdraw_rcoins',
         currency: 'rcoins',
         amount: rcoinAmount,
-        description: `Withdrawal request: ${rcoinAmount} Rcoins`,
+        description: `Withdrawal request: ${rcoinAmount} Beans`,
         status: 'pending',
         metadata: { payoutMethod, payoutDetails },
       },
@@ -305,7 +305,7 @@ export async function withdrawRcoins(
         type: 'withdraw_rcoins',
         currency: 'rcoins',
         amount: rcoinAmount,
-        description: `Withdrawal request: ${rcoinAmount} Rcoins`,
+        description: `Withdrawal request: ${rcoinAmount} Beans`,
         status: 'pending',
         metadata: { payoutMethod, payoutDetails },
       });

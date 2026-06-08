@@ -31,7 +31,7 @@ export const joinMatchQueue = async (req: AuthRequest, res: Response): Promise<v
     if (user.rcoins < settings.videoCallRcoinCost) {
       res.status(400).json({
         success: false,
-        message: `Need at least ${settings.videoCallRcoinCost} Rcoins for video calls.`,
+        message: `Need at least ${settings.videoCallRcoinCost} Beans for video calls.`,
       });
       return;
     }
