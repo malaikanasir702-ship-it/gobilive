@@ -71,9 +71,12 @@ export interface SeatTokenResult {
  * Generates an Agora RTC token appropriate for the user's current seat status.
  *
  * Logic:
- *  - Host              → PUBLISHER, uid = 0 (Agora convention for host)
+ *  - Host              → PUBLISHER, uid = seatIndexToAgoraUid(0) = 1000
+ *                        (matches seat[0].agoraUid stored in DB so viewers
+ *                         can render the host's video stream as a remote view)
  *  - Seated occupant   → PUBLISHER with the seat's pre-assigned agoraUid
- *  - Non-seated user   → SUBSCRIBER, uid = 0
+ *  - Non-seated user   → SUBSCRIBER, uid = userIdToAgoraUid(userId)
+ *                        (unique per-user uid avoids uid=0 collisions)
  *
  * The returned `isAudioOnly` flag tells the Flutter client to call
  * `muteLocalVideoStream(true)` immediately after joining.
@@ -89,12 +92,12 @@ export async function buildSeatToken(
   const room = await LiveRoom.findOne({ channelName, isActive: true });
 
   if (!room || !appId || !certificate) {
-    // Fallback: return an empty subscriber token so the client can
-    // still join the channel as a viewer even if something goes wrong.
+    // Fallback: return a subscriber token so the client can still join as viewer
+    const fallbackUid = userIdToAgoraUid(userId);
     return {
-      uid: 0,
+      uid: fallbackUid,
       token: appId && certificate
-        ? buildAgoraRtcToken(channelName, 0, 'subscriber', expireSeconds)
+        ? buildAgoraRtcToken(channelName, fallbackUid, 'subscriber', expireSeconds)
         : '',
       role: 'subscriber',
       isHost: false,
@@ -105,15 +108,21 @@ export async function buildSeatToken(
   }
 
   // ── Host check ──
+  // Host joins with uid=1000 (= seatIndexToAgoraUid(0)) so that viewers
+  // can subscribe to the host stream using the agoraUid stored in seat[0].
+  // Previously uid=0 was used here which caused two problems:
+  //   1. Agora VideoViewController.remote() asserts uid != 0 → crash
+  //   2. Viewers subscribing to seat[0].agoraUid (1000) got no stream
   if (room.hostId.toString() === userId) {
-    const token = buildAgoraRtcToken(channelName, 0, 'publisher', expireSeconds);
+    const hostUid = seatIndexToAgoraUid(0); // = 1000
+    const token = buildAgoraRtcToken(channelName, hostUid, 'publisher', expireSeconds);
     return {
-      uid: 0,
+      uid: hostUid,
       token,
       role: 'publisher',
       isHost: true,
-      hasSeat: true,   // host occupies "seat 0" conceptually
-      seatIndex: -1,   // host is NOT in the seats array
+      hasSeat: true,
+      seatIndex: 0,
       isAudioOnly: false,
     };
   }
@@ -143,9 +152,13 @@ export async function buildSeatToken(
   }
 
   // ── Regular audience member ──
-  const token = buildAgoraRtcToken(channelName, 0, 'subscriber', expireSeconds);
+  // Use a stable numeric UID derived from the userId string so that:
+  //   - Each viewer has a unique non-zero UID (avoids uid=0 collisions)
+  //   - The UID is deterministic across token refreshes
+  const viewerUid = userIdToAgoraUid(userId);
+  const token = buildAgoraRtcToken(channelName, viewerUid, 'subscriber', expireSeconds);
   return {
-    uid: 0,
+    uid: viewerUid,
     token,
     role: 'subscriber',
     isHost: false,
@@ -160,10 +173,27 @@ export async function buildSeatToken(
 // ─────────────────────────────────────────────
 /**
  * Maps a seat index to a stable numeric Agora UID that doesn't clash with
- * the host (uid=0) or other seats.  Range: 1000–1999.
+ * the host (uid=1000) or other seats.  Range: 1000–1999.
  * This is purely additive and can be called without a DB round-trip.
  */
 export function seatIndexToAgoraUid(seatIndex: number): number {
   // 1000 + seatIndex ensures non-zero, non-overlapping UIDs per room
   return 1000 + seatIndex;
+}
+
+/**
+ * Derives a stable, unique numeric Agora UID (range: 2000000–2999999)
+ * from a MongoDB ObjectId string so that audience members each get a
+ * distinct non-zero UID.  This avoids the uid=0 collision when multiple
+ * viewers join simultaneously.
+ *
+ * Uses the last 6 hex digits of the ObjectId (24-char hex string) mapped
+ * into the range [2_000_000, 2_999_999].
+ */
+export function userIdToAgoraUid(userId: string): number {
+  // Take the last 6 hex chars of the ObjectId (or userId string)
+  const hex = userId.replace(/[^0-9a-fA-F]/g, '').slice(-6) || '000001';
+  const raw = parseInt(hex, 16); // 0 – 16_777_215
+  // Map into 2_000_000 – 2_999_999 (avoids seat range 1000–1999)
+  return 2_000_000 + (raw % 1_000_000);
 }

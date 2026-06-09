@@ -190,6 +190,9 @@ export interface ILiveRoom extends Document {
   vips: IVipEntry[];
   sideCallers: ISideCaller[];
 
+  /** Cloudinary URL of the host's stream snapshot — shown in discovery cards. */
+  thumbnailUrl?: string;
+
   createdAt: Date;
 }
 
@@ -248,6 +251,9 @@ const LiveRoomSchema = new Schema<ILiveRoom>(
     seats: { type: [SeatSchema], default: [] },
     vips: { type: [VipEntrySchema], default: [] },
     sideCallers: { type: [SideCallerSchema], default: [] },
+
+    // Snapshot URL set by the host's Flutter app shortly after going live
+    thumbnailUrl: { type: String, default: '' },
   },
   { timestamps: true }
 );
