@@ -478,8 +478,13 @@ export const setCamPermission = async (req: Request, res: Response): Promise<voi
     }
 
     room.seats[seatIndex].isCamAllowedByHost = allowed;
-    // When camera is turned off by host, also mark audio-only
-    if (!allowed) room.seats[seatIndex].isAudioOnly = true;
+    // When camera is granted, also mark the seat as video (not audio-only).
+    // When camera is revoked, mark it back to audio-only.
+    if (allowed) {
+      room.seats[seatIndex].isAudioOnly = false;
+    } else {
+      room.seats[seatIndex].isAudioOnly = true;
+    }
     room.markModified('seats');
     await room.save();
 
@@ -490,6 +495,10 @@ export const setCamPermission = async (req: Request, res: Response): Promise<voi
       agoraUid: room.seats[seatIndex].agoraUid,
       allowed,
     });
+
+    // Also broadcast the full seat state so every client's tile
+    // re-renders from isAudioOnly=false / isCamAllowedByHost=true
+    broadcastSeatUpdate(channelName, room.seats);
 
     res.status(200).json({ success: true, seatIndex, isCamAllowedByHost: allowed });
   } catch (err: any) {

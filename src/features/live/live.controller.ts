@@ -69,6 +69,7 @@ export const getActiveRooms = async (req: Request, res: Response) => {
       isSaved: viewerId ? r.savedBy?.some((id: any) => id.toString() === viewerId) ?? false : false,
       roomType: r.roomType ?? 'live',
       seatLayoutCount: r.seatLayoutCount ?? 9,
+      thumbnailUrl: r.thumbnailUrl ?? '',
     }));
 
     res.status(200).json({ success: true, rooms: enriched });
@@ -419,6 +420,43 @@ export const reportRoom = async (req: Request, res: Response) => {
     });
 
     res.status(201).json({ success: true, message: 'Report submitted. Our team will review it.' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/**
+ * PATCH /rooms/:channelName/thumbnail
+ *
+ * Host calls this after capturing a snapshot of their stream.
+ * Saves the Cloudinary URL into the LiveRoom document so the
+ * discovery page can show a real preview instead of a plain gradient.
+ *
+ * Body: { thumbnailUrl: string }
+ */
+export const updateThumbnail = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const channelName = (req.params as any).channelName as string;
+    const { thumbnailUrl } = req.body as { thumbnailUrl?: string };
+
+    if (!thumbnailUrl || typeof thumbnailUrl !== 'string') {
+      res.status(400).json({ success: false, message: 'thumbnailUrl is required.' });
+      return;
+    }
+
+    const room = await LiveRoom.findOneAndUpdate(
+      { channelName, hostId: user.id, isActive: true },
+      { $set: { thumbnailUrl } },
+      { new: true }
+    ).lean();
+
+    if (!room) {
+      res.status(404).json({ success: false, message: 'Active room not found or not owned by you.' });
+      return;
+    }
+
+    res.status(200).json({ success: true, thumbnailUrl });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }

@@ -23,6 +23,7 @@ import {
   saveRoom,
   hideCreator,
   reportRoom,
+  updateThumbnail,
 } from './live.controller';
 
 // ── NEW: Seat management controller ──
@@ -61,6 +62,9 @@ router.post('/rooms/:channelName/like', authenticateJWT as any, likeRoom as any)
 router.post('/rooms/:channelName/save', authenticateJWT as any, saveRoom as any);
 router.post('/creators/hide', authenticateJWT as any, hideCreator as any);
 router.post('/rooms/:channelName/report', authenticateJWT as any, reportRoom as any);
+
+// Host: upload a stream snapshot URL for discovery card preview
+router.patch('/rooms/:channelName/thumbnail', authenticateJWT as any, updateThumbnail as any);
 
 // ─────────────────────────────────────────────
 // NEW: Multi-broadcast seat management
