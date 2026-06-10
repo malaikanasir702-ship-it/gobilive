@@ -358,6 +358,20 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
     // Broadcast diamond balance updates to the live room via Socket.IO
     const io = getIo();
     if (io) {
+      // Broadcast gift animation to everyone in the room
+      io.to(channelName).emit('gift_received', {
+        roomId: channelName,
+        sender: req.user.username,
+        giftName: gift.name,
+        giftId: gift.id,          // slug e.g. 'lion', 'car' — used by Flutter matcher
+        emoji: gift.emoji,
+        giftType: gift.giftType ?? 'emoji',
+        svgaUrl: gift.svgaUrl ?? null,
+        count: safeCount,
+        cost: totalCost,
+      });
+
+      // Broadcast diamond balance updates
       io.to(channelName).emit('diamond_balance_update', {
         roomId: channelName,
         sender: {
