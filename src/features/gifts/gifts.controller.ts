@@ -5,7 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import { v2 as cloudinary } from 'cloudinary';
 import { Gift } from './gift.model';
-import { GIFT_CATALOG, ANIMATED_GIFT_CATALOG, getGiftById } from './gift.config';
+import { GIFT_CATALOG, getGiftById } from './gift.config';
 import { AuthRequest } from '../../core/middlewares/auth.middleware';
 import { addXpFromDiamondSpend } from '../auth/leveling.service';
 import LiveRoom from '../live/live.model';
@@ -41,12 +41,12 @@ export const svgaUploadMiddleware = multer({
   storage: _storage,
   limits: { fileSize: 8 * 1024 * 1024 }, // 8 MB max
   fileFilter: (_req, file, cb) => {
-    // Accept Lottie .json files
+    // Accept .svga files only
     const ext = path.extname(file.originalname).toLowerCase();
-    if (ext === '.json' || file.mimetype === 'application/json' || file.mimetype === 'application/octet-stream') {
+    if (ext === '.svga' || file.mimetype === 'application/octet-stream') {
       cb(null, true);
     } else {
-      cb(new Error('Only Lottie .json files are allowed.'));
+      cb(new Error('Only .svga files are allowed.'));
     }
   },
 }).single('file');
@@ -55,25 +55,7 @@ export const svgaUploadMiddleware = multer({
 export async function seedGiftCatalogIfEmpty(): Promise<void> {
   try {
     const count = await Gift.countDocuments();
-    if (count > 0) {
-      // Ensure animated gifts exist even if DB was seeded before they were added
-      for (const g of ANIMATED_GIFT_CATALOG) {
-        await Gift.updateOne(
-          { id: g.id },
-          {
-            $setOnInsert: {
-              id: g.id, name: g.name, emoji: g.emoji,
-              diamondCost: g.diamondCost, rcoinEarned: g.rcoinEarned,
-              isVipOnly: g.isVipOnly, animation: g.animation,
-              giftType: 'animated', svgaUrl: undefined,
-              isActive: true, sortOrder: 100 + ANIMATED_GIFT_CATALOG.indexOf(g),
-            },
-          },
-          { upsert: true }
-        );
-      }
-      return;
-    }
+    if (count > 0) return;
 
     const emojiDocs = GIFT_CATALOG.map((g, i) => ({
       id: g.id, name: g.name, emoji: g.emoji,
@@ -83,16 +65,8 @@ export async function seedGiftCatalogIfEmpty(): Promise<void> {
       isActive: true, sortOrder: i,
     }));
 
-    const animatedDocs = ANIMATED_GIFT_CATALOG.map((g, i) => ({
-      id: g.id, name: g.name, emoji: g.emoji,
-      diamondCost: g.diamondCost, rcoinEarned: g.rcoinEarned,
-      isVipOnly: g.isVipOnly, animation: g.animation,
-      giftType: 'animated' as const, svgaUrl: undefined,
-      isActive: true, sortOrder: 100 + i,
-    }));
-
-    await Gift.insertMany([...emojiDocs, ...animatedDocs]);
-    console.log('[Gifts] Seeded', emojiDocs.length, 'emoji +', animatedDocs.length, 'animated gifts.');
+    await Gift.insertMany(emojiDocs);
+    console.log('[Gifts] Seeded', emojiDocs.length, 'emoji gifts.');
   } catch (err) {
     console.warn('[Gifts] Seed skipped:', (err as Error).message);
   }
@@ -131,12 +105,9 @@ export const createEmojiGift = async (req: AuthRequest, res: Response): Promise<
       res.status(400).json({ success: false, message: 'id, name, and diamondCost are required.' });
       return;
     }
-    // Accept 'animated' giftType as well (built-in Flutter animations)
-  const resolvedGiftType = ['emoji', 'svga', 'animated'].includes(req.body.giftType)
-    ? req.body.giftType
-    : 'emoji';
+    const resolvedGiftType = req.body.giftType === 'svga' ? 'svga' : 'emoji';
 
-  const gift = await Gift.create({
+    const gift = await Gift.create({
       id,
       name,
       emoji: emoji ?? '🎁',
@@ -172,10 +143,10 @@ export const uploadSvgaGift = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    // Upload SVGA to Cloudinary as a raw file (not image/video)
+    // Upload SVGA to Cloudinary as a raw file
     const result = await cloudinary.uploader.upload(file.path, {
       folder: 'gobilive_gifts',
-      resource_type: 'raw',         // SVGA is not a standard media type
+      resource_type: 'raw',         // .svga is not a standard media type
       public_id: `svga_${id}_${Date.now()}`,
       overwrite: false,
     });

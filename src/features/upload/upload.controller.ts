@@ -9,16 +9,19 @@ import { AuthRequest } from '../../core/middlewares/auth.middleware';
  * Uploads a file (video or image) to Cloudinary under the "gobilive_shorts" folder.
  *
  * For VIDEOS:
- *   - Triggers an eager transformation using the 'sp_auto' Cloudinary streaming profile.
- *   - This pre-generates HLS segments (.m3u8 + .ts chunks) immediately so the Flutter
- *     app can switch from raw .mp4 delivery to adaptive bitrate (HLS) playback instantly.
- *   - eager_async: true means Cloudinary generates HLS in background — no extra wait time.
+ *   - quality: 'auto:best' — preserves maximum visual quality, no noticeable compression loss.
+ *   - video_codec: 'auto' — Cloudinary picks the optimal codec (h264/h265) without downgrading resolution.
+ *   - Triggers eager HLS generation using the 'hd' streaming profile (higher quality than sp_auto).
+ *   - eager_async: true means HLS generation happens in the background — no extra wait time on upload.
+ *
+ * For IMAGES:
+ *   - quality: 'auto:best' — preserves original image quality.
  *
  * Returns:
  *   { success, url, public_id, format, resource_type, mimetype, size }
  *
  * The Flutter app MUST use the 'url' field and convert it to HLS using getHlsUrl():
- *   url.replace('.mp4', '.m3u8').replace('/upload/', '/upload/sp_auto/')
+ *   url.replace('.mp4', '.m3u8').replace('/upload/', '/upload/hd/')
  */
 export const uploadFile = async (req: AuthRequest, res: Response): Promise<void> => {
   const file = (req as AuthRequest & { file?: Express.Multer.File }).file;
@@ -43,12 +46,24 @@ export const uploadFile = async (req: AuthRequest, res: Response): Promise<void>
       folder: 'gobilive_shorts',
       resource_type: isVideo ? 'video' : 'image',
 
-      // CRITICAL: Pre-generate HLS (.m3u8 + .ts segments) using sp_auto adaptive profile.
-      // This is what makes TikTok-like instant playback possible.
-      // eager_async=true means it happens in the background — no delay on upload response.
+      // VIDEO: Upload original quality without any quality reduction.
+      // - quality: 'auto:best' — Cloudinary picks the best quality encoding (no visible loss)
+      // - video_codec: 'auto' — lets Cloudinary pick the best codec (h264/h265) without downgrading
+      // - Pre-generate HLS (.m3u8 + .ts segments) using sp_hd profile for HD adaptive streaming.
+      // - eager_async=true means HLS generation happens in background — no upload delay.
       ...(isVideo && {
-        eager: [{ streaming_profile: 'sp_auto', format: 'm3u8' }],
+        quality: 'auto:best',
+        video_codec: 'auto',
+        eager: [
+          // HD streaming profile — preserves quality better than sp_auto
+          { streaming_profile: 'hd', format: 'm3u8' },
+        ],
         eager_async: true,
+      }),
+
+      // IMAGE: Use lossless-best quality to avoid any compression artifacts
+      ...(!isVideo && {
+        quality: 'auto:best',
       }),
     });
 
