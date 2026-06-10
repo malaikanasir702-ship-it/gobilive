@@ -2,8 +2,8 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 /**
  * Gift Item stored in MongoDB.
- * Emoji gifts work without a svgaUrl (legacy / lightweight).
- * Animated SVGA gifts carry a Cloudinary-hosted URL in svgaUrl.
+ * Emoji gifts work without a svgaUrl (lightweight).
+ * SVGA gifts carry a Cloudinary-hosted .svga URL in svgaUrl.
  */
 export interface IGift extends Document {
   id: string;          // human-readable slug, e.g. "rose"
@@ -13,7 +13,7 @@ export interface IGift extends Document {
   rcoinEarned: number;
   isVipOnly: boolean;
   animation: string;   // animation style hint ("float", "pulse", "epic" …)
-  giftType: 'emoji' | 'svga' | 'animated'; // 'animated' = built-in Flutter CustomPainter animation
+  giftType: 'emoji' | 'svga';
   svgaUrl?: string;    // Cloudinary secure_url — only for giftType === 'svga'
   isActive: boolean;
   sortOrder: number;
@@ -30,7 +30,7 @@ const GiftSchema = new Schema<IGift>(
     rcoinEarned: { type: Number, required: true, min: 0 },
     isVipOnly: { type: Boolean, default: false },
     animation: { type: String, default: 'float' },
-    giftType: { type: String, enum: ['emoji', 'svga', 'animated'], default: 'emoji' },
+    giftType: { type: String, enum: ['emoji', 'svga'], default: 'emoji' },
     svgaUrl: { type: String, default: null },
     isActive: { type: Boolean, default: true },
     sortOrder: { type: Number, default: 0 },
