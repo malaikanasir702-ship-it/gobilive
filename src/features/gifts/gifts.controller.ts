@@ -5,8 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import { v2 as cloudinary } from 'cloudinary';
 import { Gift } from './gift.model';
-import { GIFT_CATALOG } from './gift.config';   // kept for getGiftById helper
-import { getGiftById } from './gift.config';
+import { GIFT_CATALOG, ANIMATED_GIFT_CATALOG, getGiftById } from './gift.config';
 import { AuthRequest } from '../../core/middlewares/auth.middleware';
 import { addXpFromDiamondSpend } from '../auth/leveling.service';
 import LiveRoom from '../live/live.model';
@@ -56,24 +55,44 @@ export const svgaUploadMiddleware = multer({
 export async function seedGiftCatalogIfEmpty(): Promise<void> {
   try {
     const count = await Gift.countDocuments();
-    if (count > 0) return;
+    if (count > 0) {
+      // Ensure animated gifts exist even if DB was seeded before they were added
+      for (const g of ANIMATED_GIFT_CATALOG) {
+        await Gift.updateOne(
+          { id: g.id },
+          {
+            $setOnInsert: {
+              id: g.id, name: g.name, emoji: g.emoji,
+              diamondCost: g.diamondCost, rcoinEarned: g.rcoinEarned,
+              isVipOnly: g.isVipOnly, animation: g.animation,
+              giftType: 'animated', svgaUrl: undefined,
+              isActive: true, sortOrder: 100 + ANIMATED_GIFT_CATALOG.indexOf(g),
+            },
+          },
+          { upsert: true }
+        );
+      }
+      return;
+    }
 
-    const docs = GIFT_CATALOG.map((g, i) => ({
-      id: g.id,
-      name: g.name,
-      emoji: g.emoji,
-      diamondCost: g.diamondCost,
-      rcoinEarned: g.rcoinEarned,
-      isVipOnly: g.isVipOnly,
-      animation: g.animation,
-      giftType: 'emoji' as const,
-      svgaUrl: undefined,
-      isActive: true,
-      sortOrder: i,
+    const emojiDocs = GIFT_CATALOG.map((g, i) => ({
+      id: g.id, name: g.name, emoji: g.emoji,
+      diamondCost: g.diamondCost, rcoinEarned: g.rcoinEarned,
+      isVipOnly: g.isVipOnly, animation: g.animation,
+      giftType: 'emoji' as const, svgaUrl: undefined,
+      isActive: true, sortOrder: i,
     }));
 
-    await Gift.insertMany(docs);
-    console.log('[Gifts] Seeded', docs.length, 'emoji gifts into MongoDB.');
+    const animatedDocs = ANIMATED_GIFT_CATALOG.map((g, i) => ({
+      id: g.id, name: g.name, emoji: g.emoji,
+      diamondCost: g.diamondCost, rcoinEarned: g.rcoinEarned,
+      isVipOnly: g.isVipOnly, animation: g.animation,
+      giftType: 'animated' as const, svgaUrl: undefined,
+      isActive: true, sortOrder: 100 + i,
+    }));
+
+    await Gift.insertMany([...emojiDocs, ...animatedDocs]);
+    console.log('[Gifts] Seeded', emojiDocs.length, 'emoji +', animatedDocs.length, 'animated gifts.');
   } catch (err) {
     console.warn('[Gifts] Seed skipped:', (err as Error).message);
   }
@@ -112,7 +131,12 @@ export const createEmojiGift = async (req: AuthRequest, res: Response): Promise<
       res.status(400).json({ success: false, message: 'id, name, and diamondCost are required.' });
       return;
     }
-    const gift = await Gift.create({
+    // Accept 'animated' giftType as well (built-in Flutter animations)
+  const resolvedGiftType = ['emoji', 'svga', 'animated'].includes(req.body.giftType)
+    ? req.body.giftType
+    : 'emoji';
+
+  const gift = await Gift.create({
       id,
       name,
       emoji: emoji ?? '🎁',
@@ -120,7 +144,7 @@ export const createEmojiGift = async (req: AuthRequest, res: Response): Promise<
       rcoinEarned: Number(rcoinEarned ?? 0),
       isVipOnly: Boolean(isVipOnly),
       animation: animation ?? 'float',
-      giftType: 'emoji',
+      giftType: resolvedGiftType,
       svgaUrl: undefined,
       isActive: true,
       sortOrder: Number(sortOrder ?? 99),

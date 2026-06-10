@@ -13,7 +13,7 @@ export interface IGift extends Document {
   rcoinEarned: number;
   isVipOnly: boolean;
   animation: string;   // animation style hint ("float", "pulse", "epic" …)
-  giftType: 'emoji' | 'svga'; // discriminates the two categories
+  giftType: 'emoji' | 'svga' | 'animated'; // 'animated' = built-in Flutter CustomPainter animation
   svgaUrl?: string;    // Cloudinary secure_url — only for giftType === 'svga'
   isActive: boolean;
   sortOrder: number;
@@ -30,7 +30,7 @@ const GiftSchema = new Schema<IGift>(
     rcoinEarned: { type: Number, required: true, min: 0 },
     isVipOnly: { type: Boolean, default: false },
     animation: { type: String, default: 'float' },
-    giftType: { type: String, enum: ['emoji', 'svga'], default: 'emoji' },
+    giftType: { type: String, enum: ['emoji', 'svga', 'animated'], default: 'emoji' },
     svgaUrl: { type: String, default: null },
     isActive: { type: Boolean, default: true },
     sortOrder: { type: Number, default: 0 },
