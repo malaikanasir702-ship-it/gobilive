@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import fs from 'fs';
+import { v2 as cloudinary } from 'cloudinary';
 import { RegistrationRequest } from '../registration/registration-request.model';
 import { User } from '../auth/user.model';
 import { Agency } from '../agency/agency.model';
@@ -145,9 +147,28 @@ export async function submitPublicRegistration(req: Request, res: Response) {
     }
 
     const files = (req as any).files as Express.Multer.File[] | undefined;
-    const documentUrls = files
-      ? files.map(f => `${req.protocol}://${req.get('host')}/uploads/${f.filename}`)
-      : [];
+
+    // Upload documents to Cloudinary (persistent) instead of local disk
+    const documentUrls: string[] = [];
+    if (files && files.length > 0) {
+      for (const file of files) {
+        try {
+          const result = await cloudinary.uploader.upload(file.path, {
+            folder: 'gobilive_registrations',
+            resource_type: 'auto',
+            quality: 'auto:best',
+          });
+          documentUrls.push(result.secure_url);
+        } catch (uploadErr: any) {
+          console.error('[Registration] Cloudinary upload error:', uploadErr.message);
+        } finally {
+          // Clean up local temp file
+          if (fs.existsSync(file.path)) {
+            try { fs.unlinkSync(file.path); } catch (_) {}
+          }
+        }
+      }
+    }
 
     const { fullName, email, phone, idCardNumber, region, country,
             bankName, bankAccountNumber, cardNumber, agencyCode, parentId } = req.body;

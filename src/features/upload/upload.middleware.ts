@@ -19,9 +19,10 @@ export const uploadMedia = multer({
   storage,
   limits: { fileSize: 100 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const allowed = /jpeg|jpg|png|gif|webp|mp4|mov|webm|quicktime/;
+    const allowed = /jpeg|jpg|png|gif|webp|mp4|mov|webm|quicktime|pdf/;
     const ok = allowed.test(path.extname(file.originalname).toLowerCase()) ||
-      allowed.test(file.mimetype);
+      allowed.test(file.mimetype) ||
+      file.mimetype === 'application/pdf';
     cb(null, ok);
   },
 });
