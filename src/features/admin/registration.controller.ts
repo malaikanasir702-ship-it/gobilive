@@ -6,6 +6,7 @@ import { RegistrationRequest } from '../registration/registration-request.model'
 import { User } from '../auth/user.model';
 import { Agency } from '../agency/agency.model';
 import { logActivity } from '../activity-log/activity-log.service';
+import { sendApprovalEmail, sendRejectionEmail } from '../../core/services/email.service';
 
 export async function listRegistrationRequests(req: Request, res: Response) {
   try {
@@ -59,7 +60,8 @@ export async function approveRegistration(req: Request, res: Response) {
     const username = `${baseUsername}_${Math.random().toString(36).slice(2, 5)}`;
 
     // Hash a temporary password
-    const passwordHash = await bcrypt.hash('Gobilive@123', 10);
+    const tempPassword = 'Gobilive@123';
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
 
     // Map registration role to user role
     const userRole = request.role === 'host' ? 'user' : request.role as any;
@@ -105,6 +107,18 @@ export async function approveRegistration(req: Request, res: Response) {
       metadata: { userId: newUser._id.toString() },
     });
 
+    // Send approval email with credentials (fire-and-forget — don't block response)
+    const emailTo = request.formData.email;
+    if (emailTo) {
+      sendApprovalEmail({
+        to: emailTo,
+        fullName: request.formData.fullName || username,
+        username,
+        password: tempPassword,
+        role: request.role,
+      }).catch(err => console.error('[Email] Failed to send approval email:', err.message));
+    }
+
     res.json({ success: true, data: { request, userId: newUser._id, generatedId: genId } });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
@@ -130,6 +144,17 @@ export async function rejectRegistration(req: Request, res: Response) {
       actionType: 'reject_registration', targetEntityType: 'RegistrationRequest', targetEntityId: id,
       description: `Rejected ${request.role} registration for ${request.formData.fullName}. Reason: ${reason || 'N/A'}`,
     });
+
+    // Send rejection email (fire-and-forget)
+    const emailTo = request.formData.email;
+    if (emailTo) {
+      sendRejectionEmail({
+        to: emailTo,
+        fullName: request.formData.fullName || 'Applicant',
+        role: request.role,
+        reason: reason || undefined,
+      }).catch(err => console.error('[Email] Failed to send rejection email:', err.message));
+    }
 
     res.json({ success: true, data: request });
   } catch (err: any) {
