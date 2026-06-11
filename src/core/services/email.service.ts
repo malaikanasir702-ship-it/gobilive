@@ -7,15 +7,18 @@ import nodemailer from 'nodemailer';
 
 function createTransporter() {
   const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-  const port = Number(process.env.SMTP_PORT || 465);
+  const port = Number(process.env.SMTP_PORT || 587);
   const user = process.env.SMTP_USER || '';
   const pass = process.env.SMTP_PASS || '';
 
   return nodemailer.createTransport({
     host,
     port,
-    secure: port === 465,
+    secure: port === 465,   // true only for 465, false for 587 (STARTTLS)
     auth: { user, pass },
+    tls: {
+      rejectUnauthorized: false,  // avoids cert issues on Railway
+    },
   });
 }
 
@@ -163,13 +166,17 @@ export async function sendApprovalEmail(opts: {
   }
   const loginUrl = `${process.env.APP_URL || 'https://gobilive-production.up.railway.app'}/admin/login`;
   const transporter = createTransporter();
-  await transporter.sendMail({
+
+  // Verify connection before sending
+  await transporter.verify();
+
+  const info = await transporter.sendMail({
     from: FROM(),
     to: opts.to,
     subject: '✅ Your GoLive registration has been approved',
     html: approvalEmailHtml({ ...opts, loginUrl }),
   });
-  console.log(`[Email] Approval email sent to ${opts.to}`);
+  console.log(`[Email] Approval email sent to ${opts.to} — messageId: ${info.messageId}`);
 }
 
 export async function sendRejectionEmail(opts: {
@@ -183,11 +190,14 @@ export async function sendRejectionEmail(opts: {
     return;
   }
   const transporter = createTransporter();
-  await transporter.sendMail({
+
+  await transporter.verify();
+
+  const info = await transporter.sendMail({
     from: FROM(),
     to: opts.to,
     subject: 'Update on your GoLive registration request',
     html: rejectionEmailHtml(opts),
   });
-  console.log(`[Email] Rejection email sent to ${opts.to}`);
+  console.log(`[Email] Rejection email sent to ${opts.to} — messageId: ${info.messageId}`);
 }
