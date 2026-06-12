@@ -8,6 +8,8 @@ export interface IPost extends Document {
   videoUrl: string;
   imageUrls: string[];
   thumbnailUrl: string;
+  blurHash: string;       // BlurHash string for placeholder (generated on upload)
+  aspectRatio: number;    // width/height — e.g. 0.5625 for 9:16 portrait
   caption: string;
   location?: string;
   allowComments: boolean;
@@ -30,6 +32,8 @@ const PostSchema = new Schema<IPost>({
   videoUrl:       { type: String, default: '' },
   imageUrls:      { type: [String], default: [] },
   thumbnailUrl:   { type: String, default: '' },
+  blurHash:       { type: String, default: '' },   // e.g. "LGF5]+Yk^6#M@-5c,1J5@[or[Q6."
+  aspectRatio:    { type: Number, default: 0.5625 }, // default 9:16 portrait
   caption:        { type: String, default: '' },
   location:       { type: String, default: '' },
   allowComments:  { type: Boolean, default: true },
