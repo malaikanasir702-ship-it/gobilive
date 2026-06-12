@@ -47,16 +47,46 @@ export const getUserById = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
+    // If the viewer has blocked the target OR the target has blocked the viewer,
+    // return a 403 so the profile is hidden.
+    if (req.user) {
+      const viewerId = req.user.id;
+      const targetBlockedViewer = (user.blockedUsers as any[])?.some(
+        (id: any) => String(id) === String(viewerId)
+      );
+      const viewerBlockedTarget = await User.findById(viewerId)
+        .select('blockedUsers')
+        .lean() as any;
+      const viewerHasBlocked = (viewerBlockedTarget?.blockedUsers as any[])?.some(
+        (id: any) => String(id) === String(user._id)
+      );
+
+      if (targetBlockedViewer || viewerHasBlocked) {
+        res.status(403).json({
+          success: false,
+          message: 'This profile is not available.',
+          isBlocked: true,
+        });
+        return;
+      }
+    }
+
     let isFollowing = false;
+    let isBlockedByMe = false;
     if (req.user) {
       const follow = await Follow.findOne({
         followerId: req.user.id,
         followingId: user.id,
       });
       isFollowing = !!follow;
+
+      const me = await User.findById(req.user.id).select('blockedUsers').lean() as any;
+      isBlockedByMe = (me?.blockedUsers as any[])?.some(
+        (id: any) => String(id) === String(user._id)
+      ) ?? false;
     }
 
-    res.status(200).json({ success: true, user, isFollowing });
+    res.status(200).json({ success: true, user, isFollowing, isBlockedByMe });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -212,8 +242,64 @@ export const blockUser = async (req: AuthRequest, res: Response): Promise<void> 
     }
 
     const { userId } = req.params;
+
+    if (userId === req.user.id) {
+      res.status(400).json({ success: false, message: 'Cannot block yourself.' });
+      return;
+    }
+
     await User.findByIdAndUpdate(req.user.id, { $addToSet: { blockedUsers: userId } });
+
+    // Also remove any existing follow relationship in both directions
+    await Follow.findOneAndDelete({ followerId: req.user.id, followingId: userId });
+    await Follow.findOneAndDelete({ followerId: userId, followingId: req.user.id });
+    // Decrement counts accordingly (best-effort, ignore if follow didn't exist)
+    await User.findByIdAndUpdate(req.user.id,  { $inc: { followingCount: -1 } }).catch(() => {});
+    await User.findByIdAndUpdate(userId,        { $inc: { followersCount: -1 } }).catch(() => {});
+    await User.findByIdAndUpdate(userId,        { $inc: { followingCount: -1 } }).catch(() => {});
+    await User.findByIdAndUpdate(req.user.id,   { $inc: { followersCount: -1 } }).catch(() => {});
+
     res.status(200).json({ success: true, message: 'User blocked.' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const unblockUser = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Unauthorized.' });
+      return;
+    }
+
+    const { userId } = req.params;
+    await User.findByIdAndUpdate(req.user.id, { $pull: { blockedUsers: userId } });
+    res.status(200).json({ success: true, message: 'User unblocked.' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getBlockedUsers = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Unauthorized.' });
+      return;
+    }
+
+    const me = await User.findById(req.user.id).select('blockedUsers').lean();
+    const blockedIds = (me?.blockedUsers as any[]) ?? [];
+
+    if (blockedIds.length === 0) {
+      res.status(200).json({ success: true, users: [] });
+      return;
+    }
+
+    const users = await User.find({ _id: { $in: blockedIds } })
+      .select('username profilePic bio isVIP')
+      .lean();
+
+    res.status(200).json({ success: true, users });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

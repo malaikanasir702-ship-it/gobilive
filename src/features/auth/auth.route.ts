@@ -21,6 +21,8 @@ import {
   unfollowUser,
   updateNotificationPrefs,
   blockUser,
+  unblockUser,
+  getBlockedUsers,
 } from './social.controller';
 import { authenticateJWT } from '../../core/middlewares/auth.middleware';
 
@@ -38,6 +40,8 @@ router.get('/users/:userId/following', authenticateJWT as any, getFollowing as a
 router.post('/users/:userId/follow', authenticateJWT as any, followUser as any);
 router.delete('/users/:userId/follow', authenticateJWT as any, unfollowUser as any);
 router.post('/users/:userId/block', authenticateJWT as any, blockUser as any);
+router.delete('/users/:userId/block', authenticateJWT as any, unblockUser as any);
+router.get('/blocked-users', authenticateJWT as any, getBlockedUsers as any);
 router.patch('/notification-prefs', authenticateJWT as any, updateNotificationPrefs as any);
 router.post('/logout-all-sessions', authenticateJWT as any, logoutAllSessions as any);
 router.post('/change-password', authenticateJWT as any, changePassword as any);
