@@ -23,6 +23,11 @@ import {
   blockUser,
   unblockUser,
   getBlockedUsers,
+  acceptFollowRequest,
+  rejectFollowRequest,
+  cancelFollowRequest,
+  getPendingFollowRequests,
+  togglePrivateAccount,
 } from './social.controller';
 import { authenticateJWT } from '../../core/middlewares/auth.middleware';
 
@@ -39,9 +44,14 @@ router.get('/users/:userId/followers', authenticateJWT as any, getFollowers as a
 router.get('/users/:userId/following', authenticateJWT as any, getFollowing as any);
 router.post('/users/:userId/follow', authenticateJWT as any, followUser as any);
 router.delete('/users/:userId/follow', authenticateJWT as any, unfollowUser as any);
+router.delete('/users/:userId/follow-request', authenticateJWT as any, cancelFollowRequest as any);
 router.post('/users/:userId/block', authenticateJWT as any, blockUser as any);
 router.delete('/users/:userId/block', authenticateJWT as any, unblockUser as any);
 router.get('/blocked-users', authenticateJWT as any, getBlockedUsers as any);
+router.get('/follow-requests', authenticateJWT as any, getPendingFollowRequests as any);
+router.post('/follow-requests/:requestId/accept', authenticateJWT as any, acceptFollowRequest as any);
+router.post('/follow-requests/:requestId/reject', authenticateJWT as any, rejectFollowRequest as any);
+router.post('/privacy/toggle', authenticateJWT as any, togglePrivateAccount as any);
 router.patch('/notification-prefs', authenticateJWT as any, updateNotificationPrefs as any);
 router.post('/logout-all-sessions', authenticateJWT as any, logoutAllSessions as any);
 router.post('/change-password', authenticateJWT as any, changePassword as any);
