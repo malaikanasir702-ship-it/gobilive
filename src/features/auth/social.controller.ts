@@ -1,7 +1,9 @@
 import { Response } from 'express';
 import { User } from './user.model';
 import { Follow } from './follow.model';
+import { FollowRequest } from './follow-request.model';
 import { AuthRequest } from '../../core/middlewares/auth.middleware';
+import { createAndSend, NotificationTriggers } from '../notifications/notification.service';
 
 export const updateProfile = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -73,6 +75,7 @@ export const getUserById = async (req: AuthRequest, res: Response): Promise<void
 
     let isFollowing = false;
     let isBlockedByMe = false;
+    let isFollowRequestPending = false;
     if (req.user) {
       const follow = await Follow.findOne({
         followerId: req.user.id,
@@ -84,9 +87,19 @@ export const getUserById = async (req: AuthRequest, res: Response): Promise<void
       isBlockedByMe = (me?.blockedUsers as any[])?.some(
         (id: any) => String(id) === String(user._id)
       ) ?? false;
+
+      // Check if there is a pending follow request from viewer to target
+      if (!isFollowing && (user as any).isPrivate) {
+        const existingReq = await FollowRequest.findOne({
+          fromId: req.user.id,
+          toId: user._id,
+          status: 'pending',
+        }).select('_id');
+        isFollowRequestPending = !!existingReq;
+      }
     }
 
-    res.status(200).json({ success: true, user, isFollowing, isBlockedByMe });
+    res.status(200).json({ success: true, user, isFollowing, isBlockedByMe, isFollowRequestPending });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -163,7 +176,7 @@ export const followUser = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
-    const target = await User.findById(targetId);
+    const target = await User.findById(targetId).select('username profilePic isPrivate followersCount notificationPrefs');
     if (!target) {
       res.status(404).json({ success: false, message: 'User not found.' });
       return;
@@ -175,9 +188,56 @@ export const followUser = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
+    const actor = await User.findById(req.user.id).select('username profilePic').lean() as any;
+
+    // ── Private account: send follow request instead of following directly ──
+    if (target.isPrivate) {
+      // Upsert: if a rejected request exists, re-open it as pending
+      const existingReq = await FollowRequest.findOne({ fromId: req.user.id, toId: targetId });
+      if (existingReq) {
+        if (existingReq.status === 'pending') {
+          res.status(400).json({ success: false, message: 'Follow request already sent.', requestSent: true });
+          return;
+        }
+        existingReq.status = 'pending';
+        await existingReq.save();
+      } else {
+        await FollowRequest.create({ fromId: req.user.id, toId: targetId, status: 'pending' });
+      }
+
+      // Notify target about the follow request
+      if (target.notificationPrefs?.follows !== false) {
+        createAndSend({
+          recipientId: targetId,
+          actorId: req.user.id,
+          actorUsername: actor?.username ?? req.user.username,
+          actorProfilePic: actor?.profilePic ?? '',
+          type: 'follow_request',
+          payload: NotificationTriggers.followRequest(actor?.username ?? req.user.username),
+          referenceId: req.user.id, // actorId so we can show their profile
+        }).catch(() => {});
+      }
+
+      res.status(200).json({ success: true, message: 'Follow request sent.', requestSent: true });
+      return;
+    }
+
+    // ── Public account: follow directly ──
     await Follow.create({ followerId: req.user.id, followingId: targetId });
     await User.findByIdAndUpdate(req.user.id, { $inc: { followingCount: 1 } });
     await User.findByIdAndUpdate(targetId, { $inc: { followersCount: 1 } });
+
+    if (target.notificationPrefs?.follows !== false) {
+      createAndSend({
+        recipientId: targetId,
+        actorId: req.user.id,
+        actorUsername: actor?.username ?? req.user.username,
+        actorProfilePic: actor?.profilePic ?? '',
+        type: 'follow',
+        payload: NotificationTriggers.newFollower(actor?.username ?? req.user.username),
+        referenceId: req.user.id,
+      }).catch(() => {});
+    }
 
     res.status(200).json({ success: true, message: 'Followed successfully.' });
   } catch (error: any) {
@@ -300,6 +360,153 @@ export const getBlockedUsers = async (req: AuthRequest, res: Response): Promise<
       .lean();
 
     res.status(200).json({ success: true, users });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ─── Follow Request: Accept ───────────────────────────────────────────────
+export const acceptFollowRequest = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized.' }); return; }
+
+    const { requestId } = req.params;
+    const request = await FollowRequest.findById(requestId);
+
+    if (!request) { res.status(404).json({ success: false, message: 'Request not found.' }); return; }
+    if (String(request.toId) !== req.user.id) {
+      res.status(403).json({ success: false, message: 'Not your request.' }); return;
+    }
+    if (request.status !== 'pending') {
+      res.status(400).json({ success: false, message: 'Request is no longer pending.' }); return;
+    }
+
+    // Create the actual follow
+    const fromId = String(request.fromId);
+    const toId   = String(request.toId);
+
+    const alreadyFollowing = await Follow.findOne({ followerId: fromId, followingId: toId });
+    if (!alreadyFollowing) {
+      await Follow.create({ followerId: fromId, followingId: toId });
+      await User.findByIdAndUpdate(fromId, { $inc: { followingCount: 1 } });
+      await User.findByIdAndUpdate(toId,   { $inc: { followersCount: 1 } });
+    }
+
+    request.status = 'accepted';
+    await request.save();
+
+    // Notify the requester that their request was accepted
+    const acceptor = await User.findById(toId).select('username profilePic').lean() as any;
+    createAndSend({
+      recipientId: fromId,
+      actorId: toId,
+      actorUsername: acceptor?.username ?? '',
+      actorProfilePic: acceptor?.profilePic ?? '',
+      type: 'follow_request_accepted',
+      payload: NotificationTriggers.followRequestAccepted(acceptor?.username ?? ''),
+      referenceId: toId,
+    }).catch(() => {});
+
+    res.status(200).json({ success: true, message: 'Follow request accepted.' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ─── Follow Request: Reject ───────────────────────────────────────────────
+export const rejectFollowRequest = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized.' }); return; }
+
+    const { requestId } = req.params;
+    const request = await FollowRequest.findById(requestId);
+
+    if (!request) { res.status(404).json({ success: false, message: 'Request not found.' }); return; }
+    if (String(request.toId) !== req.user.id) {
+      res.status(403).json({ success: false, message: 'Not your request.' }); return;
+    }
+
+    request.status = 'rejected';
+    await request.save();
+
+    res.status(200).json({ success: true, message: 'Follow request declined.' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ─── Follow Request: Cancel (by the sender) ───────────────────────────────
+export const cancelFollowRequest = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized.' }); return; }
+
+    const targetId = req.params.userId;
+    await FollowRequest.findOneAndDelete({ fromId: req.user.id, toId: targetId, status: 'pending' });
+
+    res.status(200).json({ success: true, message: 'Follow request cancelled.' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ─── Get Pending Follow Requests (for the private account owner) ──────────
+export const getPendingFollowRequests = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized.' }); return; }
+
+    const requests = await FollowRequest.find({ toId: req.user.id, status: 'pending' })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .populate('fromId', 'username profilePic bio isVIP')
+      .lean();
+
+    const mapped = requests.map((r: any) => ({
+      requestId: String(r._id),
+      user: r.fromId,
+      createdAt: r.createdAt,
+    }));
+
+    res.status(200).json({ success: true, requests: mapped });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ─── Toggle Private Account ────────────────────────────────────────────────
+export const togglePrivateAccount = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized.' }); return; }
+
+    const user = await User.findById(req.user.id);
+    if (!user) { res.status(404).json({ success: false, message: 'User not found.' }); return; }
+
+    (user as any).isPrivate = !(user as any).isPrivate;
+    await user.save();
+
+    // If switching to public: auto-accept all pending requests
+    if (!(user as any).isPrivate) {
+      const pendingRequests = await FollowRequest.find({ toId: req.user.id, status: 'pending' });
+      for (const req_ of pendingRequests) {
+        const fromId = String(req_.fromId);
+        const toId   = String(req_.toId);
+        const alreadyFollowing = await Follow.findOne({ followerId: fromId, followingId: toId });
+        if (!alreadyFollowing) {
+          await Follow.create({ followerId: fromId, followingId: toId });
+          await User.findByIdAndUpdate(fromId, { $inc: { followingCount: 1 } });
+          await User.findByIdAndUpdate(toId,   { $inc: { followersCount: 1 } });
+        }
+        req_.status = 'accepted';
+        await req_.save();
+      }
+    }
+
+    const safeUser = await User.findById(req.user.id).select('-passwordHash');
+    res.status(200).json({
+      success: true,
+      isPrivate: (user as any).isPrivate,
+      message: (user as any).isPrivate ? 'Account set to private.' : 'Account set to public.',
+      user: safeUser,
+    });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

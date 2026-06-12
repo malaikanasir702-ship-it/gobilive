@@ -85,6 +85,8 @@ export interface IUser extends Document {
   cardNumber?: string;
   // Share & commission
   sharePercent?: number;
+  // Privacy
+  isPrivate: boolean;
 }
 
 const UserSchema = new Schema<IUser>({
@@ -171,6 +173,8 @@ const UserSchema = new Schema<IUser>({
   cardNumber: { type: String },
   // Share
   sharePercent: { type: Number },
+  // Privacy
+  isPrivate: { type: Boolean, default: false },
 });
 
 UserSchema.pre('save', function () {

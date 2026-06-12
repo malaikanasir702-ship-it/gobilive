@@ -5,6 +5,7 @@ import { Comment } from './comment.model';
 import { PostLike } from './post_like.model';
 import { PostSave } from './post_save.model';
 import { User } from '../auth/user.model';
+import { Follow } from '../auth/follow.model';
 import { AuthRequest } from '../../core/middlewares/auth.middleware';
 import { createAndSend, NotificationTriggers } from '../notifications/notification.service';
 
@@ -19,8 +20,28 @@ export const getFeed = async (req: AuthRequest, res: Response): Promise<void> =>
 
     if (req.query.userId) {
       filter.userId = new Types.ObjectId(req.query.userId as string);
-      // Exclude archived posts from public profile view
       filter.isArchived = { $ne: true };
+
+      // If the target user has a private account, only show posts to followers.
+      // Public endpoints (unauthenticated) see nothing for private accounts.
+      const targetUser = await User.findById(filter.userId).select('isPrivate').lean() as any;
+      if (targetUser?.isPrivate) {
+        if (!req.user) {
+          // Not logged in — no content
+          res.status(200).json({ success: true, posts: [], pagination: { page, limit, total: 0, pages: 0 } });
+          return;
+        }
+        const viewerId = req.user.id;
+        const targetId = filter.userId.toString();
+        // Owner can always see own posts
+        if (viewerId !== targetId) {
+          const isFollower = await Follow.findOne({ followerId: viewerId, followingId: targetId }).select('_id').lean();
+          if (!isFollower) {
+            res.status(200).json({ success: true, posts: [], pagination: { page, limit, total: 0, pages: 0 } });
+            return;
+          }
+        }
+      }
     } else if (req.query.likedBy) {
       // Dynamic liked posts: fetch popular posts with likes
       filter.likesCount = { $gt: 0 };

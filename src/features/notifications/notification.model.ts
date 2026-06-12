@@ -22,6 +22,8 @@ export type NotificationType =
   | 'post_comment'
   | 'post_save'
   | 'follow'
+  | 'follow_request'
+  | 'follow_request_accepted'
   | 'live_gift'
   | 'pk_started'
   | 'chat_message'
@@ -62,6 +64,8 @@ const NotificationSchema = new Schema<INotification>(
         'post_comment',
         'post_save',
         'follow',
+        'follow_request',
+        'follow_request_accepted',
         'live_gift',
         'pk_started',
         'chat_message',

@@ -112,6 +112,16 @@ export const NotificationTriggers = {
     body: `@${username} started following you`,
     data: { type: 'follow' },
   }),
+  followRequest: (username: string): NotificationPayload => ({
+    title: 'New Follow Request',
+    body: `@${username} wants to follow you`,
+    data: { type: 'follow_request' },
+  }),
+  followRequestAccepted: (username: string): NotificationPayload => ({
+    title: 'Follow Request Accepted',
+    body: `@${username} accepted your follow request`,
+    data: { type: 'follow_request_accepted' },
+  }),
   missedCall: (caller: string): NotificationPayload => ({
     title: 'Missed Video Call',
     body: `@${caller} tried to call you`,
