@@ -193,6 +193,7 @@ export const followUser = async (req: AuthRequest, res: Response): Promise<void>
     // ── Private account: send follow request instead of following directly ──
     if (target.isPrivate) {
       // Upsert: if a rejected request exists, re-open it as pending
+      let followReqId: string;
       const existingReq = await FollowRequest.findOne({ fromId: req.user.id, toId: targetId });
       if (existingReq) {
         if (existingReq.status === 'pending') {
@@ -201,11 +202,14 @@ export const followUser = async (req: AuthRequest, res: Response): Promise<void>
         }
         existingReq.status = 'pending';
         await existingReq.save();
+        followReqId = String(existingReq._id);
       } else {
-        await FollowRequest.create({ fromId: req.user.id, toId: targetId, status: 'pending' });
+        const newReq = await FollowRequest.create({ fromId: req.user.id, toId: targetId, status: 'pending' });
+        followReqId = String(newReq._id);
       }
 
       // Notify target about the follow request
+      // referenceId = FollowRequest._id so the app can call accept/reject with it
       if (target.notificationPrefs?.follows !== false) {
         createAndSend({
           recipientId: targetId,
@@ -214,7 +218,7 @@ export const followUser = async (req: AuthRequest, res: Response): Promise<void>
           actorProfilePic: actor?.profilePic ?? '',
           type: 'follow_request',
           payload: NotificationTriggers.followRequest(actor?.username ?? req.user.username),
-          referenceId: req.user.id, // actorId so we can show their profile
+          referenceId: followReqId, // ← FollowRequest _id (not actorId)
         }).catch(() => {});
       }
 
