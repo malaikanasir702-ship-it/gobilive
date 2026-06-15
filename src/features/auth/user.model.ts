@@ -87,6 +87,7 @@ export interface IUser extends Document {
   sharePercent?: number;
   // Privacy
   isPrivate: boolean;
+  storyPrivacy: 'everyone' | 'followers' | 'following';
 }
 
 const UserSchema = new Schema<IUser>({
@@ -175,6 +176,7 @@ const UserSchema = new Schema<IUser>({
   sharePercent: { type: Number },
   // Privacy
   isPrivate: { type: Boolean, default: false },
+  storyPrivacy: { type: String, enum: ['everyone', 'followers', 'following'], default: 'everyone' },
 });
 
 UserSchema.pre('save', function () {
