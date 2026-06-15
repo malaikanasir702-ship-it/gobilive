@@ -63,7 +63,7 @@ export const getMyStories = async (req: AuthRequest, res: Response): Promise<voi
 // ─────────────────────────────────────────────────────────────────────────────
 export const getUserStories = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { userId } = req.params;
+    const userId = req.params.userId as string;
     if (!userId) {
       res.status(400).json({ success: false, message: 'userId is required.' });
       return;
@@ -207,7 +207,7 @@ export const getStoriesFeed = async (req: AuthRequest, res: Response): Promise<v
 // ─────────────────────────────────────────────────────────────────────────────
 export const viewStory = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const viewerId = new Types.ObjectId(req.user!.id);
 
     // Add viewer to viewedByUsers only if not already present (addToSet = idempotent)
@@ -227,7 +227,7 @@ export const viewStory = async (req: AuthRequest, res: Response): Promise<void> 
 // ─────────────────────────────────────────────────────────────────────────────
 export const getStoryViewers = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const story = await Story.findById(id)
       .populate('viewedByUsers', 'username profilePic')
@@ -262,7 +262,7 @@ export const getStoryViewers = async (req: AuthRequest, res: Response): Promise<
 // ─────────────────────────────────────────────────────────────────────────────
 export const deleteStory = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const story = await Story.findById(id).lean();
     if (!story) {
