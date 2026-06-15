@@ -4,6 +4,7 @@ import { Follow } from './follow.model';
 import { FollowRequest } from './follow-request.model';
 import { AuthRequest } from '../../core/middlewares/auth.middleware';
 import { createAndSend, NotificationTriggers } from '../notifications/notification.service';
+import Notification from '../notifications/notification.model';
 
 export const updateProfile = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -399,6 +400,23 @@ export const acceptFollowRequest = async (req: AuthRequest, res: Response): Prom
     request.status = 'accepted';
     await request.save();
 
+    // Update the original follow_request notification → mark it acted upon
+    // so when the notification page refreshes it shows "accepted" not the buttons.
+    await Notification.findOneAndUpdate(
+      {
+        recipientId: toId,
+        type: 'follow_request',
+        referenceId: String(request._id),
+      },
+      {
+        $set: {
+          type: 'follow_request',
+          referenceId: `__accepted__${String(request._id)}`,
+          isRead: true,
+        },
+      }
+    );
+
     // Notify the requester that their request was accepted
     const acceptor = await User.findById(toId).select('username profilePic').lean() as any;
     createAndSend({
@@ -432,6 +450,21 @@ export const rejectFollowRequest = async (req: AuthRequest, res: Response): Prom
 
     request.status = 'rejected';
     await request.save();
+
+    // Update the original follow_request notification → mark it declined
+    await Notification.findOneAndUpdate(
+      {
+        recipientId: String(request.toId),
+        type: 'follow_request',
+        referenceId: String(request._id),
+      },
+      {
+        $set: {
+          referenceId: `__declined__${String(request._id)}`,
+          isRead: true,
+        },
+      }
+    );
 
     res.status(200).json({ success: true, message: 'Follow request declined.' });
   } catch (error: any) {
