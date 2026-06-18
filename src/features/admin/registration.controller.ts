@@ -85,21 +85,26 @@ export async function approveRegistration(req: Request, res: Response) {
       faceVerificationUrl: request.documentUrls?.[1]        || undefined,
     } as any);
 
-    // If registering as agency, create Agency record
-    if (request.role === 'agency' && request.formData.agencyCode) {
+    // If registering as agency, create Agency record.
+    // Note: agencyCode is NOT required in the registration form for agency role —
+    // we auto-generate one here so the condition never blocks creation.
+    if (request.role === 'agency') {
+      // Auto-generate a unique agency code if not provided (AGC + timestamp tail)
+      const agencyCode = request.formData.agencyCode
+        || `AGC${Date.now().toString().slice(-6)}`;
+
       const agencyDoc: any = {
         name: request.formData.fullName || username,
         ownerId: newUser._id.toString(),
         ownerUsername: username,
-        agencyCode: request.formData.agencyCode,
+        agencyCode,
         status: 'active',
         isActive: true,
       };
 
-      // Attach the approving admin's ID to the correct ownership field so the
-      // agency appears in that admin's Agencies list.
+      // Attach the approving admin's ID so the agency appears in their list.
       // super_admin  → superAdminId
-      // company_admin / sub_admin → companyAdminId (no ownership filter applied)
+      // company_admin / sub_admin → no ownership filter applied on their list
       if (adminRole === 'super_admin' && adminId !== 'system') {
         agencyDoc.superAdminId = new Types.ObjectId(adminId);
       }
