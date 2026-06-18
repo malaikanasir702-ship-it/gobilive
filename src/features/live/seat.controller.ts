@@ -286,7 +286,10 @@ export const acceptSeat = async (req: Request, res: Response): Promise<void> => 
     seat.profilePic = targetUser.profilePic ?? '';
     seat.isAudioOnly = isAudioOnly;
     seat.isMutedByHost = false;
-    seat.isCamAllowedByHost = false; // camera off until host explicitly grants
+    // If host accepted with video (isAudioOnly=false), grant camera immediately.
+    // Previously this was always false which caused the video tile to never render
+    // because seat_tile.dart requires BOTH !isAudioOnly AND isCamAllowedByHost=true.
+    seat.isCamAllowedByHost = !isAudioOnly;
     seat.occupiedAt = new Date();
 
     room.markModified('seats');
@@ -295,7 +298,9 @@ export const acceptSeat = async (req: Request, res: Response): Promise<void> => 
     // Issue a dedicated publisher token for the seat occupant
     const tokenResult = await buildSeatToken(channelName, userId);
 
-    // Notify the specific user that their seat request was accepted
+    // Notify the specific user that their seat request was accepted.
+    // Include isCamAllowedByHost so the Flutter client can enable the
+    // camera immediately without waiting for a separate cam_permission event.
     _io?.to(channelName).emit('seat_accepted', {
       channelName,
       seatIndex,
@@ -303,6 +308,7 @@ export const acceptSeat = async (req: Request, res: Response): Promise<void> => 
       agoraUid: seat.agoraUid,
       token: tokenResult.token,
       isAudioOnly: seat.isAudioOnly,
+      isCamAllowedByHost: seat.isCamAllowedByHost,
     });
 
     broadcastSeatUpdate(channelName, room.seats);
@@ -446,6 +452,10 @@ export const muteSeat = async (req: Request, res: Response): Promise<void> => {
       agoraUid: room.seats[seatIndex].agoraUid,
       muted,
     });
+
+    // Also broadcast the full seat state so every client's tile
+    // re-renders with the updated isMutedByHost flag immediately.
+    broadcastSeatUpdate(channelName, room.seats);
 
     res.status(200).json({ success: true, seatIndex, isMutedByHost: muted });
   } catch (err: any) {
