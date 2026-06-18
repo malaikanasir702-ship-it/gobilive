@@ -24,17 +24,29 @@ router.get('/wallet', requireRoles('company_admin') as any, getBeanWallet as any
 router.post('/generate', requireRoles('company_admin') as any, generateBeans as any);
 router.post('/assign', requireRoles('company_admin') as any, assignBeans as any);
 
+// Frontend calls /beans/dollar-rate  (flat, no "bean-" prefix)
+router.get('/dollar-rate',      requireRoles('company_admin') as any, getBeanDollarRate as any);
+router.post('/dollar-rate',     requireRoles('company_admin') as any, updateBeanDollarRate as any);
+// Keep old path for backward-compat
 router.get('/bean-dollar-rate', requireRoles('company_admin') as any, getBeanDollarRate as any);
-router.post('/bean-dollar-rate', requireRoles('company_admin') as any, updateBeanDollarRate as any);
+router.post('/bean-dollar-rate',requireRoles('company_admin') as any, updateBeanDollarRate as any);
 
-router.get('/d2b/commission', requireRoles('company_admin') as any, getD2BCommission as any);
-router.post('/d2b/commission', requireRoles('company_admin') as any, updateD2BCommission as any);
+// Frontend calls /beans/d2b-commission  (flat, no nested "/d2b/")
+router.get('/d2b-commission',   requireRoles('company_admin') as any, getD2BCommission as any);
+router.post('/d2b-commission',  requireRoles('company_admin') as any, updateD2BCommission as any);
+// Keep old nested path
+router.get('/d2b/commission',   requireRoles('company_admin') as any, getD2BCommission as any);
+router.post('/d2b/commission',  requireRoles('company_admin') as any, updateD2BCommission as any);
 
-router.get('/d2b/rate', requireRoles('company_admin') as any, getD2BRate as any);
-router.post('/d2b/rate', requireRoles('company_admin') as any, updateD2BRate as any);
+// Frontend calls /beans/d2b-rate  (flat)
+router.get('/d2b-rate',         requireRoles('company_admin') as any, getD2BRate as any);
+router.post('/d2b-rate',        requireRoles('company_admin') as any, updateD2BRate as any);
+// Keep old nested path
+router.get('/d2b/rate',         requireRoles('company_admin') as any, getD2BRate as any);
+router.post('/d2b/rate',        requireRoles('company_admin') as any, updateD2BRate as any);
 
 router.get('/dollar-conversion', requireRoles('company_admin') as any, getDollarConversionRates as any);
-router.post('/dollar-conversion', requireRoles('company_admin') as any, updateDollarConversionRate as any);
+router.post('/dollar-conversion',requireRoles('company_admin') as any, updateDollarConversionRate as any);
 
 router.get('/logs', requireRoles('company_admin') as any, getBeanLogs as any);
 
