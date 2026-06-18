@@ -259,9 +259,9 @@ export async function getMyRegistrationStatus(req: Request, res: Response) {
     }
 
     const doc = await RegistrationRequest.findOne({
-      role,
+      role: role as any,
       $or: orClauses,
-    })
+    } as any)
       .sort({ createdAt: -1 })
       .lean();
 
