@@ -344,6 +344,8 @@ export const getBeanLogs = async (req: AdminAuthRequest, res: Response): Promise
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
+        .populate('fromId', 'username role')
+        .populate('toId', 'username role')
         .lean();
     } else if (policyTabs[tab]) {
       total = await PolicyLog.countDocuments({ policyName: policyTabs[tab] });
