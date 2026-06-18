@@ -67,6 +67,17 @@ export async function approveRegistration(req: Request, res: Response) {
     // Map registration role to user role
     const userRole = request.role === 'host' ? 'user' : request.role as any;
 
+    // ── Determine parentId and agencyId based on role ──────────────────────
+    // reseller     → parentId = the top-up agent's user ID (from formData.parentId)
+    // host         → agencyId = the agency ID (from formData.agencyCode)
+    // top_up_agent → parentId = company admin / super admin who created the link
+    // agency       → ownerId handled below when creating Agency record
+    // others       → no parent linkage needed
+    const resolvedParentId   = request.formData.parentId   || undefined;
+    const resolvedAgencyId   = (request.role === 'host')
+      ? (request.formData.agencyCode || undefined)
+      : undefined;
+
     const newUser = await User.create({
       username,
       passwordHash,
@@ -79,8 +90,8 @@ export async function approveRegistration(req: Request, res: Response) {
       bankAccountNumber: request.formData.bankAccountNumber || undefined,
       idCardNumber:      request.formData.idCardNumber      || undefined,
       cardNumber:        request.formData.cardNumber        || undefined,
-      parentId:          request.formData.parentId          || undefined,
-      agencyId:          request.formData.agencyCode        || undefined,
+      parentId:          resolvedParentId,
+      agencyId:          resolvedAgencyId,
       idCardDocUrl:      request.documentUrls?.[0]          || undefined,
       faceVerificationUrl: request.documentUrls?.[1]        || undefined,
     } as any);
