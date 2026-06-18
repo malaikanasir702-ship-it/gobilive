@@ -31,11 +31,11 @@ router.post('/agents/:id/block', COMPANY_OR_SUPER, blockTopUpAgent as any);
 router.post('/agents/:id/unblock', COMPANY_OR_SUPER, unblockTopUpAgent as any);
 
 router.get('/agents/:agentId/resellers', COMPANY_OR_SUPER, listResellers as any);
-router.get('/resellers', COMPANY_OR_SUPER, listResellers as any);
+router.get('/resellers', requireRoles('company_admin', 'super_admin', 'top_up_agent') as any, listResellers as any);
 router.post('/resellers/:id/approve', COMPANY_OR_SUPER, approveReseller as any);
 router.post('/resellers/:id/reject', COMPANY_OR_SUPER, rejectReseller as any);
-router.post('/resellers/:id/block', COMPANY_OR_SUPER, blockReseller as any);
-router.post('/resellers/:id/unblock', COMPANY_OR_SUPER, unblockReseller as any);
+router.post('/resellers/:id/block', requireRoles('company_admin', 'super_admin', 'top_up_agent') as any, blockReseller as any);
+router.post('/resellers/:id/unblock', requireRoles('company_admin', 'super_admin', 'top_up_agent') as any, unblockReseller as any);
 
 router.get('/bean-requests', COMPANY_OR_AGENT, getBeanRequestsForTopUp as any);
 router.post('/bean-requests', AGENT_OR_RESELLER, submitBeanRequest as any);
