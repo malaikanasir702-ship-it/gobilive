@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
+import { Types } from 'mongoose';
 import { v2 as cloudinary } from 'cloudinary';
 import { RegistrationRequest } from '../registration/registration-request.model';
 import { User } from '../auth/user.model';
@@ -86,12 +87,24 @@ export async function approveRegistration(req: Request, res: Response) {
 
     // If registering as agency, create Agency record
     if (request.role === 'agency' && request.formData.agencyCode) {
-      await Agency.create({
+      const agencyDoc: any = {
         name: request.formData.fullName || username,
         ownerId: newUser._id.toString(),
         ownerUsername: username,
         agencyCode: request.formData.agencyCode,
-      });
+        status: 'active',
+        isActive: true,
+      };
+
+      // Attach the approving admin's ID to the correct ownership field so the
+      // agency appears in that admin's Agencies list.
+      // super_admin  → superAdminId
+      // company_admin / sub_admin → companyAdminId (no ownership filter applied)
+      if (adminRole === 'super_admin' && adminId !== 'system') {
+        agencyDoc.superAdminId = new Types.ObjectId(adminId);
+      }
+
+      await Agency.create(agencyDoc);
     }
 
     request.status = 'approved';
@@ -215,3 +228,45 @@ export async function submitPublicRegistration(req: Request, res: Response) {
 }
 
 export default {};
+
+/// GET /registrations/my-status?role=agency
+/// Called from the mobile app (authenticated app user) to check whether
+/// they have a pending/approved/rejected registration request.
+/// Matches by the authenticated user's email or phone stored in their User record.
+export async function getMyRegistrationStatus(req: Request, res: Response) {
+  try {
+    const userId = (req as any).user?.id || (req as any).user?._id;
+    const role   = (req.query.role as string) || 'agency';
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    // Fetch the app user so we can match by email / phone
+    const appUser = await User.findById(userId).select('email phone').lean();
+    if (!appUser) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Build an OR query so either email or phone can match
+    const orClauses: any[] = [];
+    if (appUser.email)  orClauses.push({ 'formData.email': appUser.email });
+    if ((appUser as any).phone) orClauses.push({ 'formData.phone': (appUser as any).phone });
+
+    if (orClauses.length === 0) {
+      // No contact info to match on — return null gracefully
+      return res.json({ success: true, data: null });
+    }
+
+    const doc = await RegistrationRequest.findOne({
+      role,
+      $or: orClauses,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({ success: true, data: doc ?? null });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+}

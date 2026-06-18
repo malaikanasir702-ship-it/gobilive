@@ -5,19 +5,23 @@ import {
   approveRegistration,
   rejectRegistration,
   submitPublicRegistration,
+  getMyRegistrationStatus,
 } from './registration.controller';
 import { authenticateAdminPanel, requireRoles } from '../../core/middlewares/rbac.middleware';
 import { uploadMedia } from '../upload/upload.middleware';
+import { authenticateJWT } from '../../core/middlewares/auth.middleware';
 
 const router = Router();
 
 // ── Public routes (no auth) ────────────────────────────────────────────────
-// Rate limiting is applied at app.ts level or can be added here
 router.post(
   '/public/:role',
   uploadMedia.array('documents', 5),
   submitPublicRegistration as any
 );
+
+// ── App user route — check own registration status (requires app JWT) ──────
+router.get('/my-status', authenticateJWT as any, getMyRegistrationStatus as any);
 
 // ── Admin-protected routes ─────────────────────────────────────────────────
 router.use(authenticateAdminPanel as any);
