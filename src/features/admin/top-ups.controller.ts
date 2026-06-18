@@ -69,9 +69,16 @@ export const listResellers = async (req: AdminAuthRequest, res: Response): Promi
     const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || '20', 10)));
     const agentId = req.params.agentId || req.query.agentId;
     const filter: any = { role: 'reseller' };
-    if (agentId) filter.parentId = String(agentId);
+
+    if (req.adminUser!.role === 'top_up_agent') {
+      // TUA always sees only their own resellers (parentId = their own user ID)
+      filter.parentId = req.adminUser!.id;
+    } else if (agentId) {
+      filter.parentId = String(agentId);
+    }
+
     const total = await User.countDocuments(filter);
-    const items = await User.find(filter).select('username email phone beanWallet parentId isBlocked').skip((page - 1) * limit).limit(limit).lean();
+    const items = await User.find(filter).select('username email phone beanWallet parentId isBlocked isSuspended createdAt').skip((page - 1) * limit).limit(limit).lean();
     res.status(200).json({ success: true, items, total, page, totalPages: Math.ceil(total / limit) });
   } catch (err: any) { res.status(500).json({ success: false, message: err.message }); }
 };
