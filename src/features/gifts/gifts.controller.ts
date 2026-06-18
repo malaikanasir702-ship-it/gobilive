@@ -200,16 +200,16 @@ export const updateGift = async (req: AuthRequest, res: Response): Promise<void>
   }
 };
 
-// ─── DELETE /api/gifts/admin/:id  (admin only — soft delete) ─────────────────
+// ─── DELETE /api/gifts/admin/:id  (admin only — hard delete from DB) ─────────
 export const deleteGift = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const gift = await Gift.findOneAndUpdate({ id }, { isActive: false }, { new: true });
+    const gift = await Gift.findOneAndDelete({ id });
     if (!gift) {
       res.status(404).json({ success: false, message: 'Gift not found.' });
       return;
     }
-    res.status(200).json({ success: true, message: 'Gift deactivated.' });
+    res.status(200).json({ success: true, message: 'Gift permanently deleted.' });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }

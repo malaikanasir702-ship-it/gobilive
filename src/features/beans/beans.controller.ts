@@ -82,7 +82,15 @@ export const assignBeans = async (req: AdminAuthRequest, res: Response): Promise
       return;
     }
 
-    const query = recipientId ? { _id: recipientId } : { email: email?.toLowerCase() };
+    // recipientId field may contain either a MongoDB ObjectId OR an email address
+    // (the frontend sends whatever the admin typed into "Recipient ID or Email")
+    const rawRecipient: string = (recipientId || email || '').trim();
+    const isEmail = rawRecipient.includes('@');
+    const query = isEmail
+      ? { email: rawRecipient.toLowerCase() }
+      : mongoose.Types.ObjectId.isValid(rawRecipient)
+        ? { _id: rawRecipient }
+        : { username: rawRecipient };
     const recipient = await User.findOne(query).select('role beanWallet username').session(session);
 
     if (!recipient) {
