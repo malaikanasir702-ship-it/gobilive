@@ -11,6 +11,8 @@ import {
   disableTwoFactor,
   linkGoogleAccount,
   unlinkGoogleAccount,
+  claimDailyReward,
+  getMedals,
 } from './auth.controller';
 import {
   updateProfile,
@@ -28,6 +30,7 @@ import {
   cancelFollowRequest,
   getPendingFollowRequests,
   togglePrivateAccount,
+  getFanClub,
 } from './social.controller';
 import { authenticateJWT } from '../../core/middlewares/auth.middleware';
 
@@ -60,5 +63,12 @@ router.post('/2fa/verify', authenticateJWT as any, verifyTwoFactor as any);
 router.post('/2fa/disable', authenticateJWT as any, disableTwoFactor as any);
 router.post('/link-google', authenticateJWT as any, linkGoogleAccount as any);
 router.post('/unlink-google', authenticateJWT as any, unlinkGoogleAccount as any);
+
+// Daily reward & medals
+router.post('/daily-reward', authenticateJWT as any, claimDailyReward as any);
+router.get('/medals', authenticateJWT as any, getMedals as any);
+
+// Fan club
+router.get('/users/:userId/fan-club', authenticateJWT as any, getFanClub as any);
 
 export default router;

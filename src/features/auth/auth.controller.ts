@@ -580,3 +580,94 @@ export const adminLogout = async (req: AuthRequest, res: Response): Promise<void
     res.status(500).json({ success: false, message: err.message || 'Error during logout.' });
   }
 };
+
+// ─── Daily Reward ──────────────────────────────────────────────────────────
+export const claimDailyReward = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Unauthorized.' });
+      return;
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found.' });
+      return;
+    }
+
+    const now = new Date();
+    const last = user.lastDailyRewardAt;
+
+    if (last) {
+      const hoursSince = (now.getTime() - last.getTime()) / (1000 * 60 * 60);
+      if (hoursSince < 24) {
+        const nextClaimAt = new Date(last.getTime() + 24 * 60 * 60 * 1000);
+        res.status(400).json({
+          success: false,
+          message: 'Already claimed today.',
+          nextClaimAt,
+        });
+        return;
+      }
+    }
+
+    // Calculate streak day (1–7, reset after 7)
+    const dayRewards = [10, 20, 30, 50, 80, 100, 200];
+    let streakDay = 1;
+    if (last) {
+      const hoursSince = (now.getTime() - last.getTime()) / (1000 * 60 * 60);
+      // Within 48h keeps the streak alive; otherwise reset
+      if (hoursSince <= 48) {
+        const prevDay = (user as any)._streakDay ?? 0;
+        streakDay = (prevDay % 7) + 1;
+      }
+    }
+
+    const diamondsEarned = dayRewards[streakDay - 1];
+    user.diamonds += diamondsEarned;
+    user.lastDailyRewardAt = now;
+    (user as any)._streakDay = streakDay;
+    await user.save();
+
+    const nextClaimAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    res.status(200).json({
+      success: true,
+      diamondsEarned,
+      newBalance: user.diamonds,
+      streakDay,
+      nextClaimAt,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ─── Medals ────────────────────────────────────────────────────────────────
+export const getMedals = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Unauthorized.' });
+      return;
+    }
+
+    const user = await User.findById(req.user.id).lean();
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found.' });
+      return;
+    }
+
+    const medals = [
+      { id: 'first_login', name: 'First Login', earned: true },
+      { id: 'rising_star', name: 'Rising Star', earned: user.level >= 5 },
+      { id: 'diamond_user', name: 'Diamond User', earned: user.diamonds >= 1000 },
+      { id: 'vip_member', name: 'VIP Member', earned: user.isVIP },
+      { id: 'level_10', name: 'Level 10', earned: user.level >= 10 },
+      { id: 'social_butterfly', name: 'Social Butterfly', earned: user.followersCount >= 100 },
+    ];
+
+    res.status(200).json({ success: true, medals });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
