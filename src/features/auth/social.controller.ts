@@ -548,3 +548,50 @@ export const togglePrivateAccount = async (req: AuthRequest, res: Response): Pro
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// ─── Fan Club ──────────────────────────────────────────────────────────────
+export const getFanClub = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.params;
+
+    const targetUser = await User.findById(userId)
+      .select('followersCount likesCount')
+      .lean();
+
+    if (!targetUser) {
+      res.status(404).json({ success: false, message: 'User not found.' });
+      return;
+    }
+
+    // Top 10 followers sorted by their own likesCount
+    const followRows = await Follow.find({ followingId: userId })
+      .populate('followerId', 'username profilePic likesCount')
+      .lean();
+
+    const topFans = followRows
+      .map((r: any) => r.followerId)
+      .filter(Boolean)
+      .sort((a: any, b: any) => (b.likesCount ?? 0) - (a.likesCount ?? 0))
+      .slice(0, 10)
+      .map((u: any) => ({
+        userId: String(u._id),
+        username: u.username,
+        profilePic: u.profilePic ?? '',
+        likesCount: u.likesCount ?? 0,
+      }));
+
+    const clubLevel = Math.max(1, Math.floor((targetUser.followersCount ?? 0) / 100) + 1);
+
+    res.status(200).json({
+      success: true,
+      fanClub: {
+        membersCount: targetUser.followersCount ?? 0,
+        totalLikes: targetUser.likesCount ?? 0,
+        clubLevel,
+        topFans,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

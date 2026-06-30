@@ -4,6 +4,7 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { v2 as cloudinary } from 'cloudinary';
 import authRouter from './features/auth/auth.route';
+import leaderboardRouter from './features/leaderboard/leaderboard.route';
 import feedRouter from './features/feed/feed.route';
 import liveRouter from './features/live/live.route';
 import walletRouter from './features/wallet/wallet.route';
@@ -97,6 +98,7 @@ app.get('/admin/*path', (_req, res) => {
 
 app.use('/api/upload', uploadRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/feed', feedRouter);
 app.use('/api/live', liveRouter);
 app.use('/api/wallet', walletRouter);
