@@ -215,6 +215,67 @@ export const deleteGift = async (req: AuthRequest, res: Response): Promise<void>
   }
 };
 
+// ─── POST /api/gifts/purchase  (buy a cosmetic gift item from store) ─────────
+export const purchaseGiftItem = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Unauthorized.' });
+      return;
+    }
+
+    const { giftId, quantity = 1 } = req.body;
+    if (!giftId) {
+      res.status(400).json({ success: false, message: 'giftId is required.' });
+      return;
+    }
+
+    // Look up gift — DB first, then static config
+    let gift: { id: string; name: string; emoji: string; diamondCost: number; rcoinEarned: number } | null | undefined =
+      await Gift.findOne({ id: giftId, isActive: true }).lean();
+
+    if (!gift) {
+      const staticGift = getGiftById(giftId);
+      if (!staticGift) {
+        res.status(400).json({ success: false, message: `Invalid gift id: ${giftId}` });
+        return;
+      }
+      gift = staticGift;
+    }
+
+    const safeQty = Math.max(1, Number(quantity));
+    const totalCost = gift.diamondCost * safeQty;
+
+    // Deduct diamonds atomically
+    const updated = await User.findOneAndUpdate(
+      { _id: req.user.id, diamonds: { $gte: totalCost } },
+      { $inc: { diamonds: -totalCost } },
+      { new: true }
+    ).select('diamonds rcoins username').lean();
+
+    if (!updated) {
+      res.status(400).json({ success: false, message: 'Insufficient diamonds.' });
+      return;
+    }
+
+    // XP for diamond spend
+    try { await addXpFromDiamondSpend(req.user.id, totalCost); } catch (_) {}
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully purchased ${safeQty}× ${gift.name}!`,
+      giftId: gift.id,
+      giftName: gift.name,
+      quantity: safeQty,
+      diamondsSpent: totalCost,
+      remainingDiamonds: updated.diamonds,
+      user: { diamonds: updated.diamonds, rcoins: updated.rcoins },
+    });
+  } catch (error: any) {
+    console.error('[purchaseGiftItem]', error);
+    res.status(500).json({ success: false, message: error.message || 'Purchase failed.' });
+  }
+};
+
 // ─── POST /api/gifts/send ────────────────────────────────────────────────────
 
 async function processGiftPayment(
