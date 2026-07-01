@@ -3,6 +3,7 @@ import { authenticateJWT } from '../../core/middlewares/auth.middleware';
 import {
   getGiftCatalog,
   sendGiftToHost,
+  purchaseGiftItem,
   createEmojiGift,
   uploadSvgaGift,
   updateGift,
@@ -16,6 +17,7 @@ const router = Router();
 // ── Public / authenticated ──────────────────────────────────────────────────
 router.get('/catalog', getGiftCatalog as any);
 router.post('/send', authenticateJWT as any, sendGiftToHost as any);
+router.post('/purchase', authenticateJWT as any, purchaseGiftItem as any);
 
 // ── Admin-only gift management ───────────────────────────────────────────────
 // Admin catalog: returns ALL gifts including inactive ones
