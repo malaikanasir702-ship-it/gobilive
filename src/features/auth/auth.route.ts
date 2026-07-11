@@ -13,6 +13,8 @@ import {
   unlinkGoogleAccount,
   claimDailyReward,
   getMedals,
+  applyAsHost,
+  getMyHostApplication,
 } from './auth.controller';
 import {
   updateProfile,
@@ -70,5 +72,9 @@ router.get('/medals', authenticateJWT as any, getMedals as any);
 
 // Fan club
 router.get('/users/:userId/fan-club', authenticateJWT as any, getFanClub as any);
+
+// Host application
+router.post('/host-application', authenticateJWT as any, applyAsHost as any);
+router.get('/host-application', authenticateJWT as any, getMyHostApplication as any);
 
 export default router;

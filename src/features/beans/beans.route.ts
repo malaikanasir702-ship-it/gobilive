@@ -12,10 +12,14 @@ import {
   getDollarConversionRates,
   updateDollarConversionRate,
   getBeanLogs,
+  getPublicAgents,
 } from './beans.controller';
 import { authenticateAdminPanel, requireRoles } from '../../core/middlewares/rbac.middleware';
 
 const router = Router();
+
+// Public — no auth needed
+router.get('/public/agents', getPublicAgents as any);
 
 // All beans routes require admin-panel authentication and company_admin role.
 router.use(authenticateAdminPanel as any);
