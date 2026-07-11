@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { User } from '../auth/user.model';
 import { BeanTransaction } from './bean-transaction.model';
@@ -377,5 +377,33 @@ export const getBeanLogs = async (req: AdminAuthRequest, res: Response): Promise
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ─── Public: Top-up Agents list (Flutter app) ────────────────────────────────
+export const getPublicAgents = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const agents = await User.find({
+      role: { $in: ['top_up_agent', 'reseller'] },
+      isBlocked: false,
+      isSuspended: false,
+      isTerminated: false,
+    }).select('username profilePic phone region country beanWallet sharePercent role').lean();
+
+    const result = agents.map(a => ({
+      id: a._id,
+      username: a.username,
+      profilePic: a.profilePic || '',
+      phone: a.phone || '',
+      region: a.region || '',
+      country: a.country || '',
+      role: (a as any).role,
+      beansAvailable: a.beanWallet || 0,
+      commissionPercent: a.sharePercent || 0,
+    }));
+
+    res.json({ success: true, agents: result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };

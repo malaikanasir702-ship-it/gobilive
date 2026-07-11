@@ -5,6 +5,7 @@ import speakeasy from 'speakeasy';
 import { User } from './user.model';
 import { AuthRequest } from '../../core/middlewares/auth.middleware';
 import { loginWithFirebaseToken, loginWithGoogleToken, verifyFirebaseIdToken } from './google-auth.service';
+import { RegistrationRequest } from '../registration/registration-request.model';
 
 // Helpers to generate tokens
 const generateToken = (userId: string, username: string, tokenVersion = 0): string => {
@@ -669,5 +670,40 @@ export const getMedals = async (req: AuthRequest, res: Response): Promise<void> 
     res.status(200).json({ success: true, medals });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ─── Host Application ─────────────────────────────────────────────────────────
+export const applyAsHost = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+    const { fullName, phone, country, region, agencyCode, howDidYouHear, bio } = req.body;
+    if (!agencyCode?.trim()) {
+      res.status(400).json({ success: false, message: 'Agency code is required' }); return;
+    }
+    const existing = await RegistrationRequest.findOne({
+      'formData.parentId': req.user.id, role: 'host', status: { $in: ['pending', 'approved'] },
+    });
+    if (existing) {
+      res.json({ success: true, status: existing.status, message: 'Application already submitted', application: existing }); return;
+    }
+    const application = await RegistrationRequest.create({
+      role: 'host', status: 'pending',
+      formData: { fullName: fullName || req.user.username, phone, country, region, agencyCode: agencyCode.trim(), parentId: req.user.id },
+    });
+    if (bio) await User.findByIdAndUpdate(req.user.id, { bio });
+    res.status(201).json({ success: true, status: 'pending', application });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+export const getMyHostApplication = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+    const application = await RegistrationRequest.findOne({ 'formData.parentId': req.user.id, role: 'host' }).sort({ createdAt: -1 }).lean();
+    res.json({ success: true, application: application || null });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
