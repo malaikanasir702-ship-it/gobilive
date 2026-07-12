@@ -120,6 +120,7 @@ app.use('/api/story', storyRouter);
 app.use('/api/sounds', soundRouter);
 app.use('/api/templates', templateRouter);
 app.use('/api/support', supportTicketRouter);
+app.use('/api/beans', beansRouter);
 app.use('/api/admin-panel/v1/beans', beansRouter);
 app.use('/api/admin-panel/v1/users', usersAdminRouter);
 app.use('/api/admin-panel/v1/agencies', agenciesAdminRouter);
