@@ -65,7 +65,47 @@ export async function approveRegistration(req: Request, res: Response) {
     const passwordHash = await bcrypt.hash(tempPassword, 10);
 
     // Map registration role to user role
-    const userRole = request.role === 'host' ? 'user' : request.role as any;
+    const userRole = request.role as any;
+
+    // ── For HOST role with an existing app user (parentId) ─────────────────
+    // The in-app host application stores the existing user's ID in formData.parentId.
+    // Instead of creating a new account, promote the existing user to 'host'.
+    if (request.role === 'host' && request.formData.parentId) {
+      const existingUser = await User.findByIdAndUpdate(
+        request.formData.parentId,
+        { role: 'host', agencyId: request.formData.agencyCode || undefined },
+        { new: true }
+      ).select('_id username');
+
+      if (existingUser) {
+        request.status = 'approved';
+        request.reviewedBy = adminId as any;
+        request.reviewedAt = new Date();
+        request.generatedId = genId;
+        await request.save();
+
+        await logActivity({
+          actorId: adminId, actorRole: adminRole,
+          actionType: 'approve_registration', targetEntityType: 'RegistrationRequest', targetEntityId: id,
+          description: `Approved host application for ${existingUser.username}. Role updated to host.`,
+          metadata: { userId: existingUser._id.toString() },
+        });
+
+        // Send approval email (fire-and-forget)
+        const emailTo = request.formData.email;
+        if (emailTo) {
+          sendApprovalEmail({
+            to: emailTo,
+            fullName: request.formData.fullName || existingUser.username,
+            username: existingUser.username,
+            password: '(your existing password)',
+            role: 'host',
+          }).catch(err => console.error('[Email] Failed to send approval email:', err.message));
+        }
+
+        return res.json({ success: true, data: { request, userId: existingUser._id, generatedId: genId } });
+      }
+    }
 
     // ── Determine parentId and agencyId based on role ──────────────────────
     // reseller     → parentId = the top-up agent's user ID (from formData.parentId)
