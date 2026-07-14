@@ -20,6 +20,7 @@
 
 import { Server, Socket } from 'socket.io';
 import LiveRoom from './live.model';
+import { User } from '../auth/user.model';
 import { NotificationTriggers, sendToUser } from '../notifications/notification.service';
 import { injectIo } from './seat.controller';
 import { injectGiftIo } from '../gifts/gifts.controller';
@@ -29,7 +30,7 @@ import { injectLiveControllerIo } from './live.controller';
 // Existing in-memory state (untouched)
 // ─────────────────────────────────────────────
 interface JoinRoomPayload { roomId: string; username: string; }
-interface CommentPayload  { roomId: string; username: string; text: string; level: number; }
+interface CommentPayload  { roomId: string; username: string; text: string; level: number; profilePic?: string; role?: string; }
 interface GiftPayload     { roomId: string; sender: string; giftName: string; count: number; cost: number; giftType?: string; svgaUrl?: string | null; emoji?: string; }
 interface PkStartPayload  { roomId: string; opponentRoomId: string; opponentHost: string; durationSeconds: number; }
 interface PkScorePayload  { roomId: string; change: number; side: 'left' | 'right'; }
@@ -93,8 +94,20 @@ function handleLeaveRoom(io: Server, socket: Socket, data: JoinRoomPayload) {
   }
 }
 
-function handleSendComment(io: Server, data: CommentPayload) {
-  io.to(data.roomId).emit('new_comment', { ...data, isSystem: false });
+async function handleSendComment(io: Server, data: CommentPayload) {
+  // Look up sender's role so badges can be shown on client
+  let role = data.role ?? 'user';
+  let profilePic = data.profilePic ?? '';
+  try {
+    const user = await User.findOne({ username: data.username })
+      .select('role profilePic')
+      .lean();
+    if (user) {
+      role = (user as any).role ?? 'user';
+      profilePic = (user as any).profilePic ?? profilePic;
+    }
+  } catch (_) { /* non-critical */ }
+  io.to(data.roomId).emit('new_comment', { ...data, isSystem: false, role, profilePic });
 }
 
 async function notifyLiveHost(
@@ -252,7 +265,7 @@ export function registerStreamSignaling(io: Server) {
     });
 
     socket.on('send_comment', (data: CommentPayload) => {
-      handleSendComment(io, data);
+      handleSendComment(io, data).catch(() => {});
     });
 
     socket.on('send_gift', (data: GiftPayload) => {
