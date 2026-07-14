@@ -173,6 +173,7 @@ export interface ILiveRoom extends Document {
   totalGifts: number;
   totalDiamondsEarned: number;
   peakViewers: number;
+  totalHearts: number;
 
   // ── Session summary (unchanged from original) ──
   sessionSummary?: {
@@ -227,6 +228,7 @@ const LiveRoomSchema = new Schema<ILiveRoom>(
     totalGifts: { type: Number, default: 0 },
     totalDiamondsEarned: { type: Number, default: 0 },
     peakViewers: { type: Number, default: 0 },
+    totalHearts: { type: Number, default: 0 },
 
     // Session summary (untouched)
     sessionSummary: {

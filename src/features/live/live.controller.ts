@@ -210,6 +210,7 @@ export const endRoom = async (req: Request, res: Response) => {
       totalViewers: room.peakViewers,
       giftsReceived: room.totalGifts,
       diamondsEarned: room.totalDiamondsEarned,
+      totalHearts: room.totalHearts ?? 0,
       endedAt: new Date(),
     };
     await room.save();
@@ -312,6 +313,10 @@ export const getMySessions = async (req: Request, res: Response) => {
       ),
       totalDiamondsEarned: sessions.reduce(
         (s, r) => s + (r.sessionSummary?.diamondsEarned ?? r.totalDiamondsEarned ?? 0),
+        0
+      ),
+      totalHearts: sessions.reduce(
+        (s, r) => s + ((r.sessionSummary as any)?.totalHearts ?? r.totalHearts ?? 0),
         0
       ),
     };

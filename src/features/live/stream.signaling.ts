@@ -283,6 +283,28 @@ export function registerStreamSignaling(io: Server) {
       });
     });
 
+    // ── Heart burst (double-tap) ─────────────────────────────────────────────
+    socket.on('send_heart', async (data: { roomId: string; username: string }) => {
+      if (!data?.roomId) return;
+      try {
+        // Atomically increment and get new total
+        const updated = await LiveRoom.findOneAndUpdate(
+          { channelName: data.roomId, isActive: true },
+          { $inc: { totalHearts: 1 } },
+          { new: true, select: 'totalHearts' }
+        );
+        const totalHearts = updated?.totalHearts ?? 1;
+        // Broadcast to everyone in the room (including sender for sync)
+        io.to(data.roomId).emit('heart_received', {
+          roomId: data.roomId,
+          username: data.username,
+          totalHearts,
+        });
+      } catch (_) {
+        // Non-critical — fire and forget
+      }
+    });
+
     // ── NEW: Seat event handlers ──────────────────────────────────────────
 
     /**
