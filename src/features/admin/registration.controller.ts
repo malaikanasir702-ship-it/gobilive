@@ -71,9 +71,16 @@ export async function approveRegistration(req: Request, res: Response) {
     // The in-app host application stores the existing user's ID in formData.parentId.
     // Instead of creating a new account, promote the existing user to 'host'.
     if (request.role === 'host' && request.formData.parentId) {
+      // Resolve agencyCode to the actual Agency ObjectId for consistent host lookup
+      let resolvedAgencyRef: any = request.formData.agencyCode;
+      if (request.formData.agencyCode) {
+        const agencyDoc = await Agency.findOne({ agencyCode: request.formData.agencyCode }).select('_id').lean();
+        if (agencyDoc) resolvedAgencyRef = agencyDoc._id;
+      }
+
       const existingUser = await User.findByIdAndUpdate(
         request.formData.parentId,
-        { role: 'host', agencyId: request.formData.agencyCode || undefined },
+        { role: 'host', agencyId: resolvedAgencyRef },
         { new: true }
       ).select('_id username');
 
@@ -114,9 +121,12 @@ export async function approveRegistration(req: Request, res: Response) {
     // agency       → ownerId handled below when creating Agency record
     // others       → no parent linkage needed
     const resolvedParentId   = request.formData.parentId   || undefined;
-    const resolvedAgencyId   = (request.role === 'host')
-      ? (request.formData.agencyCode || undefined)
-      : undefined;
+    // For host role: resolve agencyCode → Agency ObjectId for consistent lookup
+    let resolvedAgencyId: any = undefined;
+    if (request.role === 'host' && request.formData.agencyCode) {
+      const agencyDoc = await Agency.findOne({ agencyCode: request.formData.agencyCode }).select('_id').lean();
+      resolvedAgencyId = agencyDoc ? agencyDoc._id : request.formData.agencyCode;
+    }
 
     const newUser = await User.create({
       username,

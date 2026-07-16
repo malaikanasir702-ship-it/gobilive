@@ -39,7 +39,18 @@ export const getAgencyDetail = async (req: AdminAuthRequest, res: Response): Pro
     const id = String(req.params.id);
     const agency = await Agency.findById(id).lean();
     if (!agency) { res.status(404).json({ success: false, message: 'Agency not found.' }); return; }
-    const hosts = await User.find({ agencyId: id }).select('username email phone diamonds rcoins beanWallet isBlocked isSuspended profilePic createdAt').lean();
+
+    // Hosts may have agencyId set as either the MongoDB ObjectId string OR the agencyCode string
+    // (old in-app host applications stored the agencyCode text, not the ObjectId)
+    const agencyObjectId = new Types.ObjectId(id);
+    const hosts = await User.find({
+      $or: [
+        { agencyId: agencyObjectId },
+        { agencyId: id },
+        { agencyId: (agency as any).agencyCode },
+      ],
+    }).select('username email phone diamonds rcoins beanWallet isBlocked isSuspended profilePic createdAt').lean();
+
     const hostIds = hosts.map(h => h._id);
     const transactions = await WalletTransaction.find({ userId: { $in: hostIds } }).sort({ createdAt: -1 }).limit(50).populate('userId', 'username').lean();
     const activeStreams = await LiveRoom.countDocuments({ isActive: true });

@@ -196,8 +196,19 @@ async function subAdminDashboard(adminId: string, res: Response) {
 async function agencyDashboard(adminId: string, res: Response) {
   const agency = await Agency.findOne({ ownerId: adminId }).lean();
 
+  // Hosts may have agencyId stored as ObjectId OR agencyCode string — match both
+  const hostQuery = agency
+    ? {
+        $or: [
+          { agencyId: agency._id },
+          { agencyId: agency._id?.toString() },
+          { agencyId: (agency as any).agencyCode },
+        ],
+      }
+    : { agencyId: adminId };
+
   const [hosts, withdrawals, top10] = await Promise.all([
-    User.find({ agencyId: agency?._id?.toString() ?? adminId })
+    User.find(hostQuery)
       .select('username email phone diamonds rcoins beanWallet isBlocked isSuspended profilePic createdAt')
       .lean(),
     agency
