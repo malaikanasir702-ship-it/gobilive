@@ -1,29 +1,41 @@
 import nodemailer from 'nodemailer';
 
 // ── Transporter ───────────────────────────────────────────────────────────
-// Supports any SMTP provider. Configure via env vars:
-//   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
-// Gmail shortcut: set SMTP_USER + SMTP_PASS (app password) — host/port auto-set.
+// Supports Gmail (default) or any SMTP provider.
+// For Gmail: set SMTP_USER (gmail address) + SMTP_PASS (App Password from
+// Google Account → Security → App Passwords — NOT your regular password)
+// Gmail requires 2FA enabled first, then generate an App Password.
+//
+// Alternative: set SMTP_HOST to use a different provider (SendGrid, Mailgun etc.)
 
 function createTransporter() {
-  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-  const port = Number(process.env.SMTP_PORT || 587);
   const user = process.env.SMTP_USER || '';
   const pass = process.env.SMTP_PASS || '';
+  const host = process.env.SMTP_HOST || '';
+  const port = Number(process.env.SMTP_PORT || 587);
 
+  // If SMTP_HOST is explicitly set to something other than gmail, use it directly
+  if (host && !host.includes('gmail')) {
+    return nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
+      tls: { rejectUnauthorized: false },
+    });
+  }
+
+  // Gmail — use the built-in service config which handles all port/security correctly
   return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,   // true only for 465, false for 587 (STARTTLS)
+    service: 'gmail',
     auth: { user, pass },
-    tls: {
-      rejectUnauthorized: false,  // avoids cert issues on Railway
-    },
-  });
+    // Gmail App Password must be used — regular password will fail
+    // Generate at: https://myaccount.google.com/apppasswords
+  } as any);
 }
 
 const FROM = () =>
-  process.env.SMTP_FROM || `GoLive Admin <${process.env.SMTP_USER || 'noreply@gobilive.com'}>`;
+  process.env.SMTP_FROM || `GoLive <${process.env.SMTP_USER || 'noreply@gobilive.com'}>`;
 
 // ── Templates ─────────────────────────────────────────────────────────────
 
@@ -167,8 +179,15 @@ export async function sendApprovalEmail(opts: {
   const loginUrl = `${process.env.APP_URL || 'https://gobilive-production.up.railway.app'}/admin/login`;
   const transporter = createTransporter();
 
-  // Verify connection before sending
-  await transporter.verify();
+  try {
+    // Verify SMTP connection first — logs detailed error if auth fails
+    await transporter.verify();
+    console.log('[Email] SMTP connection verified');
+  } catch (verifyErr: any) {
+    console.error('[Email] SMTP verify failed:', verifyErr.message);
+    console.error('[Email] Full error:', verifyErr);
+    throw verifyErr;
+  }
 
   const info = await transporter.sendMail({
     from: FROM(),
