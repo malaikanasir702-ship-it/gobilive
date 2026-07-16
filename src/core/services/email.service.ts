@@ -1,37 +1,23 @@
 import nodemailer from 'nodemailer';
 
 // ── Transporter ───────────────────────────────────────────────────────────
-// Supports Gmail (default) or any SMTP provider.
-// For Gmail: set SMTP_USER (gmail address) + SMTP_PASS (App Password from
-// Google Account → Security → App Passwords — NOT your regular password)
-// Gmail requires 2FA enabled first, then generate an App Password.
-//
-// Alternative: set SMTP_HOST to use a different provider (SendGrid, Mailgun etc.)
+// Uses Gmail SMTP with SSL on port 465 — most reliable from Railway.
+// SMTP_USER = your gmail address
+// SMTP_PASS = Google App Password (16-char, from myaccount.google.com/apppasswords)
 
 function createTransporter() {
   const user = process.env.SMTP_USER || '';
   const pass = process.env.SMTP_PASS || '';
-  const host = process.env.SMTP_HOST || '';
-  const port = Number(process.env.SMTP_PORT || 587);
 
-  // If SMTP_HOST is explicitly set to something other than gmail, use it directly
-  if (host && !host.includes('gmail')) {
-    return nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
-      auth: { user, pass },
-      tls: { rejectUnauthorized: false },
-    });
-  }
-
-  // Gmail — use the built-in service config which handles all port/security correctly
   return nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,           // SSL — required for port 465
     auth: { user, pass },
-    // Gmail App Password must be used — regular password will fail
-    // Generate at: https://myaccount.google.com/apppasswords
-  } as any);
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
+  });
 }
 
 const FROM = () =>

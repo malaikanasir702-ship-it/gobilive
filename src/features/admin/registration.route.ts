@@ -33,4 +33,23 @@ router.get('/:id', COMPANY_OR_SUPER, getRegistrationRequest as any);
 router.post('/:id/approve', COMPANY_OR_SUPER, approveRegistration as any);
 router.post('/:id/reject', COMPANY_OR_SUPER, rejectRegistration as any);
 
+// ── Test email route ─────────────────────────────────────────────────────
+router.post('/test-email', COMPANY_OR_SUPER, async (req: any, res: any) => {
+  const { to } = req.body;
+  if (!to) return res.status(400).json({ success: false, message: 'to is required' });
+  try {
+    const { sendApprovalEmail } = await import('../../core/services/email.service');
+    await sendApprovalEmail({
+      to,
+      fullName: 'Test User',
+      username: 'testuser_xyz',
+      password: 'Gobilive@123',
+      role: 'agency',
+    });
+    res.json({ success: true, message: `Test email sent to ${to}` });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message, stack: err.stack });
+  }
+});
+
 export default router;

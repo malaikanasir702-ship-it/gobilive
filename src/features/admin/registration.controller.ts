@@ -128,23 +128,41 @@ export async function approveRegistration(req: Request, res: Response) {
       resolvedAgencyId = agencyDoc ? agencyDoc._id : request.formData.agencyCode;
     }
 
-    const newUser = await User.create({
-      username,
-      passwordHash,
-      role: userRole,
-      email:             request.formData.email     || undefined,
-      phone:             request.formData.phone     || undefined,
-      country:           request.formData.country   || undefined,
-      region:            request.formData.region    || undefined,
-      bankName:          request.formData.bankName  || undefined,
-      bankAccountNumber: request.formData.bankAccountNumber || undefined,
-      idCardNumber:      request.formData.idCardNumber      || undefined,
-      cardNumber:        request.formData.cardNumber        || undefined,
-      parentId:          resolvedParentId,
-      agencyId:          resolvedAgencyId,
-      idCardDocUrl:      request.documentUrls?.[0]          || undefined,
-      faceVerificationUrl: request.documentUrls?.[1]        || undefined,
-    } as any);
+    // ── Check if a user with this email already exists ───────────────────
+    // If so, update that user's role instead of creating a duplicate account.
+    let newUser: any;
+    const existingEmailUser = request.formData.email
+      ? await User.findOne({ email: request.formData.email.toLowerCase().trim() })
+      : null;
+
+    if (existingEmailUser) {
+      // Update the existing user's role and relevant fields instead of creating duplicate
+      await User.findByIdAndUpdate(existingEmailUser._id, {
+        role: userRole,
+        passwordHash,           // reset to temp password so they can login
+        ...(resolvedParentId ? { parentId: resolvedParentId } : {}),
+        ...(resolvedAgencyId ? { agencyId: resolvedAgencyId } : {}),
+      });
+      newUser = existingEmailUser;
+    } else {
+      newUser = await User.create({
+        username,
+        passwordHash,
+        role: userRole,
+        email:             request.formData.email     || undefined,
+        phone:             request.formData.phone     || undefined,
+        country:           request.formData.country   || undefined,
+        region:            request.formData.region    || undefined,
+        bankName:          request.formData.bankName  || undefined,
+        bankAccountNumber: request.formData.bankAccountNumber || undefined,
+        idCardNumber:      request.formData.idCardNumber      || undefined,
+        cardNumber:        request.formData.cardNumber        || undefined,
+        parentId:          resolvedParentId,
+        agencyId:          resolvedAgencyId,
+        idCardDocUrl:      request.documentUrls?.[0]          || undefined,
+        faceVerificationUrl: request.documentUrls?.[1]        || undefined,
+      } as any);
+    }
 
     // If registering as agency, create Agency record.
     // Note: agencyCode is NOT required in the registration form for agency role —
@@ -186,16 +204,21 @@ export async function approveRegistration(req: Request, res: Response) {
       metadata: { userId: newUser._id.toString() },
     });
 
-    // Send approval email with credentials (fire-and-forget — don't block response)
+    // Send approval email with credentials
     const emailTo = request.formData.email;
     if (emailTo) {
-      sendApprovalEmail({
-        to: emailTo,
-        fullName: request.formData.fullName || username,
-        username,
-        password: tempPassword,
-        role: request.role,
-      }).catch(err => console.error('[Email] Failed to send approval email:', err.message));
+      try {
+        await sendApprovalEmail({
+          to: emailTo,
+          fullName: request.formData.fullName || username,
+          username: existingEmailUser ? existingEmailUser.username : username,
+          password: tempPassword,
+          role: request.role,
+        });
+      } catch (emailErr: any) {
+        console.error('[Email] Approval email failed:', emailErr.message);
+        // Don't fail the whole approval if email fails — just log it
+      }
     }
 
     res.json({ success: true, data: { request, userId: newUser._id, generatedId: genId } });
