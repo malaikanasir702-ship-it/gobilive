@@ -1,27 +1,24 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
-// ── Transporter ───────────────────────────────────────────────────────────
-// Uses Gmail SMTP with SSL on port 465 — most reliable from Railway.
-// SMTP_USER = your gmail address
-// SMTP_PASS = Google App Password (16-char, from myaccount.google.com/apppasswords)
+// ── Resend transactional email ────────────────────────────────────────────
+// Set RESEND_API_KEY in Railway environment variables.
+// Get a free key from https://resend.com → Dashboard → API Keys
+//
+// From address:
+//   - Free plan (no domain): use "onboarding@resend.dev"
+//   - Custom domain: verify at resend.com → Domains, then use "noreply@yourdomain.com"
+// Set RESEND_FROM in Railway to override. Default: "GoLive <onboarding@resend.dev>"
 
-function createTransporter() {
-  const user = process.env.SMTP_USER || '';
-  const pass = process.env.SMTP_PASS || '';
-
-  return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,           // SSL — required for port 465
-    auth: { user, pass },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
-  });
+function getResend() {
+  const apiKey = process.env.RESEND_API_KEY || '';
+  if (!apiKey) throw new Error('RESEND_API_KEY is not set');
+  return new Resend(apiKey);
 }
 
-const FROM = () =>
-  process.env.SMTP_FROM || `GoLive <${process.env.SMTP_USER || 'noreply@gobilive.com'}>`;
+const FROM_ADDRESS = () =>
+  process.env.RESEND_FROM ||
+  process.env.SMTP_FROM ||
+  'GoLive <onboarding@resend.dev>';
 
 // ── Templates ─────────────────────────────────────────────────────────────
 
@@ -40,19 +37,19 @@ function approvalEmailHtml(opts: {
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <style>
-    body { margin:0; padding:0; background:#f8f9fa; font-family:'Outfit','Segoe UI',sans-serif; }
+    body { margin:0; padding:0; background:#f8f9fa; font-family:'Segoe UI',sans-serif; }
     .wrap { max-width:520px; margin:40px auto; background:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e5e7eb; }
     .header { background:#2563eb; padding:32px 40px; text-align:center; }
-    .header h1 { color:#ffffff; margin:0; font-size:22px; font-weight:600; letter-spacing:-0.3px; }
+    .header h1 { color:#ffffff; margin:0; font-size:22px; font-weight:600; }
     .header p { color:#bfdbfe; margin:6px 0 0; font-size:13px; }
     .body { padding:36px 40px; }
     .body p { color:#374151; font-size:14px; line-height:1.7; margin:0 0 16px; }
     .creds { background:#f8f9fa; border:1px solid #e5e7eb; border-radius:10px; padding:20px 24px; margin:20px 0; }
-    .cred-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f3f4f6; }
+    .cred-row { padding:8px 0; border-bottom:1px solid #f3f4f6; }
     .cred-row:last-child { border-bottom:none; }
-    .cred-label { font-size:12px; color:#9ca3af; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; }
+    .cred-label { font-size:12px; color:#9ca3af; font-weight:500; text-transform:uppercase; }
     .cred-value { font-size:14px; color:#111111; font-weight:600; font-family:monospace; }
-    .btn { display:block; text-align:center; background:#111111; color:#ffffff !important; text-decoration:none; padding:14px 32px; border-radius:10px; font-size:14px; font-weight:600; margin:24px 0 0; }
+    .btn { display:block; text-align:center; background:#2563eb; color:#ffffff !important; text-decoration:none; padding:14px 32px; border-radius:10px; font-size:14px; font-weight:600; margin:24px 0 0; }
     .note { font-size:12px; color:#9ca3af; margin:16px 0 0; text-align:center; }
     .footer { padding:20px 40px; text-align:center; border-top:1px solid #f3f4f6; }
     .footer p { font-size:12px; color:#d1d5db; margin:0; }
@@ -66,43 +63,33 @@ function approvalEmailHtml(opts: {
     </div>
     <div class="body">
       <p>Hi <strong>${opts.fullName}</strong>,</p>
-      <p>
-        Great news — your <strong>${roleLabel}</strong> registration on GoLive has been
-        approved. Your account is ready. Use the credentials below to sign in.
-      </p>
-
+      <p>Your <strong>${roleLabel}</strong> registration on GoLive has been approved. Use the credentials below to sign in.</p>
       <div class="creds">
         <div class="cred-row">
-          <span class="cred-label">Username</span>
-          <span class="cred-value">@${opts.username}</span>
+          <div class="cred-label">Username</div>
+          <div class="cred-value">@${opts.username}</div>
         </div>
         <div class="cred-row">
-          <span class="cred-label">Password</span>
-          <span class="cred-value">${opts.password}</span>
+          <div class="cred-label">Password</div>
+          <div class="cred-value">${opts.password}</div>
         </div>
         <div class="cred-row">
-          <span class="cred-label">Role</span>
-          <span class="cred-value">${roleLabel}</span>
+          <div class="cred-label">Role</div>
+          <div class="cred-value">${roleLabel}</div>
         </div>
       </div>
-
       <a href="${opts.loginUrl}" class="btn">Sign In to Admin Portal →</a>
       <p class="note">Please change your password after your first login.</p>
     </div>
     <div class="footer">
-      <p>© ${new Date().getFullYear()} GoLive · This is an automated message, do not reply.</p>
+      <p>© ${new Date().getFullYear()} GoLive · Automated message, do not reply.</p>
     </div>
   </div>
 </body>
-</html>
-  `.trim();
+</html>`.trim();
 }
 
-function rejectionEmailHtml(opts: {
-  fullName: string;
-  role: string;
-  reason?: string;
-}) {
+function rejectionEmailHtml(opts: { fullName: string; role: string; reason?: string }) {
   const roleLabel = opts.role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   return `
 <!DOCTYPE html>
@@ -110,11 +97,10 @@ function rejectionEmailHtml(opts: {
 <head>
   <meta charset="UTF-8"/>
   <style>
-    body { margin:0; padding:0; background:#f8f9fa; font-family:'Outfit','Segoe UI',sans-serif; }
+    body { margin:0; padding:0; background:#f8f9fa; font-family:'Segoe UI',sans-serif; }
     .wrap { max-width:520px; margin:40px auto; background:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e5e7eb; }
     .header { background:#ef4444; padding:32px 40px; text-align:center; }
     .header h1 { color:#ffffff; margin:0; font-size:22px; font-weight:600; }
-    .header p { color:#fecaca; margin:6px 0 0; font-size:13px; }
     .body { padding:36px 40px; }
     .body p { color:#374151; font-size:14px; line-height:1.7; margin:0 0 16px; }
     .reason { background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:16px 20px; color:#b91c1c; font-size:13px; }
@@ -124,29 +110,19 @@ function rejectionEmailHtml(opts: {
 </head>
 <body>
   <div class="wrap">
-    <div class="header">
-      <h1>GoLive Admin Portal</h1>
-      <p>Registration update</p>
-    </div>
+    <div class="header"><h1>GoLive Registration Update</h1></div>
     <div class="body">
       <p>Hi <strong>${opts.fullName}</strong>,</p>
-      <p>
-        We regret to inform you that your <strong>${roleLabel}</strong> registration
-        on GoLive could not be approved at this time.
-      </p>
+      <p>Your <strong>${roleLabel}</strong> registration could not be approved at this time.</p>
       ${opts.reason ? `<div class="reason"><strong>Reason:</strong> ${opts.reason}</div>` : ''}
-      <p style="margin-top:16px;">
-        If you believe this is a mistake, please contact support or re-apply
-        with the correct information.
-      </p>
+      <p style="margin-top:16px;">Please contact support or re-apply with the correct information.</p>
     </div>
     <div class="footer">
-      <p>© ${new Date().getFullYear()} GoLive · This is an automated message, do not reply.</p>
+      <p>© ${new Date().getFullYear()} GoLive · Automated message, do not reply.</p>
     </div>
   </div>
 </body>
-</html>
-  `.trim();
+</html>`.trim();
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────
@@ -158,30 +134,28 @@ export async function sendApprovalEmail(opts: {
   password: string;
   role: string;
 }) {
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.warn('[Email] SMTP_USER or SMTP_PASS not set — skipping approval email');
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn('[Email] RESEND_API_KEY not set — skipping approval email');
     return;
   }
+
+  const resend = getResend();
   const loginUrl = `${process.env.APP_URL || 'https://gobilive-production.up.railway.app'}/admin/login`;
-  const transporter = createTransporter();
 
-  try {
-    // Verify SMTP connection first — logs detailed error if auth fails
-    await transporter.verify();
-    console.log('[Email] SMTP connection verified');
-  } catch (verifyErr: any) {
-    console.error('[Email] SMTP verify failed:', verifyErr.message);
-    console.error('[Email] Full error:', verifyErr);
-    throw verifyErr;
-  }
-
-  const info = await transporter.sendMail({
-    from: FROM(),
-    to: opts.to,
+  const { data, error } = await resend.emails.send({
+    from: FROM_ADDRESS(),
+    to: [opts.to],
     subject: '✅ Your GoLive registration has been approved',
     html: approvalEmailHtml({ ...opts, loginUrl }),
   });
-  console.log(`[Email] Approval email sent to ${opts.to} — messageId: ${info.messageId}`);
+
+  if (error) {
+    console.error('[Email] Resend error:', error);
+    throw new Error(error.message);
+  }
+
+  console.log(`[Email] Approval email sent to ${opts.to} — id: ${data?.id}`);
 }
 
 export async function sendRejectionEmail(opts: {
@@ -190,19 +164,25 @@ export async function sendRejectionEmail(opts: {
   role: string;
   reason?: string;
 }) {
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.warn('[Email] SMTP_USER or SMTP_PASS not set — skipping rejection email');
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn('[Email] RESEND_API_KEY not set — skipping rejection email');
     return;
   }
-  const transporter = createTransporter();
 
-  await transporter.verify();
+  const resend = getResend();
 
-  const info = await transporter.sendMail({
-    from: FROM(),
-    to: opts.to,
+  const { data, error } = await resend.emails.send({
+    from: FROM_ADDRESS(),
+    to: [opts.to],
     subject: 'Update on your GoLive registration request',
     html: rejectionEmailHtml(opts),
   });
-  console.log(`[Email] Rejection email sent to ${opts.to} — messageId: ${info.messageId}`);
+
+  if (error) {
+    console.error('[Email] Resend rejection error:', error);
+    throw new Error(error.message);
+  }
+
+  console.log(`[Email] Rejection email sent to ${opts.to} — id: ${data?.id}`);
 }
