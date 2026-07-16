@@ -181,6 +181,7 @@ export interface ILiveRoom extends Document {
     totalViewers: number;
     giftsReceived: number;
     diamondsEarned: number;
+    totalHearts?: number;
     endedAt: Date;
   };
 
@@ -236,6 +237,7 @@ const LiveRoomSchema = new Schema<ILiveRoom>(
       totalViewers: Number,
       giftsReceived: Number,
       diamondsEarned: Number,
+      totalHearts: { type: Number, default: 0 },
       endedAt: Date,
     },
 
