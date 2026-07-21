@@ -1,10 +1,12 @@
 import { Response } from 'express';
 import { User } from '../auth/user.model';
+import { Agency } from '../agency/agency.model';
 import { WithdrawalRequest } from '../withdrawal/withdrawal-request.model';
 import { BeanTransaction } from '../beans/bean-transaction.model';
 import LiveRoom from '../live/live.model';
 import { logActivity } from '../activity-log/activity-log.service';
 import { AdminAuthRequest } from '../../core/middlewares/rbac.middleware';
+import { Types } from 'mongoose';
 
 export const listHosts = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
@@ -25,7 +27,31 @@ export const listHosts = async (req: AdminAuthRequest, res: Response): Promise<v
       .select('username email phone diamonds beanWallet agencyId isBlocked isSuspended createdAt profilePic')
       .sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
 
-    res.status(200).json({ success: true, hosts, total, page, totalPages: Math.ceil(total / limit) });
+    // Resolve agency names — agencyId may be ObjectId or agencyCode string
+    const agencyIds = [...new Set(hosts.map(h => h.agencyId).filter(Boolean))];
+    const agencyDocs = await Agency.find({
+      $or: [
+        { _id: { $in: agencyIds.filter(id => Types.ObjectId.isValid(String(id))) } },
+        { agencyCode: { $in: agencyIds.map(String) } },
+      ],
+    }).select('_id agencyCode name').lean();
+
+    const agencyMap = new Map<string, string>();
+    for (const a of agencyDocs) {
+      agencyMap.set(String(a._id), a.name);
+      agencyMap.set(a.agencyCode, a.name);
+    }
+
+    const hostsWithAgency = hosts.map(h => ({
+      ...h,
+      agencyName: h.agencyId ? (agencyMap.get(String(h.agencyId)) ?? '—') : '—',
+      agencyCode: h.agencyId ? (() => {
+        const agency = agencyDocs.find(a => String(a._id) === String(h.agencyId) || a.agencyCode === String(h.agencyId));
+        return agency?.agencyCode ?? String(h.agencyId);
+      })() : '—',
+    }));
+
+    res.status(200).json({ success: true, hosts: hostsWithAgency, total, page, totalPages: Math.ceil(total / limit) });
   } catch (err: any) { res.status(500).json({ success: false, message: err.message }); }
 };
 
