@@ -89,6 +89,14 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/admin', express.static(path.join(__dirname, '../public/admin')));
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
+// Serve landing page static assets (css, js if any)
+app.use(express.static(path.join(__dirname, '../public')));
+
+// Landing page — root URL
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
 // SPA fallback — any /admin/* path that doesn't match a static file
 // serves index.html so React Router handles it client-side
 // Note: Express v5 requires named wildcard param — use '*path' not '*'
