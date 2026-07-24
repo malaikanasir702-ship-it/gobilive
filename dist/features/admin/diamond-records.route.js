@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const diamond_records_controller_1 = require("./diamond-records.controller");
+const rbac_middleware_1 = require("../../core/middlewares/rbac.middleware");
+const router = (0, express_1.Router)();
+router.use(rbac_middleware_1.authenticateAdminPanel);
+const COMPANY_OR_SUPER = (0, rbac_middleware_1.requireRoles)('company_admin', 'super_admin');
+router.get('/', COMPANY_OR_SUPER, diamond_records_controller_1.listDiamondRecords);
+router.get('/:id', COMPANY_OR_SUPER, diamond_records_controller_1.getDiamondRecord);
+exports.default = router;

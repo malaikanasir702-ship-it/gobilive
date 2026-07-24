@@ -1,0 +1,17 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const withdrawals_controller_1 = require("./withdrawals.controller");
+const upload_middleware_1 = require("../upload/upload.middleware");
+const rbac_middleware_1 = require("../../core/middlewares/rbac.middleware");
+const router = (0, express_1.Router)();
+router.use(rbac_middleware_1.authenticateAdminPanel);
+const COMPANY_OR_SUPER = (0, rbac_middleware_1.requireRoles)('company_admin', 'super_admin');
+router.get('/', COMPANY_OR_SUPER, withdrawals_controller_1.listWithdrawals);
+router.get('/:id', COMPANY_OR_SUPER, withdrawals_controller_1.getWithdrawal);
+router.post('/:id/approve', COMPANY_OR_SUPER, withdrawals_controller_1.approveWithdrawal);
+router.post('/:id/reject', COMPANY_OR_SUPER, withdrawals_controller_1.rejectWithdrawal);
+router.post('/:id/done', COMPANY_OR_SUPER, withdrawals_controller_1.markWithdrawalDone);
+router.post('/:id/attach-slip', COMPANY_OR_SUPER, withdrawals_controller_1.attachTransferSlip);
+router.post('/:id/upload-slip', COMPANY_OR_SUPER, upload_middleware_1.uploadMedia.single('file'), withdrawals_controller_1.attachSlipFile);
+exports.default = router;

@@ -1,8 +1,8 @@
 # Dependencies
 node_modules/
 
-# Build output
-dist/
+# Build output — committed so Railway doesn't need tsc at deploy time
+# dist/
 
 # Environment secrets — NEVER commit these
 .env

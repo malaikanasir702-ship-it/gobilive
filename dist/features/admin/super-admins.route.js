@@ -1,0 +1,16 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const super_admins_controller_1 = require("./super-admins.controller");
+const rbac_middleware_1 = require("../../core/middlewares/rbac.middleware");
+const router = (0, express_1.Router)();
+router.use(rbac_middleware_1.authenticateAdminPanel);
+const COMPANY_ONLY = (0, rbac_middleware_1.requireRoles)('company_admin');
+router.get('/', COMPANY_ONLY, super_admins_controller_1.listSuperAdmins);
+router.post('/:id/approve', COMPANY_ONLY, super_admins_controller_1.approveSuperAdmin);
+router.post('/:id/reject', COMPANY_ONLY, super_admins_controller_1.rejectSuperAdmin);
+router.post('/:id/block', COMPANY_ONLY, super_admins_controller_1.blockSuperAdmin);
+router.post('/:id/unblock', COMPANY_ONLY, super_admins_controller_1.unblockSuperAdmin);
+router.post('/:id/fire', COMPANY_ONLY, super_admins_controller_1.fireSuperAdmin);
+router.post('/:fromSuperAdminId/transfer-agencies', COMPANY_ONLY, super_admins_controller_1.transferAgencies);
+exports.default = router;

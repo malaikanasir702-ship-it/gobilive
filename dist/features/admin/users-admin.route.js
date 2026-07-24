@@ -1,0 +1,14 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const users_admin_controller_1 = require("./users-admin.controller");
+const rbac_middleware_1 = require("../../core/middlewares/rbac.middleware");
+const router = (0, express_1.Router)();
+router.use(rbac_middleware_1.authenticateAdminPanel);
+const GUARD = (0, rbac_middleware_1.requireRoles)('company_admin', 'super_admin', 'sub_admin', 'agency', 'sub_agency');
+router.get('/', GUARD, users_admin_controller_1.listUsers);
+router.get('/:id', GUARD, users_admin_controller_1.getUserProfile);
+router.post('/:id/block', GUARD, users_admin_controller_1.blockUser);
+router.post('/:id/unblock', GUARD, users_admin_controller_1.unblockUser);
+router.post('/:id/suspend', GUARD, users_admin_controller_1.suspendUser);
+exports.default = router;

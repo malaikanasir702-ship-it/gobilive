@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_middleware_1 = require("../../core/middlewares/auth.middleware");
+const video_call_controller_1 = require("./video-call.controller");
+const router = (0, express_1.Router)();
+router.post('/match', auth_middleware_1.authenticateJWT, video_call_controller_1.joinMatchQueue);
+router.delete('/match', auth_middleware_1.authenticateJWT, video_call_controller_1.leaveMatchQueue);
+router.post('/end', auth_middleware_1.authenticateJWT, video_call_controller_1.endVideoCall);
+router.get('/token/:channelName', auth_middleware_1.authenticateJWT, video_call_controller_1.getCallToken);
+exports.default = router;

@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const leaderboard_controller_1 = require("./leaderboard.controller");
+const auth_middleware_1 = require("../../core/middlewares/auth.middleware");
+const router = (0, express_1.Router)();
+router.get('/richest', auth_middleware_1.authenticateJWT, leaderboard_controller_1.getRichest);
+router.get('/hosts', auth_middleware_1.authenticateJWT, leaderboard_controller_1.getTopHosts);
+router.get('/gifters', auth_middleware_1.authenticateJWT, leaderboard_controller_1.getTopGifters);
+exports.default = router;

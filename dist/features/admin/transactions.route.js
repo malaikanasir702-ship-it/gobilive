@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const transactions_controller_1 = require("./transactions.controller");
+const rbac_middleware_1 = require("../../core/middlewares/rbac.middleware");
+const router = (0, express_1.Router)();
+router.use(rbac_middleware_1.authenticateAdminPanel);
+const COMPANY_OR_SUPER = (0, rbac_middleware_1.requireRoles)('company_admin', 'super_admin');
+router.get('/', COMPANY_OR_SUPER, transactions_controller_1.listTransactions);
+router.get('/:id', COMPANY_OR_SUPER, transactions_controller_1.getTransaction);
+router.post('/:id/refund', COMPANY_OR_SUPER, transactions_controller_1.refundTransaction);
+router.post('/adjust', COMPANY_OR_SUPER, transactions_controller_1.manualAdjust);
+exports.default = router;

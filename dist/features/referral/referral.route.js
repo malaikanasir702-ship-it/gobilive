@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_middleware_1 = require("../../core/middlewares/auth.middleware");
+const referral_controller_1 = require("./referral.controller");
+const router = (0, express_1.Router)();
+router.get('/info', auth_middleware_1.authenticateJWT, referral_controller_1.getReferralInfo);
+router.get('/daily-status', auth_middleware_1.authenticateJWT, referral_controller_1.getDailyRewardStatus);
+router.get('/stats', auth_middleware_1.authenticateJWT, referral_controller_1.getReferralStats);
+router.post('/apply', auth_middleware_1.authenticateJWT, referral_controller_1.applyReferralCode);
+router.post('/daily', auth_middleware_1.authenticateJWT, referral_controller_1.claimDailyReward);
+router.post('/ad-reward', auth_middleware_1.authenticateJWT, referral_controller_1.claimAdReward);
+exports.default = router;

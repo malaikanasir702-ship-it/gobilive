@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const games_controller_1 = require("./games.controller");
+const rbac_middleware_1 = require("../../core/middlewares/rbac.middleware");
+const router = (0, express_1.Router)();
+router.use(rbac_middleware_1.authenticateAdminPanel);
+const COMPANY_ONLY = (0, rbac_middleware_1.requireRoles)('company_admin');
+router.get('/', COMPANY_ONLY, games_controller_1.listGames);
+router.get('/:id', COMPANY_ONLY, games_controller_1.getGame);
+router.patch('/:id', COMPANY_ONLY, games_controller_1.updateGame);
+router.get('/:id/stats', COMPANY_ONLY, games_controller_1.getGameStats);
+exports.default = router;

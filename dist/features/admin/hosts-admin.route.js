@@ -1,0 +1,16 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const hosts_admin_controller_1 = require("./hosts-admin.controller");
+const rbac_middleware_1 = require("../../core/middlewares/rbac.middleware");
+const router = (0, express_1.Router)();
+router.use(rbac_middleware_1.authenticateAdminPanel);
+const GUARD = (0, rbac_middleware_1.requireRoles)('company_admin', 'super_admin', 'sub_admin', 'agency', 'sub_agency');
+router.get('/', GUARD, hosts_admin_controller_1.listHosts);
+router.get('/:id', GUARD, hosts_admin_controller_1.getHostProfile);
+router.post('/:id/block', GUARD, hosts_admin_controller_1.blockHost);
+router.post('/:id/unblock', GUARD, hosts_admin_controller_1.unblockHost);
+router.post('/:id/approve', GUARD, hosts_admin_controller_1.approveHost);
+router.post('/:id/disapprove', GUARD, hosts_admin_controller_1.disapproveHost);
+router.post('/:id/transfer-agency', GUARD, hosts_admin_controller_1.transferHostAgency);
+exports.default = router;

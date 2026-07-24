@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_middleware_1 = require("../../core/middlewares/auth.middleware");
+const template_controller_1 = require("./template.controller");
+const router = (0, express_1.Router)();
+router.get('/', auth_middleware_1.authenticateJWT, template_controller_1.getTemplates);
+router.get('/:id', auth_middleware_1.authenticateJWT, template_controller_1.getTemplateById);
+router.post('/', auth_middleware_1.authenticateJWT, template_controller_1.createTemplate);
+router.post('/:id/use', auth_middleware_1.authenticateJWT, template_controller_1.useTemplate);
+exports.default = router;

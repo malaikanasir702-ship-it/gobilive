@@ -1,0 +1,42 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_controller_1 = require("./auth.controller");
+const social_controller_1 = require("./social.controller");
+const auth_middleware_1 = require("../../core/middlewares/auth.middleware");
+const router = (0, express_1.Router)();
+router.post('/register', auth_controller_1.register);
+router.post('/login', auth_controller_1.login);
+router.post('/google', auth_controller_1.googleLogin);
+router.get('/profile', auth_middleware_1.authenticateJWT, auth_controller_1.getProfile);
+router.patch('/profile', auth_middleware_1.authenticateJWT, social_controller_1.updateProfile);
+router.get('/users/:userId', auth_middleware_1.authenticateJWT, social_controller_1.getUserById);
+router.get('/users/:userId/followers', auth_middleware_1.authenticateJWT, social_controller_1.getFollowers);
+router.get('/users/:userId/following', auth_middleware_1.authenticateJWT, social_controller_1.getFollowing);
+router.post('/users/:userId/follow', auth_middleware_1.authenticateJWT, social_controller_1.followUser);
+router.delete('/users/:userId/follow', auth_middleware_1.authenticateJWT, social_controller_1.unfollowUser);
+router.delete('/users/:userId/follow-request', auth_middleware_1.authenticateJWT, social_controller_1.cancelFollowRequest);
+router.post('/users/:userId/block', auth_middleware_1.authenticateJWT, social_controller_1.blockUser);
+router.delete('/users/:userId/block', auth_middleware_1.authenticateJWT, social_controller_1.unblockUser);
+router.get('/blocked-users', auth_middleware_1.authenticateJWT, social_controller_1.getBlockedUsers);
+router.get('/follow-requests', auth_middleware_1.authenticateJWT, social_controller_1.getPendingFollowRequests);
+router.post('/follow-requests/:requestId/accept', auth_middleware_1.authenticateJWT, social_controller_1.acceptFollowRequest);
+router.post('/follow-requests/:requestId/reject', auth_middleware_1.authenticateJWT, social_controller_1.rejectFollowRequest);
+router.post('/privacy/toggle', auth_middleware_1.authenticateJWT, social_controller_1.togglePrivateAccount);
+router.patch('/notification-prefs', auth_middleware_1.authenticateJWT, social_controller_1.updateNotificationPrefs);
+router.post('/logout-all-sessions', auth_middleware_1.authenticateJWT, auth_controller_1.logoutAllSessions);
+router.post('/change-password', auth_middleware_1.authenticateJWT, auth_controller_1.changePassword);
+router.post('/2fa/setup', auth_middleware_1.authenticateJWT, auth_controller_1.setupTwoFactor);
+router.post('/2fa/verify', auth_middleware_1.authenticateJWT, auth_controller_1.verifyTwoFactor);
+router.post('/2fa/disable', auth_middleware_1.authenticateJWT, auth_controller_1.disableTwoFactor);
+router.post('/link-google', auth_middleware_1.authenticateJWT, auth_controller_1.linkGoogleAccount);
+router.post('/unlink-google', auth_middleware_1.authenticateJWT, auth_controller_1.unlinkGoogleAccount);
+// Daily reward & medals
+router.post('/daily-reward', auth_middleware_1.authenticateJWT, auth_controller_1.claimDailyReward);
+router.get('/medals', auth_middleware_1.authenticateJWT, auth_controller_1.getMedals);
+// Fan club
+router.get('/users/:userId/fan-club', auth_middleware_1.authenticateJWT, social_controller_1.getFanClub);
+// Host application
+router.post('/host-application', auth_middleware_1.authenticateJWT, auth_controller_1.applyAsHost);
+router.get('/host-application', auth_middleware_1.authenticateJWT, auth_controller_1.getMyHostApplication);
+exports.default = router;

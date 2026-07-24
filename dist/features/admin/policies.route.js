@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const policies_controller_1 = require("./policies.controller");
+const rbac_middleware_1 = require("../../core/middlewares/rbac.middleware");
+const router = (0, express_1.Router)();
+router.use(rbac_middleware_1.authenticateAdminPanel);
+const COMPANY_OR_SUPER = (0, rbac_middleware_1.requireRoles)('company_admin', 'super_admin');
+router.get('/', COMPANY_OR_SUPER, policies_controller_1.listPolicyLogs);
+router.get('/:id', COMPANY_OR_SUPER, policies_controller_1.getPolicyLog);
+router.post('/', COMPANY_OR_SUPER, policies_controller_1.createPolicyLog);
+exports.default = router;

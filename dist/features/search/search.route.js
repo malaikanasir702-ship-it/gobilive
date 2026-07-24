@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_middleware_1 = require("../../core/middlewares/auth.middleware");
+const search_controller_1 = require("./search.controller");
+const router = (0, express_1.Router)();
+router.get('/users', auth_middleware_1.authenticateJWT, search_controller_1.searchUsers);
+router.get('/trending', search_controller_1.getTrendingUsers);
+router.get('/history', auth_middleware_1.authenticateJWT, search_controller_1.getSearchHistory);
+router.delete('/history', auth_middleware_1.authenticateJWT, search_controller_1.clearSearchHistory);
+exports.default = router;

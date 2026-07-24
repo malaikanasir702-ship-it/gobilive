@@ -21,8 +21,8 @@ export const connectDB = async (): Promise<void> => {
 
   try {
     await mongoose.connect(connStr, {
-      // Fail fast if Atlas cluster is recovering — prevents server freeze on boot
-      serverSelectionTimeoutMS: 5000,
+      // Give Atlas time to respond on Railway cold starts
+      serverSelectionTimeoutMS: 15000,
       // Keep streaming sockets alive under variable cross-cloud latency
       socketTimeoutMS: 45000,
       // Aggressively retry initial connection (useful after Railway cold starts)

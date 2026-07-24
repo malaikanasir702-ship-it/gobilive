@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_middleware_1 = require("../../core/middlewares/auth.middleware");
+const coin_seller_controller_1 = require("./coin-seller.controller");
+const router = (0, express_1.Router)();
+router.get('/mine', auth_middleware_1.authenticateJWT, coin_seller_controller_1.getMyCoinSellerProfile);
+router.post('/apply', auth_middleware_1.authenticateJWT, coin_seller_controller_1.applyAsCoinSeller);
+router.post('/sales', auth_middleware_1.authenticateJWT, coin_seller_controller_1.recordSale);
+router.get('/sales/mine', auth_middleware_1.authenticateJWT, coin_seller_controller_1.getMySales);
+exports.default = router;

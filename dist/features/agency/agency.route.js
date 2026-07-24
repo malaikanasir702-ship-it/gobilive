@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_middleware_1 = require("../../core/middlewares/auth.middleware");
+const agency_controller_1 = require("./agency.controller");
+const agency_payout_controller_1 = require("./agency-payout.controller");
+const router = (0, express_1.Router)();
+router.get('/mine', auth_middleware_1.authenticateJWT, agency_controller_1.getMyAgency);
+router.post('/', auth_middleware_1.authenticateJWT, agency_controller_1.createAgency);
+router.post('/streamers', auth_middleware_1.authenticateJWT, agency_controller_1.addStreamerToAgency);
+router.post('/payouts/request', auth_middleware_1.authenticateJWT, agency_payout_controller_1.requestPayout);
+router.get('/payouts/mine', auth_middleware_1.authenticateJWT, agency_payout_controller_1.getMyPayouts);
+exports.default = router;
