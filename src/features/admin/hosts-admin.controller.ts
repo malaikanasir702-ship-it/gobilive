@@ -18,9 +18,25 @@ export const listHosts = async (req: AdminAuthRequest, res: Response): Promise<v
 
     const filter: any = { agencyId: { $exists: true, $ne: null } };
     if (search) { const re = new RegExp(search, 'i'); filter.$or = [{ username: re }]; }
-    if (agency) filter.agencyId = agency;
     if (status === 'blocked') filter.isBlocked = true;
     if (status === 'suspended') filter.isSuspended = true;
+
+    // Agency role: only show hosts belonging to their own agency
+    const role = req.adminUser?.role;
+    if (role === 'agency' || role === 'sub_agency') {
+      const ownAgency = await Agency.findOne({ ownerId: req.adminUser!.id }).select('_id agencyCode').lean();
+      if (!ownAgency) {
+        res.status(200).json({ success: true, hosts: [], total: 0, page, totalPages: 0 });
+        return;
+      }
+      // Filter by agency ObjectId or agencyCode (hosts may store either)
+      filter.agencyId = {
+        $in: [String(ownAgency._id), ownAgency.agencyCode],
+      };
+    } else {
+      // super_admin / company_admin / sub_admin: allow optional agency filter from query
+      if (agency) filter.agencyId = agency;
+    }
 
     const total = await User.countDocuments(filter);
     const hosts = await User.find(filter)
