@@ -581,29 +581,49 @@
     });
 
     // Bento Cards ScrollTrigger
-    gsap.from(".gsap-card", {
-      scrollTrigger: {
-        trigger: "#features",
-        start: "top 75%",
-      },
-      y: 45,
-      opacity: 0,
-      duration: 0.8,
-      stagger: 0.12,
-      ease: "power2.out"
-    });
+    gsap.fromTo(".gsap-card",
+      { y: 45, opacity: 0 },
+      {
+        scrollTrigger: {
+          trigger: "#features",
+          start: "top 90%",
+          once: true,
+        },
+        y: 0,
+        opacity: 1,
+        duration: 0.8,
+        stagger: 0.12,
+        ease: "power2.out"
+      }
+    );
 
     // Detail Cards ScrollTrigger
-    gsap.from(".detail-card", {
-      scrollTrigger: {
-        trigger: ".detail-grid",
-        start: "top 85%",
-      },
-      scale: 0.92,
-      opacity: 0,
-      duration: 0.6,
-      stagger: 0.08,
-      ease: "back.out(1.4)"
+    gsap.fromTo(".detail-card",
+      { scale: 0.92, opacity: 0 },
+      {
+        scrollTrigger: {
+          trigger: ".detail-grid",
+          start: "top 90%",
+          once: true,
+        },
+        scale: 1,
+        opacity: 1,
+        duration: 0.6,
+        stagger: 0.08,
+        ease: "back.out(1.4)"
+      }
+    );
+
+    // Fallback: if GSAP fails or elements are off-screen, ensure visibility
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        document.querySelectorAll('.gsap-card, .detail-card').forEach(el => {
+          if (getComputedStyle(el).opacity === '0') {
+            el.style.opacity = '1';
+            el.style.transform = 'none';
+          }
+        });
+      }, 2000);
     });
   </script>
 </body>
