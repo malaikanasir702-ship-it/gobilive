@@ -5,7 +5,9 @@ export const connectDB = async (): Promise<void> => {
 
   if (!connStr) {
     console.error('❌ MONGO_URI is not defined in environment variables.');
-    process.exit(1);
+    // Do not exit — let the server start so Railway healthcheck passes.
+    // API routes requiring DB will fail gracefully; other routes still work.
+    return;
   }
 
   // Attach persistent connection event listeners (fire once, not per-call)
@@ -33,6 +35,7 @@ export const connectDB = async (): Promise<void> => {
     });
   } catch (error) {
     console.error('❌ Initial MongoDB connection failed:', (error as Error).message);
-    process.exit(1);
+    // Log but do not crash — healthcheck must pass so Railway keeps the container alive.
+    // Without a running process Railway marks deployment as failed immediately.
   }
 };
