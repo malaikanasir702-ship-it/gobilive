@@ -18,16 +18,17 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 export const adminLogin = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, phone, password } = req.body;
+    const { email, phone, username, password } = req.body;
 
-    if (!password || (!email && !phone)) {
-      res.status(400).json({ success: false, message: 'Email/phone and password are required.' });
+    if (!password || (!email && !phone && !username)) {
+      res.status(400).json({ success: false, message: 'Email/phone/username and password are required.' });
       return;
     }
 
-    const query = email
-      ? { email: email.toLowerCase().trim() }
-      : { phone: phone.trim() };
+    let query: any;
+    if (email) query = { email: email.toLowerCase().trim() };
+    else if (phone) query = { phone: phone.trim() };
+    else query = { username: username.trim() };
 
     const user = await User.findOne(query).select(
       'username email role isBlocked blockedUntil blockType isTerminated isSuspended tokenVersion passwordHash profilePic beanWallet'
@@ -117,5 +118,50 @@ export const adminLogout = async (req: Request, res: Response): Promise<void> =>
     res.status(200).json({ success: true, message: 'Logged out successfully.' });
   } catch {
     res.status(200).json({ success: true, message: 'Logged out.' });
+  }
+};
+
+export const adminChangePassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      res.status(401).json({ success: false, message: 'Authorization token required.' });
+      return;
+    }
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
+
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ success: false, message: 'currentPassword and newPassword are required.' });
+      return;
+    }
+    if (newPassword.length < 6) {
+      res.status(400).json({ success: false, message: 'New password must be at least 6 characters.' });
+      return;
+    }
+
+    const user = await User.findById(decoded.id).select('passwordHash tokenVersion');
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found.' });
+      return;
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isMatch) {
+      res.status(400).json({ success: false, message: 'Current password is incorrect.' });
+      return;
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 12);
+    // Also increment tokenVersion to invalidate all old sessions
+    await User.findByIdAndUpdate(decoded.id, {
+      passwordHash: hashed,
+      $inc: { tokenVersion: 1 },
+    });
+
+    res.status(200).json({ success: true, message: 'Password changed successfully. Please log in again.' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
