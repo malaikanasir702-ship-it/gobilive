@@ -6,8 +6,8 @@ import { Resend } from 'resend';
 //
 // From address:
 //   - Free plan (no domain): use "onboarding@resend.dev"
-//   - Custom domain: verify at resend.com → Domains, then use "noreply@yourdomain.com"
-// Set RESEND_FROM in Railway to override. Default: "GoLive <onboarding@resend.dev>"
+//   - Custom domain: verify at resend.com → Domains, then use "noreply@globilive.com"
+// Set RESEND_FROM in Railway to override. Default: "GobiLive <noreply@globilive.com>"
 
 function getResend() {
   const apiKey = process.env.RESEND_API_KEY || '';
@@ -18,7 +18,7 @@ function getResend() {
 const FROM_ADDRESS = () =>
   process.env.RESEND_FROM ||
   process.env.SMTP_FROM ||
-  'GoLive <onboarding@resend.dev>';
+  'GobiLive <noreply@globilive.com>';
 
 // ── Templates ─────────────────────────────────────────────────────────────
 
@@ -141,7 +141,7 @@ export async function sendApprovalEmail(opts: {
   }
 
   const resend = getResend();
-  const loginUrl = `${process.env.APP_URL || 'https://gobilive-production.up.railway.app'}/admin/login`;
+  const loginUrl = `${process.env.APP_URL || 'https://globilive.com'}/admin/login`;
 
   const { data, error } = await resend.emails.send({
     from: FROM_ADDRESS(),
