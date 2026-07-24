@@ -3,489 +3,608 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GlobiLive — Go Live. Go Global.</title>
-  <meta name="description" content="GlobiLive is the world's #1 live streaming platform. Connect, perform, and earn — in real time." />
+  <title>GlobiLive — Stream, Connect, Play & Earn</title>
+  <meta name="description" content="The ultimate live streaming, social entertainment, gaming, and agency ecosystem." />
+  
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  
+  <!-- GSAP & ScrollTrigger -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    
     :root {
+      /* ORIGINAL COLOR PALETTE - 100% SOLID, ZERO GRADIENTS */
       --c-bg: #080810;
-      --c-surface: #0e0e1a;
-      --c-border: rgba(255,255,255,0.07);
-      --c-text: #f0f0ff;
-      --c-muted: rgba(240,240,255,0.45);
-      --c-accent: #a855f7;
-      --c-accent2: #ec4899;
-      --c-green: #22d3ee;
-      --grad: linear-gradient(135deg, #a855f7, #ec4899);
-      --grad2: linear-gradient(135deg, #22d3ee, #a855f7);
-      --r: 1rem;
+      --c-surface: #0E0E1A;
+      --c-card: #141424;
+      --c-card-hover: #1A1A30;
+      --c-border: #222238;
+      --c-border-bright: #3A3A5C;
+      --c-text: #F0F0FF;
+      --c-muted: #8E8EA8;
+      
+      /* SOLID ACCENT COLORS */
+      --c-purple: #A855F7;
+      --c-pink: #EC4899;
+      --c-cyan: #22D3EE;
+      --c-yellow: #EAB308;
+      --c-green: #10B981;
+      
+      --r-lg: 1.5rem;
+      --r-md: 1rem;
+      --r-sm: 0.5rem;
     }
-    html { scroll-behavior: smooth; }
-    body { font-family: 'Inter', sans-serif; background: var(--c-bg); color: var(--c-text); overflow-x: hidden; }
-    ::selection { background: #a855f740; }
-    a { text-decoration: none; color: inherit; }
-    img { max-width: 100%; }
 
-    /* ── NOISE OVERLAY ── */
-    body::before {
-      content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
-      opacity: 0.35;
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--c-bg);
+      color: var(--c-text);
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::selection { background: var(--c-purple); color: #FFF; }
+    a { text-decoration: none; color: inherit; }
+
+    /* SVG Vector Structural Lines (Awwwards Style) */
+    .vector-bg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
     }
 
     /* ── NAV ── */
     nav {
       position: fixed; top: 0; left: 0; right: 0; z-index: 100;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 1.25rem 4rem; backdrop-filter: blur(20px);
-      border-bottom: 1px solid transparent;
-      transition: border-color .4s, background .4s;
+      padding: 1.25rem 4rem; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    nav.scrolled { border-color: var(--c-border); background: rgba(8,8,16,0.85); }
-    .nav-logo { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.03em; }
-    .nav-logo span { background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .nav-links { display: flex; align-items: center; gap: 2.5rem; }
-    .nav-links a { font-size: .875rem; color: var(--c-muted); transition: color .2s; }
+    nav.scrolled {
+      background: rgba(8, 8, 16, 0.92);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--c-border);
+      padding: 1rem 4rem;
+    }
+    .nav-logo {
+      font-size: 1.4rem; font-weight: 900; letter-spacing: -0.03em; color: #FFF;
+      display: flex; align-items: center; gap: 0.6rem;
+    }
+    .nav-logo span { color: var(--c-purple); }
+    .nav-badge {
+      background: var(--c-purple); color: #FFF; font-size: 0.65rem; font-weight: 800;
+      padding: 0.15rem 0.5rem; border-radius: 4px; text-transform: uppercase;
+    }
+    .nav-links { display: flex; align-items: center; gap: 2.2rem; }
+    .nav-links a { font-size: 0.88rem; font-weight: 600; color: var(--c-muted); transition: color 0.2s; }
     .nav-links a:hover { color: var(--c-text); }
-    .nav-cta { display: flex; gap: .75rem; }
-    .btn { display: inline-flex; align-items: center; gap: .5rem; padding: .65rem 1.5rem; border-radius: 100px; font-size: .875rem; font-weight: 600; cursor: pointer; transition: all .25s; border: none; }
-    .btn-ghost { background: transparent; border: 1px solid var(--c-border); color: var(--c-text); }
-    .btn-ghost:hover { border-color: rgba(168,85,247,.6); color: #a855f7; }
-    .btn-primary { background: var(--grad); color: #fff; box-shadow: 0 0 30px rgba(168,85,247,.3); }
-    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 50px rgba(168,85,247,.5); }
-    .btn-dl { background: #fff; color: #080810; }
-    .btn-dl:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(255,255,255,.2); }
+
+    /* ── BUTTONS (Framermotion Spring Style) ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem;
+      padding: 0.75rem 1.6rem; border-radius: 100px; font-size: 0.88rem; font-weight: 700;
+      cursor: pointer; transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s, border-color 0.2s;
+      border: 1px solid transparent;
+    }
+    .btn-purple { background: var(--c-purple); color: #FFF; }
+    .btn-purple:hover { transform: translateY(-3px) scale(1.03); background: #9333EA; }
+    .btn-outline { background: transparent; border-color: var(--c-border-bright); color: var(--c-text); }
+    .btn-outline:hover { background: var(--c-surface); border-color: var(--c-purple); transform: translateY(-3px); }
 
     /* ── HERO ── */
     .hero {
-      min-height: 100vh; display: flex; flex-direction: column; align-items: center;
-      justify-content: center; text-align: center; padding: 8rem 2rem 6rem;
-      position: relative; overflow: hidden;
+      min-height: 100vh; padding: 9rem 4rem 5rem;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      position: relative; overflow: hidden; text-align: center;
     }
-    .hero-glow {
-      position: absolute; border-radius: 50%; filter: blur(120px); pointer-events: none; will-change: transform;
-    }
-    .glow-1 { width: 700px; height: 700px; background: radial-gradient(circle, rgba(168,85,247,.25) 0%, transparent 70%); top: -200px; left: -200px; }
-    .glow-2 { width: 600px; height: 600px; background: radial-gradient(circle, rgba(236,72,153,.2) 0%, transparent 70%); bottom: -100px; right: -100px; }
-    .glow-3 { width: 400px; height: 400px; background: radial-gradient(circle, rgba(34,211,238,.15) 0%, transparent 70%); top: 50%; left: 50%; transform: translate(-50%,-50%); }
     .hero-badge {
-      display: inline-flex; align-items: center; gap: .5rem; padding: .4rem 1rem;
-      background: rgba(168,85,247,.1); border: 1px solid rgba(168,85,247,.3);
-      border-radius: 100px; font-size: .75rem; font-weight: 600; color: #c084fc;
-      margin-bottom: 2rem; letter-spacing: .05em; text-transform: uppercase;
+      display: inline-flex; align-items: center; gap: 0.6rem;
+      padding: 0.45rem 1.1rem; background: var(--c-surface); border: 1px solid var(--c-border);
+      border-radius: 100px; font-size: 0.8rem; font-weight: 700; color: var(--c-purple);
+      margin-bottom: 2rem;
     }
-    .hero-badge::before { content: '●'; animation: pulse 2s infinite; color: #a855f7; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .hero-badge-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c-pink); }
+    
     .hero h1 {
-      font-size: clamp(3rem, 8vw, 7rem); font-weight: 900; line-height: 1.0;
-      letter-spacing: -0.04em; margin-bottom: 1.5rem; overflow: hidden;
+      font-size: clamp(3rem, 7.5vw, 6.2rem); font-weight: 900; line-height: 1.02;
+      letter-spacing: -0.04em; max-width: 1050px; margin-bottom: 1.5rem; color: #FFF;
+      position: relative; z-index: 2;
     }
-    .hero h1 .line { display: block; overflow: hidden; }
-    .hero h1 .gradient-text { background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: inline-block; }
-    .hero-sub { font-size: clamp(1rem, 2vw, 1.25rem); color: var(--c-muted); max-width: 600px; line-height: 1.7; margin-bottom: 3rem; }
-    .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; margin-bottom: 4rem; }
-    .hero-stats { display: flex; gap: 4rem; flex-wrap: wrap; justify-content: center; }
-    .stat { text-align: center; }
-    .stat-num { font-size: 2rem; font-weight: 800; background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .stat-label { font-size: .8rem; color: var(--c-muted); text-transform: uppercase; letter-spacing: .08em; }
+    .hero h1 .text-pink { color: var(--c-pink); }
+    .hero h1 .text-cyan { color: var(--c-cyan); }
 
-    /* ── MARQUEE ── */
-    .marquee-wrap { padding: 2.5rem 0; overflow: hidden; border-top: 1px solid var(--c-border); border-bottom: 1px solid var(--c-border); background: var(--c-surface); }
-    .marquee-track { display: flex; gap: 3rem; width: max-content; animation: marquee 25s linear infinite; }
-    .marquee-track:hover { animation-play-state: paused; }
-    @keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
-    .marquee-item { display: flex; align-items: center; gap: .75rem; white-space: nowrap; font-size: .9rem; font-weight: 500; color: var(--c-muted); padding: 0 1.5rem; }
-    .marquee-item span { width: 8px; height: 8px; border-radius: 50%; background: var(--grad); display: inline-block; }
-
-    /* ── FEATURES ── */
-    section { padding: 8rem 4rem; position: relative; }
-    .section-label { font-size: .75rem; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: #a855f7; margin-bottom: 1rem; }
-    .section-title { font-size: clamp(2rem, 4vw, 3.5rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; margin-bottom: 1.25rem; }
-    .section-sub { font-size: 1.1rem; color: var(--c-muted); max-width: 520px; line-height: 1.7; }
-    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5px; margin-top: 5rem; border: 1.5px solid var(--c-border); border-radius: 1.5rem; overflow: hidden; }
-    .feature-card {
-      background: var(--c-surface); padding: 2.5rem; position: relative; overflow: hidden;
-      transition: background .3s;
+    .hero-sub {
+      font-size: clamp(1rem, 1.8vw, 1.2rem); color: var(--c-muted); max-width: 680px;
+      line-height: 1.6; margin-bottom: 2.5rem; font-weight: 500; position: relative; z-index: 2;
     }
-    .feature-card:hover { background: rgba(168,85,247,.06); }
-    .feature-card::before { content:''; position:absolute; inset:0; background: var(--grad); opacity:0; transition: opacity .3s; }
-    .feature-card:hover::before { opacity:.03; }
-    .feat-icon { width: 48px; height: 48px; border-radius: .75rem; background: rgba(168,85,247,.15); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin-bottom: 1.5rem; }
-    .feature-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: .6rem; }
-    .feature-card p { font-size: .9rem; color: var(--c-muted); line-height: 1.7; }
 
-    /* ── HOW IT WORKS ── */
-    .how-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6rem; align-items: center; margin-top: 4rem; }
-    .steps { display: flex; flex-direction: column; gap: 2rem; }
-    .step { display: flex; gap: 1.5rem; align-items: flex-start; }
-    .step-num { min-width: 44px; height: 44px; border-radius: 50%; background: var(--grad); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: .9rem; flex-shrink: 0; }
-    .step h4 { font-size: 1rem; font-weight: 700; margin-bottom: .35rem; }
-    .step p { font-size: .875rem; color: var(--c-muted); line-height: 1.6; }
+    /* Floating Framer-Style Dynamic Cards */
+    .floating-card {
+      position: absolute; background: var(--c-surface); padding: 0.9rem 1.25rem;
+      border-radius: var(--r-md); border: 1px solid var(--c-border);
+      display: flex; align-items: center; gap: 0.8rem; z-index: 3;
+      pointer-events: none; box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+    .fc-1 { top: 22%; left: 6%; transform: rotate(-3deg); }
+    .fc-2 { top: 26%; right: 6%; transform: rotate(4deg); }
+    .fc-3 { bottom: 18%; left: 8%; transform: rotate(2deg); }
+    .fc-4 { bottom: 20%; right: 8%; transform: rotate(-3deg); }
+
+    .icon-box {
+      width: 40px; height: 40px; border-radius: 10px; display: flex;
+      align-items: center; justify-content: center; flex-shrink: 0;
+    }
+
+    /* ── BENTO GRID FEATURES ── */
+    section { padding: 7rem 4rem; position: relative; }
+    .section-header { text-align: center; max-width: 720px; margin: 0 auto 4rem; }
+    .section-tag { font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: var(--c-purple); margin-bottom: 0.75rem; display: block; }
+    .section-title { font-size: clamp(2rem, 4vw, 3.2rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 1rem; color: #FFF; }
+    .section-desc { font-size: 1.05rem; color: var(--c-muted); line-height: 1.6; }
+
+    .bento-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; max-width: 1250px; margin: 0 auto;
+    }
+    .bento-card {
+      background: var(--c-surface); border-radius: var(--r-lg); padding: 2.25rem;
+      border: 1px solid var(--c-border); transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .bento-card:hover {
+      background: var(--c-card); border-color: var(--c-border-bright);
+      transform: translateY(-6px);
+    }
+    .bento-card.col-2 { grid-column: span 2; }
+    
+    .bento-card h3 { font-size: 1.35rem; font-weight: 800; margin-bottom: 0.6rem; letter-spacing: -0.02em; color: #FFF; }
+    .bento-card p { font-size: 0.92rem; color: var(--c-muted); line-height: 1.6; margin-bottom: 1.5rem; }
+
+    .feature-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: auto; }
+    .tag { font-size: 0.75rem; font-weight: 700; padding: 0.35rem 0.75rem; border-radius: 100px; background: var(--c-card); color: var(--c-text); border: 1px solid var(--c-border); }
+
+    /* ── DETAILED LIVE ROOM MOCKUP ── */
+    .ecosystem-container {
+      background: var(--c-surface); border-radius: var(--r-lg); padding: 4.5rem 4rem;
+      max-width: 1250px; margin: 0 auto; border: 1px solid var(--c-border);
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center;
+    }
+    .eco-content h2 { font-size: 2.6rem; font-weight: 800; line-height: 1.15; margin-bottom: 1.25rem; letter-spacing: -0.03em; color: #FFF; }
+    .eco-content p { color: var(--c-muted); font-size: 1.02rem; line-height: 1.7; margin-bottom: 2rem; }
+    .eco-list { display: flex; flex-direction: column; gap: 1.25rem; }
+    .eco-item { display: flex; gap: 1rem; align-items: flex-start; }
+    .eco-icon {
+      width: 28px; height: 28px; border-radius: 8px; background: var(--c-purple); color: #FFF;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px;
+    }
+
+    /* MOCKUP FRAME (Solid Flat Dark) */
+    .mockup-wrapper { display: flex; justify-content: center; position: relative; }
     .phone-mockup {
-      position: relative; display: flex; justify-content: center;
+      width: 300px; background: var(--c-bg); border: 3px solid var(--c-border-bright);
+      border-radius: 2.5rem; padding: 1.25rem; position: relative; box-shadow: 0 30px 60px rgba(0,0,0,0.8);
+      display: flex; flex-direction: column; gap: 1rem;
     }
-    .phone-frame {
-      width: 260px; height: 520px; border-radius: 2.5rem; border: 2px solid rgba(168,85,247,.4);
-      background: linear-gradient(180deg, rgba(168,85,247,.08) 0%, rgba(236,72,153,.08) 100%);
-      position: relative; overflow: hidden; box-shadow: 0 40px 100px rgba(168,85,247,.2), inset 0 1px 0 rgba(255,255,255,.1);
-      display: flex; align-items: center; justify-content: center;
+    .live-stream-header { display: flex; justify-content: space-between; align-items: center; }
+    .badge-live-tag {
+      background: var(--c-pink); color: #FFF; font-size: 0.65rem; font-weight: 800;
+      padding: 0.2rem 0.5rem; border-radius: 4px; display: flex; align-items: center; gap: 0.3rem;
     }
-    .phone-inner { text-align: center; }
-    .live-indicator { display: inline-flex; align-items: center; gap: .4rem; background: rgba(236,72,153,.2); border: 1px solid rgba(236,72,153,.5); padding: .3rem .8rem; border-radius: 100px; font-size: .75rem; font-weight: 700; color: #f472b6; margin-bottom: 1rem; }
-    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #f472b6; animation: pulse 1.5s infinite; }
-    .phone-views { font-size: 2rem; font-weight: 800; margin-bottom: .25rem; }
-    .phone-sub { font-size: .8rem; color: var(--c-muted); }
-    .phone-orb { position: absolute; border-radius: 50%; filter: blur(60px); }
-    .orb-a { width: 200px; height: 200px; background: rgba(168,85,247,.4); top: -50px; right: -50px; }
-    .orb-b { width: 150px; height: 150px; background: rgba(236,72,153,.3); bottom: -30px; left: -30px; }
+    .badge-live-tag::before { content:''; width:5px; height:5px; border-radius:50%; background:#FFF; }
 
-    /* ── CREATORS ── */
-    .creators-section { background: var(--c-surface); }
-    .creators-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.5rem; margin-top: 4rem; }
-    .creator-card {
-      background: rgba(255,255,255,.03); border: 1px solid var(--c-border); border-radius: 1.25rem;
-      padding: 1.75rem; transition: all .3s; position: relative; overflow: hidden;
+    /* Multi-Seat Grid Inside Mockup */
+    .seats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+    .seat-box {
+      aspect-ratio: 1; background: var(--c-card); border-radius: var(--r-sm);
+      border: 1px solid var(--c-border); display: flex; flex-direction: column;
+      align-items: center; justify-content: center; position: relative;
     }
-    .creator-card:hover { transform: translateY(-6px); border-color: rgba(168,85,247,.4); box-shadow: 0 20px 60px rgba(168,85,247,.15); }
-    .creator-avatar { width: 52px; height: 52px; border-radius: 50%; background: var(--grad); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin-bottom: 1rem; }
-    .creator-name { font-weight: 700; font-size: .95rem; margin-bottom: .2rem; }
-    .creator-role { font-size: .8rem; color: var(--c-muted); margin-bottom: 1rem; }
-    .creator-earn { font-size: 1.3rem; font-weight: 800; background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .creator-earn-label { font-size: .75rem; color: var(--c-muted); }
-    .live-tag { position: absolute; top: 1rem; right: 1rem; background: rgba(236,72,153,.15); border: 1px solid rgba(236,72,153,.4); color: #f472b6; font-size: .7rem; font-weight: 700; padding: .2rem .6rem; border-radius: 100px; display: flex; align-items: center; gap: .35rem; }
+    .seat-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--c-border-bright); display: flex; align-items: center; justify-content: center; }
+
+    /* Chat Messages Inside Mockup */
+    .stream-chat { display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.75rem; }
+    .chat-bubble { background: var(--c-card); padding: 0.4rem 0.6rem; border-radius: 8px; border: 1px solid var(--c-border); }
+
+    /* ── DETAILED FEATURES GRID ── */
+    .detail-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; max-width: 1250px; margin: 3rem auto 0; }
+    .detail-card {
+      background: var(--c-surface); padding: 1.5rem; border-radius: var(--r-md);
+      border: 1px solid var(--c-border); transition: transform 0.2s, border-color 0.2s;
+    }
+    .detail-card:hover { transform: translateY(-4px); border-color: var(--c-purple); }
+    .detail-card h4 { font-size: 1.05rem; font-weight: 700; color: #FFF; margin: 0.8rem 0 0.3rem; }
+    .detail-card p { font-size: 0.82rem; color: var(--c-muted); line-height: 1.5; }
 
     /* ── CTA ── */
-    .cta-section { text-align: center; position: relative; overflow: hidden; }
-    .cta-glow { position: absolute; width: 800px; height: 400px; background: radial-gradient(ellipse, rgba(168,85,247,.2) 0%, transparent 70%); top: 50%; left: 50%; transform: translate(-50%,-50%); pointer-events: none; }
-    .cta-section h2 { font-size: clamp(2rem, 5vw, 4rem); font-weight: 900; letter-spacing: -0.04em; margin-bottom: 1.5rem; }
-    .cta-actions { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; margin-top: 2.5rem; }
-    .btn-large { padding: 1rem 2.5rem; font-size: 1rem; border-radius: 100px; }
+    .cta-box {
+      background: var(--c-surface); border-radius: var(--r-lg); padding: 5rem 3rem;
+      text-align: center; max-width: 1250px; margin: 0 auto; border: 1px solid var(--c-border-bright);
+      position: relative; overflow: hidden;
+    }
+    .cta-box h2 { font-size: clamp(2.2rem, 5vw, 3.8rem); font-weight: 900; letter-spacing: -0.03em; margin-bottom: 1rem; color: #FFF; }
+    .cta-box p { font-size: 1.1rem; color: var(--c-muted); max-width: 580px; margin: 0 auto 2.5rem; }
 
     /* ── FOOTER ── */
-    footer { border-top: 1px solid var(--c-border); padding: 3rem 4rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: gap; gap: 1.5rem; }
-    .footer-logo { font-size: 1.1rem; font-weight: 800; }
-    .footer-logo span { background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .footer-copy { font-size: .8rem; color: var(--c-muted); }
+    footer { padding: 4rem; border-top: 1px solid var(--c-border); max-width: 1250px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
     .footer-links { display: flex; gap: 2rem; }
-    .footer-links a { font-size: .8rem; color: var(--c-muted); transition: color .2s; }
-    .footer-links a:hover { color: var(--c-text); }
+    .footer-links a { font-size: 0.85rem; font-weight: 600; color: var(--c-muted); transition: color 0.2s; }
+    .footer-links a:hover { color: #FFF; }
 
-    /* ── RESPONSIVE ── */
-    @media (max-width: 768px) {
-      nav { padding: 1rem 1.5rem; }
-      .nav-links { display: none; }
-      section { padding: 5rem 1.5rem; }
-      .how-grid { grid-template-columns: 1fr; gap: 3rem; }
-      .phone-mockup { order: -1; }
-      footer { flex-direction: column; text-align: center; padding: 2rem 1.5rem; }
-      .footer-links { justify-content: center; }
-      .hero-stats { gap: 2rem; }
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .bento-grid { grid-template-columns: 1fr; }
+      .bento-card.col-2 { grid-column: span 1; }
+      .ecosystem-container { grid-template-columns: 1fr; padding: 3rem 2rem; }
+      .detail-grid { grid-template-columns: repeat(2, 1fr); }
+      nav { padding: 1.25rem 2rem; }
+      section { padding: 5rem 2rem; }
+      .floating-card { display: none; }
     }
-    /* ── SCROLL HIDE ── */
-    .reveal { opacity: 0; transform: translateY(40px); }
   </style>
 </head>
 <body>
 
-<!-- ── NAV ── -->
-<nav id="nav">
-  <div class="nav-logo">Globi<span>Live</span></div>
-  <div class="nav-links">
-    <a href="#features">Features</a>
-    <a href="#how">How It Works</a>
-    <a href="#creators">Creators</a>
-  </div>
-  <div class="nav-cta">
-    <a href="/admin" class="btn btn-ghost">Admin Login</a>
-    <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank" class="btn btn-primary">
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M3.18 23.75a1.5 1.5 0 0 1-.68-1.28V1.53A1.5 1.5 0 0 1 3.18.25l12.11 11.75-12.11 11.75zm1.32-21.3v19.1L18.02 12 4.5 2.45zM15.5 13.06l2.17 2.1-3.17 1.74-2.1-2.04 3.1-1.8zm2.17-4.22L15.5 10.94l-3.1-1.8 2.1-2.04 3.17 1.74z"/></svg>
-      Download App
-    </a>
-  </div>
-</nav>
+  <!-- Solid Structural SVG Background Lines -->
+  <svg class="vector-bg" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M-100 250 C300 100, 700 500, 1540 200" stroke="#222238" stroke-width="2" stroke-dasharray="6 6"/>
+    <path d="M-50 650 C400 850, 900 350, 1500 750" stroke="#222238" stroke-width="2"/>
+    <circle cx="720" cy="400" r="320" stroke="#222238" stroke-width="1"/>
+  </svg>
 
-<!-- ── HERO ── -->
-<section class="hero" id="home">
-  <div class="hero-glow glow-1"></div>
-  <div class="hero-glow glow-2"></div>
-  <div class="hero-glow glow-3"></div>
-
-  <div class="hero-badge"><span style="margin-right:.4rem">●</span> World's #1 Live Streaming Platform</div>
-
-  <h1>
-    <div class="line"><span id="h1-1">Go Live.</span></div>
-    <div class="line"><span class="gradient-text" id="h1-2">Go Global.</span></div>
-  </h1>
-
-  <p class="hero-sub" id="hero-sub">
-    Stream to millions, earn real rewards, and build your global community — all from one app.
-    GlobiLive connects creators, fans, and agencies worldwide.
-  </p>
-
-  <div class="hero-actions" id="hero-actions">
-    <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank" class="btn btn-dl btn-large">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3.18 23.75a1.5 1.5 0 0 1-.68-1.28V1.53A1.5 1.5 0 0 1 3.18.25l12.11 11.75-12.11 11.75z"/></svg>
-      Get on Google Play
-    </a>
-    <a href="/admin" class="btn btn-ghost btn-large">
-      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-      Admin Portal
-    </a>
-  </div>
-
-  <div class="hero-stats" id="hero-stats">
-    <div class="stat"><div class="stat-num">10M+</div><div class="stat-label">Active Users</div></div>
-    <div class="stat"><div class="stat-num">150+</div><div class="stat-label">Countries</div></div>
-    <div class="stat"><div class="stat-num">$2M+</div><div class="stat-label">Paid to Creators</div></div>
-    <div class="stat"><div class="stat-num">99.9%</div><div class="stat-label">Uptime</div></div>
-  </div>
-</section>
-
-<!-- ── MARQUEE ── -->
-<div class="marquee-wrap">
-  <div class="marquee-track" id="marquee">
-    <div class="marquee-item"><span></span> Live Streaming</div>
-    <div class="marquee-item"><span></span> Gift Economy</div>
-    <div class="marquee-item"><span></span> Agency System</div>
-    <div class="marquee-item"><span></span> Real-time Chat</div>
-    <div class="marquee-item"><span></span> Creator Rewards</div>
-    <div class="marquee-item"><span></span> Global Reach</div>
-    <div class="marquee-item"><span></span> Diamond Earnings</div>
-    <div class="marquee-item"><span></span> Multi-language</div>
-    <div class="marquee-item"><span></span> Live Streaming</div>
-    <div class="marquee-item"><span></span> Gift Economy</div>
-    <div class="marquee-item"><span></span> Agency System</div>
-    <div class="marquee-item"><span></span> Real-time Chat</div>
-    <div class="marquee-item"><span></span> Creator Rewards</div>
-    <div class="marquee-item"><span></span> Global Reach</div>
-    <div class="marquee-item"><span></span> Diamond Earnings</div>
-    <div class="marquee-item"><span></span> Multi-language</div>
-  </div>
-</div>
-
-<!-- ── FEATURES ── -->
-<section id="features">
-  <div class="reveal"><p class="section-label">Platform Features</p></div>
-  <div class="reveal"><h2 class="section-title">Everything you need<br/>to go viral</h2></div>
-  <div class="reveal"><p class="section-sub">A full ecosystem built for creators, fans, and agencies — powered by real-time tech.</p></div>
-
-  <div class="features-grid">
-    <div class="feature-card reveal">
-      <div class="feat-icon">🎙️</div>
-      <h3>HD Live Streaming</h3>
-      <p>Crystal-clear video powered by Agora RTC. Go live instantly to your global audience with zero buffering.</p>
+  <!-- ── NAV ── -->
+  <nav id="nav">
+    <div class="nav-logo">
+      Globi<span>Live</span> <span class="nav-badge">Flutter</span>
     </div>
-    <div class="feature-card reveal">
-      <div class="feat-icon">💎</div>
-      <h3>Diamond & Bean Economy</h3>
-      <p>Fans send gifts, creators earn diamonds. Convert to real money through our transparent payout system.</p>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#agora">Live Room</a>
+      <a href="#economy">Economy & Games</a>
+      <a href="#agency">Agency Hub</a>
     </div>
-    <div class="feature-card reveal">
-      <div class="feat-icon">🏢</div>
-      <h3>Agency Management</h3>
-      <p>Agencies recruit hosts, track performance, and earn commissions. Full dashboard with real-time analytics.</p>
-    </div>
-    <div class="feature-card reveal">
-      <div class="feat-icon">💬</div>
-      <h3>Real-time Chat & Moments</h3>
-      <p>Private DMs, live room chat, and a social feed. Build deeper connections with your audience.</p>
-    </div>
-    <div class="feature-card reveal">
-      <div class="feat-icon">🎁</div>
-      <h3>Virtual Gift Shop</h3>
-      <p>100+ animated gifts — aeroplanes, rockets, roses. Each gift sends real value to creators instantly.</p>
-    </div>
-    <div class="feature-card reveal">
-      <div class="feat-icon">🔒</div>
-      <h3>Secure & Scalable</h3>
-      <p>Firebase auth, JWT sessions, MongoDB Atlas. Built for millions of concurrent users, secured end-to-end.</p>
-    </div>
-  </div>
-</section>
-
-<!-- ── HOW IT WORKS ── -->
-<section id="how">
-  <div class="how-grid">
     <div>
-      <div class="reveal"><p class="section-label">How It Works</p></div>
-      <div class="reveal"><h2 class="section-title">Start earning<br/>in 3 steps</h2></div>
-      <div class="steps" style="margin-top:2.5rem">
-        <div class="step reveal">
-          <div class="step-num">1</div>
-          <div>
-            <h4>Download & Register</h4>
-            <p>Get GlobiLive from Play Store. Create your profile in under a minute — no credit card needed.</p>
+      <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank" class="btn btn-purple">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Download App
+      </a>
+    </div>
+  </nav>
+
+  <!-- ── HERO ── -->
+  <section class="hero" id="home">
+    
+    <!-- Floating SVG Ref Cards -->
+    <div class="floating-card fc-1 gsap-float">
+      <div class="icon-box" style="background:var(--c-purple); color:#FFF;">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:800; font-size:0.85rem; color:#FFF;">Agora RTC Core</div>
+        <div style="font-size:0.75rem; color:var(--c-muted);">Multi-Broadcast Streams</div>
+      </div>
+    </div>
+
+    <div class="floating-card fc-2 gsap-float">
+      <div class="icon-box" style="background:var(--c-yellow); color:var(--c-bg);">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:800; font-size:0.85rem; color:#FFF;">Beans & Diamonds</div>
+        <div style="font-size:0.75rem; color:var(--c-muted);">Stripe & Cash Out System</div>
+      </div>
+    </div>
+
+    <div class="floating-card fc-3 gsap-float">
+      <div class="icon-box" style="background:var(--c-cyan); color:var(--c-bg);">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:800; font-size:0.85rem; color:#FFF;">Socket.IO Engine</div>
+        <div style="font-size:0.75rem; color:var(--c-muted);">1-on-1 Realtime DMs</div>
+      </div>
+    </div>
+
+    <div class="floating-card fc-4 gsap-float">
+      <div class="icon-box" style="background:var(--c-pink); color:#FFF;">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:800; font-size:0.85rem; color:#FFF;">TikTok-Style Feed</div>
+        <div style="font-size:0.75rem; color:var(--c-muted);">Vertical Video & Stories</div>
+      </div>
+    </div>
+
+    <div class="hero-badge gsap-hero">
+      <span class="hero-badge-dot"></span> Full Social & Streaming Ecosystem
+    </div>
+
+    <h1 class="gsap-hero">
+      Go Live. <span class="text-pink">Connect.</span> <br/>
+      Play Games & <span class="text-cyan">Earn Real Cash.</span>
+    </h1>
+
+    <p class="hero-sub gsap-hero">
+      From Agora multi-seat streams and Socket.IO messaging to Stripe-backed wallet cashouts, Teen Patti gaming, and host agency dashboards—all built inside one Flutter experience.
+    </p>
+
+    <div style="display:flex; gap:1rem; flex-wrap:wrap; justify-content:center; z-index:2;" class="gsap-hero">
+      <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank" class="btn btn-purple" style="padding:0.9rem 2.2rem; font-size:0.95rem;">
+        Get on Play Store
+      </a>
+      <a href="#features" class="btn btn-outline" style="padding:0.9rem 2.2rem; font-size:0.95rem;">
+        Explore All Features
+      </a>
+    </div>
+  </section>
+
+  <!-- ── BENTO GRID FEATURES ── -->
+  <section id="features">
+    <div class="section-header">
+      <span class="section-tag">Feature Pillars</span>
+      <h2 class="section-title">Designed for Ultimate Engagement</h2>
+      <p class="section-desc">A deep dive into the exact modules powering the GlobiLive mobile application.</p>
+    </div>
+
+    <div class="bento-grid">
+      
+      <!-- Live Room Module -->
+      <div class="bento-card col-2 gsap-card" id="agora">
+        <div>
+          <div class="icon-box" style="background:var(--c-purple); color:#FFF; margin-bottom:1.25rem;">
+            <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          </div>
+          <h3>Agora Live Rooms & Multi-Broadcast</h3>
+          <p>Host streams, discovery feed, virtual gifts sending with animated responses, room leaderboards, floating Picture-in-Picture (PiP) window, and interactive co-host seat systems.</p>
+        </div>
+        <div class="feature-tags">
+          <span class="tag">Agora RTC</span>
+          <span class="tag">Co-Host Seats</span>
+          <span class="tag">PiP Floating Room</span>
+          <span class="tag">Virtual Gifts</span>
+          <span class="tag">Leaderboards</span>
+        </div>
+      </div>
+
+      <!-- Economy & Wallet Module -->
+      <div class="bento-card gsap-card" id="economy">
+        <div>
+          <div class="icon-box" style="background:var(--c-yellow); color:var(--c-bg); margin-bottom:1.25rem;">
+            <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+          </div>
+          <h3>Wallet & Virtual Economy</h3>
+          <p>Beans and Diamonds currency balance, Stripe & Google Play IAP, withdrawal cash-out page, VIP badges store, and Coin Seller marketplace.</p>
+        </div>
+        <div class="feature-tags">
+          <span class="tag">Stripe / IAP</span>
+          <span class="tag">Diamonds Cashout</span>
+          <span class="tag">Coin Marketplace</span>
+        </div>
+      </div>
+
+      <!-- Social & Vertical Video Feed -->
+      <div class="bento-card gsap-card">
+        <div>
+          <div class="icon-box" style="background:var(--c-pink); color:#FFF; margin-bottom:1.25rem;">
+            <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M7 4v16l13-8L7 4z"/></svg>
+          </div>
+          <h3>TikTok Feed & Stories</h3>
+          <p>Vertical video scrolling feed, story viewer with swipe gestures, post creation with video/image uploads, comments, and archived posts.</p>
+        </div>
+        <div class="feature-tags">
+          <span class="tag">Vertical Feed</span>
+          <span class="tag">Stories & Moments</span>
+          <span class="tag">Archived Content</span>
+        </div>
+      </div>
+
+      <!-- In-App Games Hub -->
+      <div class="bento-card col-2 gsap-card">
+        <div>
+          <div class="icon-box" style="background:var(--c-cyan); color:var(--c-bg); margin-bottom:1.25rem;">
+            <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4a2 2 0 114 0v1a2 2 0 01-2 2 2 2 0 01-2-2V4zm-6 8a2 2 0 114 0v1a2 2 0 01-2 2 2 2 0 01-2-2v-1zm12 0a2 2 0 114 0v1a2 2 0 01-2 2 2 2 0 01-2-2v-1z"/></svg>
+          </div>
+          <h3>In-App Gaming Hub</h3>
+          <p>Boost user retention and coin usage with integrated real-time games directly accessible inside stream rooms or from the Game Hub.</p>
+        </div>
+        <div class="feature-tags">
+          <span class="tag">Teen Patti</span>
+          <span class="tag">Plinko</span>
+          <span class="tag">Dice Roll</span>
+          <span class="tag">Spin Wheel</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── DETAILED ECOSYSTEM & AGENCY CENTER ── -->
+  <section id="agency">
+    <div class="ecosystem-container">
+      <div class="eco-content">
+        <span class="section-tag">Agency & Creator System</span>
+        <h2>Host Dashboards, Creator Tools & Agency Management</h2>
+        <p>Built-in monetization workflow for agencies to onboard hosts, monitor daily goals, and pay out diamond earnings.</p>
+
+        <div class="eco-list">
+          <div class="eco-item">
+            <div class="eco-icon">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <div>
+              <strong style="color:#FFF; display:block; font-size:1rem;">Agency & Host Application</strong>
+              <span style="font-size:0.88rem; color:var(--c-muted);">Streamlined agency creation and host onboarding using unique invite codes.</span>
+            </div>
+          </div>
+
+          <div class="eco-item">
+            <div class="eco-icon">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <div>
+              <strong style="color:#FFF; display:block; font-size:1rem;">Creator Hub & Sound Library</strong>
+              <span style="font-size:0.88rem; color:var(--c-muted);">Background music sound library, stream templates, and real-time host earnings statistics.</span>
+            </div>
+          </div>
+
+          <div class="eco-item">
+            <div class="eco-icon">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <div>
+              <strong style="color:#FFF; display:block; font-size:1rem;">Referral & Peer Market</strong>
+              <span style="font-size:0.88rem; color:var(--c-muted);">Refer & Earn code system along with a dedicated coin seller marketplace page.</span>
+            </div>
           </div>
         </div>
-        <div class="step reveal">
-          <div class="step-num">2</div>
-          <div>
-            <h4>Join or Create an Agency</h4>
-            <p>Apply as a host through your agency code. Get onboarded, trained, and start going live.</p>
+      </div>
+
+      <!-- App Screen Mockup -->
+      <div class="mockup-wrapper">
+        <div class="phone-mockup">
+          <div class="live-stream-header">
+            <div style="font-size:0.8rem; font-weight:800; color:#FFF;">@host_mona</div>
+            <div class="badge-live-tag">LIVE</div>
           </div>
-        </div>
-        <div class="step reveal">
-          <div class="step-num">3</div>
-          <div>
-            <h4>Stream & Earn</h4>
-            <p>Go live, receive gifts from fans, earn diamonds — and cash out to your bank account weekly.</p>
+
+          <!-- Multi seat UI box -->
+          <div style="background:var(--c-surface); border:1px solid var(--c-border); border-radius:var(--r-md); padding:0.8rem;">
+            <div style="font-size:0.75rem; font-weight:700; color:var(--c-muted); margin-bottom:0.6rem;">Co-Host Seats (4/6)</div>
+            <div class="seats-grid">
+              <div class="seat-box"><div class="seat-avatar"></div><span style="font-size:0.6rem; margin-top:4px; color:var(--c-muted);">Host</span></div>
+              <div class="seat-box"><div class="seat-avatar"></div><span style="font-size:0.6rem; margin-top:4px; color:var(--c-muted);">Co-1</span></div>
+              <div class="seat-box"><div class="seat-avatar"></div><span style="font-size:0.6rem; margin-top:4px; color:var(--c-muted);">Co-2</span></div>
+              <div class="seat-box"><div class="seat-avatar" style="background:transparent; border:1px dashed var(--c-border-bright);">+</div></div>
+            </div>
+          </div>
+
+          <!-- Realtime chat mockup -->
+          <div class="stream-chat">
+            <div class="chat-bubble"><strong style="color:var(--c-pink);">Alex:</strong> Sent 500 Beans! 🚀</div>
+            <div class="chat-bubble"><strong style="color:var(--c-cyan);">Sarah:</strong> Amazing stream! ❤️</div>
+          </div>
+
+          <div style="margin-top:auto; background:var(--c-card); padding:0.6rem; border-radius:8px; border:1px solid var(--c-border); text-align:center;">
+            <span style="font-size:0.75rem; font-weight:700; color:var(--c-yellow);">💎 +12,400 Diamonds Earned</span>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="phone-mockup reveal">
-      <div class="phone-frame">
-        <div class="phone-orb orb-a"></div>
-        <div class="phone-orb orb-b"></div>
-        <div class="phone-inner">
-          <div class="live-indicator"><div class="live-dot"></div> LIVE</div>
-          <div class="phone-views" id="live-counter">24,891</div>
-          <div class="phone-sub">viewers right now</div>
-          <div style="margin-top:2rem;display:flex;flex-direction:column;gap:.75rem">
-            <div style="background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3);border-radius:.75rem;padding:.75rem 1.25rem;font-size:.8rem;color:#c084fc;">💎 +500 Diamonds received</div>
-            <div style="background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.3);border-radius:.75rem;padding:.75rem 1.25rem;font-size:.8rem;color:#67e8f9;">✈️ Aeroplane gift sent!</div>
-            <div style="background:rgba(236,72,153,.1);border:1px solid rgba(236,72,153,.3);border-radius:.75rem;padding:.75rem 1.25rem;font-size:.8rem;color:#f9a8d4;">🎁 New follower +1,240</div>
-          </div>
-        </div>
+    <!-- Additional Features Grid (Detailed Icons) -->
+    <div class="detail-grid">
+      <div class="detail-card">
+        <svg width="24" height="24" fill="none" stroke="var(--c-purple)" stroke-width="2" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        <h4>2FA & Account Safety</h4>
+        <p>Two-factor authentication toggle, private account settings, and blocked users management.</p>
+      </div>
+
+      <div class="detail-card">
+        <svg width="24" height="24" fill="none" stroke="var(--c-pink)" stroke-width="2" viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        <h4>1-on-1 Agora Calls</h4>
+        <p>Direct private video calls powered by Agora RTC for private creator interactions.</p>
+      </div>
+
+      <div class="detail-card">
+        <svg width="24" height="24" fill="none" stroke="var(--c-cyan)" stroke-width="2" viewBox="0 0 24 24"><path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+        <h4>Socket.IO DMs</h4>
+        <p>Realtime private conversations, chat lists, and instant notification system.</p>
+      </div>
+
+      <div class="detail-card">
+        <svg width="24" height="24" fill="none" stroke="var(--c-yellow)" stroke-width="2" viewBox="0 0 24 24"><path d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        <h4>In-App Support Ticket</h4>
+        <p>In-app support chat system with ticket tracking and responsive helpdesk.</p>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- ── CREATORS ── -->
-<section id="creators" class="creators-section">
-  <div style="text-align:center">
-    <div class="reveal"><p class="section-label">Top Creators</p></div>
-    <div class="reveal"><h2 class="section-title">Real people.<br/>Real earnings.</h2></div>
-    <div class="reveal"><p class="section-sub" style="margin:0 auto">Join thousands of creators who turned their passion into a full-time income on GlobiLive.</p></div>
-  </div>
-  <div class="creators-grid">
-    <div class="creator-card reveal">
-      <div class="live-tag"><span style="width:6px;height:6px;border-radius:50%;background:#f472b6;display:inline-block"></span> LIVE</div>
-      <div class="creator-avatar">🌟</div>
-      <div class="creator-name">@zayannasir_bay</div>
-      <div class="creator-role">Music & Entertainment</div>
-      <div class="creator-earn">$3,200</div>
-      <div class="creator-earn-label">earned this month</div>
+  <!-- ── CTA ── -->
+  <section style="padding-bottom:5rem;">
+    <div class="cta-box">
+      <h2>Build Your Live Community Today</h2>
+      <p>Download GlobiLive to stream, perform, play games, and manage your host agency.</p>
+      <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
+        <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank" class="btn btn-purple" style="padding:1rem 2.5rem; font-size:1rem;">
+          Download on Google Play
+        </a>
+      </div>
     </div>
-    <div class="creator-card reveal">
-      <div class="creator-avatar">🎤</div>
-      <div class="creator-name">@haniijaz</div>
-      <div class="creator-role">Comedy & Talk Shows</div>
-      <div class="creator-earn">$2,800</div>
-      <div class="creator-earn-label">earned this month</div>
+  </section>
+
+  <!-- ── FOOTER ── -->
+  <footer>
+    <div style="font-weight:900; font-size:1.1rem; color:#FFF;">Globi<span style="color:var(--c-purple);">Live</span></div>
+    <div class="footer-links">
+      <a href="#">Privacy Settings</a>
+      <a href="#">Payout Info</a>
+      <a href="#">Agency Portal</a>
+      <a href="#">Support Chat</a>
     </div>
-    <div class="creator-card reveal">
-      <div class="live-tag"><span style="width:6px;height:6px;border-radius:50%;background:#f472b6;display:inline-block"></span> LIVE</div>
-      <div class="creator-avatar">💃</div>
-      <div class="creator-name">@walewale</div>
-      <div class="creator-role">Dance & Performance</div>
-      <div class="creator-earn">$1,950</div>
-      <div class="creator-earn-label">earned this month</div>
-    </div>
-    <div class="creator-card reveal">
-      <div class="creator-avatar">🎮</div>
-      <div class="creator-name">@scitforte</div>
-      <div class="creator-role">Gaming & Esports</div>
-      <div class="creator-earn">$4,100</div>
-      <div class="creator-earn-label">earned this month</div>
-    </div>
-  </div>
-</section>
+    <div style="font-size:0.85rem; color:var(--c-muted); font-weight:600;">© 2026 GlobiLive Inc.</div>
+  </footer>
 
-<!-- ── CTA ── -->
-<section class="cta-section">
-  <div class="cta-glow"></div>
-  <div class="reveal"><p class="section-label">Get Started Today</p></div>
-  <div class="reveal">
-    <h2 class="section-title">Your audience is<br/><span style="background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent">waiting for you.</span></h2>
-  </div>
-  <div class="reveal"><p class="section-sub" style="margin:0 auto;text-align:center">Download the app, create your profile, and go live in minutes. Join the global creator revolution.</p></div>
-  <div class="cta-actions reveal">
-    <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank" class="btn btn-primary btn-large">
-      <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M3.18 23.75a1.5 1.5 0 0 1-.68-1.28V1.53A1.5 1.5 0 0 1 3.18.25l12.11 11.75-12.11 11.75zm1.32-21.3v19.1L18.02 12 4.5 2.45zM15.5 13.06l2.17 2.1-3.17 1.74-2.1-2.04 3.1-1.8zm2.17-4.22L15.5 10.94l-3.1-1.8 2.1-2.04 3.17 1.74z"/></svg>
-      Download on Play Store
-    </a>
-    <a href="/admin" class="btn btn-ghost btn-large">Admin Login →</a>
-  </div>
-</section>
+  <!-- ── GSAP ANIMATIONS ── -->
+  <script>
+    gsap.registerPlugin(ScrollTrigger);
 
-<!-- ── FOOTER ── -->
-<footer>
-  <div class="footer-logo">Globi<span>Live</span></div>
-  <p class="footer-copy">© 2026 GlobiLive. All rights reserved.</p>
-  <div class="footer-links">
-    <a href="#">Privacy</a>
-    <a href="#">Terms</a>
-    <a href="#">Support</a>
-    <a href="/admin">Admin</a>
-  </div>
-</footer>
+    // Nav scrolled style
+    window.addEventListener('scroll', () => {
+      document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 40);
+    });
 
-<script>
-  gsap.registerPlugin(ScrollTrigger);
+    // Hero staggered reveal
+    gsap.from(".gsap-hero", {
+      y: 40,
+      opacity: 0,
+      duration: 1,
+      stagger: 0.15,
+      ease: "power3.out",
+      delay: 0.1
+    });
 
-  // ── Nav scroll effect
-  const nav = document.getElementById('nav');
-  window.addEventListener('scroll', () => {
-    nav.classList.toggle('scrolled', window.scrollY > 30);
-  });
+    // Floating cards smooth yoyo
+    gsap.utils.toArray(".gsap-float").forEach((el, index) => {
+      gsap.to(el, {
+        y: (index % 2 === 0 ? 12 : -12),
+        duration: 2.2 + index * 0.4,
+        repeat: -1,
+        yoyo: true,
+        ease: "sine.inOut"
+      });
+    });
 
-  // ── Hero entrance
-  const tl = gsap.timeline({ defaults: { ease: 'power4.out' } });
-  tl.from('.hero-badge',   { opacity: 0, y: 30, duration: .8, delay: .2 })
-    .from('#h1-1',         { opacity: 0, y: 60, duration: 1 }, '-=.4')
-    .from('#h1-2',         { opacity: 0, y: 60, duration: 1 }, '-=.7')
-    .from('#hero-sub',     { opacity: 0, y: 30, duration: .8 }, '-=.5')
-    .from('#hero-actions', { opacity: 0, y: 30, duration: .8 }, '-=.5')
-    .from('#hero-stats .stat', { opacity: 0, y: 20, stagger: .12, duration: .7 }, '-=.4');
+    // Bento Cards ScrollTrigger
+    gsap.from(".gsap-card", {
+      scrollTrigger: {
+        trigger: "#features",
+        start: "top 75%",
+      },
+      y: 45,
+      opacity: 0,
+      duration: 0.8,
+      stagger: 0.12,
+      ease: "power2.out"
+    });
 
-  // ── Glow parallax
-  gsap.to('.glow-1', { yPercent: -20, ease: 'none', scrollTrigger: { trigger: '.hero', scrub: 1.5 } });
-  gsap.to('.glow-2', { yPercent:  20, ease: 'none', scrollTrigger: { trigger: '.hero', scrub: 1.5 } });
-
-  // ── Reveal all .reveal elements
-  gsap.utils.toArray('.reveal').forEach(el => {
-    gsap.fromTo(el,
-      { opacity: 0, y: 50 },
-      { opacity: 1, y: 0, duration: .9, ease: 'power3.out',
-        scrollTrigger: { trigger: el, start: 'top 88%', toggleActions: 'play none none none' }
-      }
-    );
-  });
-
-  // ── Feature cards stagger
-  gsap.from('.feature-card', {
-    opacity: 0, y: 40, stagger: .1, duration: .8, ease: 'power3.out',
-    scrollTrigger: { trigger: '.features-grid', start: 'top 80%' }
-  });
-
-  // ── Creator cards stagger
-  gsap.from('.creator-card', {
-    opacity: 0, scale: .94, stagger: .12, duration: .7, ease: 'back.out(1.7)',
-    scrollTrigger: { trigger: '.creators-grid', start: 'top 80%' }
-  });
-
-  // ── Live counter animation
-  const counterEl = document.getElementById('live-counter');
-  let count = 24891;
-  setInterval(() => {
-    count += Math.floor(Math.random() * 20) - 5;
-    if (count < 24000) count = 24000;
-    counterEl.textContent = count.toLocaleString();
-  }, 1800);
-
-  // ── CTA section glow rotate
-  gsap.to('.cta-glow', {
-    rotation: 360, duration: 20, ease: 'none', repeat: -1,
-    transformOrigin: 'center center'
-  });
-</script>
+    // Detail Cards ScrollTrigger
+    gsap.from(".detail-card", {
+      scrollTrigger: {
+        trigger: ".detail-grid",
+        start: "top 85%",
+      },
+      scale: 0.92,
+      opacity: 0,
+      duration: 0.6,
+      stagger: 0.08,
+      ease: "back.out(1.4)"
+    });
+  </script>
 </body>
 </html>
