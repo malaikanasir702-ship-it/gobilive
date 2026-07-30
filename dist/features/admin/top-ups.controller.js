@@ -426,12 +426,7 @@ const submitBeanTransfer = async (req, res) => {
             return;
         }
         await user_model_1.User.findByIdAndUpdate(sender._id, { $inc: { beanWallet: -amount } }, { session });
-        if (['user', 'host'].includes(recipient.role)) {
-            await user_model_1.User.findByIdAndUpdate(recipient._id, { $inc: { diamonds: amount, beanWallet: amount } }, { session });
-        }
-        else {
-            await user_model_1.User.findByIdAndUpdate(recipient._id, { $inc: { beanWallet: amount } }, { session });
-        }
+        await user_model_1.User.findByIdAndUpdate(recipient._id, { $inc: { beanWallet: amount } }, { session });
         const tx = await bean_transaction_model_1.BeanTransaction.create([{
                 type: 'transfer',
                 fromId: sender._id,

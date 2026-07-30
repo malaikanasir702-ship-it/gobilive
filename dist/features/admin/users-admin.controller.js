@@ -46,7 +46,7 @@ const listUsers = async (req, res) => {
         }
         const total = await user_model_1.User.countDocuments(filter);
         const users = await user_model_1.User.find(filter)
-            .select('username email phone diamonds rcoins isSuspended isBlocked blockedUntil blockType createdAt profilePic role')
+            .select('username email phone diamonds rcoins beanWallet isSuspended isBlocked blockedUntil blockType createdAt profilePic role')
             .sort({ createdAt: -1 })
             .skip((page - 1) * limit)
             .limit(limit)
