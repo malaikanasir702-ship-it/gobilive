@@ -141,32 +141,45 @@ export const getBeanRequestsForTopUp = async (req: AdminAuthRequest, res: Respon
 };
 
 export const submitBeanRequest = async (req: AdminAuthRequest, res: Response): Promise<void> => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
   try {
-    // req.body may be empty when Content-Type is multipart/form-data and multer
-    // hasn't run yet, so we always coerce amount to a number here.
-    const amount = Number(req.body?.amount);
+    // Amount comes from multipart form field — coerce to number safely
+    const rawAmount = req.body?.amount ?? (req as any).body?.amount;
+    const amount = Number(rawAmount);
     if (!amount || amount <= 0) {
-      await session.abortTransaction(); session.endSession();
       res.status(400).json({ success: false, message: 'Amount must be positive.' });
       return;
     }
 
-    // Resolve transfer slip URL: uploaded file takes priority over plain URL in body
+    // Transfer slip: prefer uploaded file, fallback to URL in body
     const uploadedFile = (req as any).file as Express.Multer.File | undefined;
     const transferSlipUrl: string | undefined = uploadedFile
       ? `${req.protocol}://${req.get('host')}/uploads/${uploadedFile.filename}`
       : (req.body?.transferSlipUrl as string | undefined);
 
-    const tx = await BeanTransaction.create(
-      [{ type: 'request', fromId: req.adminUser!.id, fromRole: req.adminUser!.role, toId: undefined as any, toRole: 'company_admin', amount, transferSlipUrl, status: 'pending' }],
-      { session }
-    );
-    await session.commitTransaction();
-    await logActivity({ actorId: req.adminUser!.id, actorRole: req.adminUser!.role, actionType: 'submit_bean_request', targetEntityType: 'BeanTransaction', targetEntityId: tx[0]._id.toString(), description: `Requested ${amount} beans` });
-    res.status(200).json({ success: true, request: tx[0] });
-  } catch (err: any) { await session.abortTransaction(); res.status(500).json({ success: false, message: err.message }); } finally { session.endSession(); }
+    // Create without session — simple insert, no transaction needed here
+    const tx = await BeanTransaction.create({
+      type: 'request',
+      fromId: req.adminUser!.id,
+      fromRole: req.adminUser!.role,
+      toRole: 'company_admin',
+      amount,
+      transferSlipUrl,
+      status: 'pending',
+    });
+
+    await logActivity({
+      actorId: req.adminUser!.id,
+      actorRole: req.adminUser!.role,
+      actionType: 'submit_bean_request',
+      targetEntityType: 'BeanTransaction',
+      targetEntityId: tx._id.toString(),
+      description: `Requested ${amount} beans`,
+    });
+
+    res.status(200).json({ success: true, request: tx });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 };
 
 export const approveBeanRequest = async (req: AdminAuthRequest, res: Response): Promise<void> => {

@@ -8,7 +8,7 @@ import { logActivity } from '../activity-log/activity-log.service';
 import { AdminAuthRequest } from '../../core/middlewares/rbac.middleware';
 
 // ─── Bean Wallet ─────────────────────────────────────────────────────────────
-
+// Accessible by company_admin, top_up_agent, and reseller
 export const getBeanWallet = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
     const user = await User.findById(req.adminUser!.id).select('beanWallet').lean();
