@@ -40,7 +40,7 @@ router.post('/resellers/:id/reject', COMPANY_OR_SUPER, rejectReseller as any);
 router.post('/resellers/:id/block', requireRoles('company_admin', 'super_admin', 'top_up_agent') as any, blockReseller as any);
 router.post('/resellers/:id/unblock', requireRoles('company_admin', 'super_admin', 'top_up_agent') as any, unblockReseller as any);
 
-router.get('/bean-requests', COMPANY_OR_AGENT, getBeanRequestsForTopUp as any);
+router.get('/bean-requests', requireRoles('company_admin', 'super_admin', 'top_up_agent', 'reseller') as any, getBeanRequestsForTopUp as any);
 router.post('/bean-requests', AGENT_OR_RESELLER, submitBeanRequest as any);
 router.post('/bean-requests/:id/approve', COMPANY_OR_SUPER, approveBeanRequest as any);
 router.post('/bean-requests/:id/reject', COMPANY_OR_SUPER, rejectBeanRequest as any);

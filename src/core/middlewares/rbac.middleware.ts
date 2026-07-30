@@ -110,7 +110,7 @@ export const authenticateAdminPanel = async (
     req.adminUser = { id: decoded.id, username: decoded.username, role: dbUser.role };
     next();
   } catch {
-    res.status(403).json({ success: false, message: 'Invalid or expired token.' });
+    res.status(401).json({ success: false, message: 'Invalid or expired token.' });
   }
 };
 

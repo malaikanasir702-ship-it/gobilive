@@ -240,6 +240,8 @@ export const rejectBeanRequest = async (req: AdminAuthRequest, res: Response): P
     res.status(200).json({ success: true, request: tx });
   } catch (err: any) { await session.abortTransaction(); res.status(500).json({ success: false, message: err.message }); } finally { session.endSession(); }
 };
+
+export const getBeanTransfers = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
     const page = Math.max(1, parseInt((req.query.page as string) || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || '20', 10)));
