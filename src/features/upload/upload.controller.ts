@@ -91,3 +91,43 @@ export const uploadFile = async (req: AuthRequest, res: Response): Promise<void>
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+/**
+ * POST /api/upload/admin-file
+ * Admin panel file upload — authenticated via admin JWT.
+ * Used for transfer slips, screenshots, etc.
+ */
+export const adminUploadFile = async (req: any, res: Response): Promise<void> => {
+  const file = req.file as Express.Multer.File | undefined;
+  try {
+    if (!file) {
+      res.status(400).json({ success: false, message: 'No file uploaded.' });
+      return;
+    }
+
+    const isImage = file.mimetype.startsWith('image/');
+    const isPdf = file.mimetype === 'application/pdf';
+
+    const result = await cloudinary.uploader.upload(file.path, {
+      folder: 'gobilive_admin_slips',
+      resource_type: isPdf ? 'raw' : 'image',
+      ...(isImage && { quality: 'auto:best' }),
+    });
+
+    if (fs.existsSync(file.path)) {
+      fs.unlinkSync(file.path);
+    }
+
+    res.status(201).json({
+      success: true,
+      url: result.secure_url,
+      public_id: result.public_id,
+    });
+  } catch (error: any) {
+    if (file && fs.existsSync(file.path)) {
+      try { fs.unlinkSync(file.path); } catch (_) {}
+    }
+    console.error('[AdminUpload] error:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

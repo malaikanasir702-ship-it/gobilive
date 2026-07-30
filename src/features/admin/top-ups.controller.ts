@@ -142,6 +142,11 @@ export const getBeanRequestsForTopUp = async (req: AdminAuthRequest, res: Respon
 
 export const submitBeanRequest = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
+    // Debug: log what we received
+    console.log('[submitBeanRequest] body:', req.body);
+    console.log('[submitBeanRequest] file:', (req as any).file?.filename);
+    console.log('[submitBeanRequest] adminUser:', req.adminUser?.id, req.adminUser?.role);
+
     // Amount comes from multipart form field — coerce to number safely
     const rawAmount = req.body?.amount ?? (req as any).body?.amount;
     const amount = Number(rawAmount);
@@ -178,6 +183,7 @@ export const submitBeanRequest = async (req: AdminAuthRequest, res: Response): P
 
     res.status(200).json({ success: true, request: tx });
   } catch (err: any) {
+    console.error('[submitBeanRequest] error:', err.message, err.stack);
     res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -257,11 +263,8 @@ export const submitBeanTransfer = async (req: AdminAuthRequest, res: Response): 
       return;
     }
 
-    // Resolve transfer slip URL from uploaded file or body
-    const uploadedFile = (req as any).file as Express.Multer.File | undefined;
-    const transferSlipUrl: string | undefined = uploadedFile
-      ? `${req.protocol}://${req.get('host')}/uploads/${uploadedFile.filename}`
-      : (req.body?.transferSlipUrl as string | undefined);
+    // Transfer slip URL from JSON body
+    const transferSlipUrl: string | undefined = req.body?.transferSlipUrl as string | undefined;
 
     const sender = await User.findById(req.adminUser!.id).session(session).select('beanWallet role username');
     if (!sender) { res.status(404).json({ success: false, message: 'Sender not found.' }); await session.abortTransaction(); session.endSession(); return; }
