@@ -96,6 +96,7 @@ app.get('/admin/*path', (_req, res) => {
     });
 });
 app.use('/api/upload', upload_route_1.default);
+app.use('/api/admin-panel/v1/upload', upload_route_1.default);
 app.use('/api/auth', auth_route_1.default);
 app.use('/api/leaderboard', leaderboard_route_1.default);
 app.use('/api/feed', feed_route_1.default);

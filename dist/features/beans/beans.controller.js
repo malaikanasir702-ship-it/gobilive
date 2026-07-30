@@ -11,6 +11,7 @@ const policy_log_model_1 = require("../policy/policy-log.model");
 const platform_settings_model_1 = require("../settings/platform-settings.model");
 const activity_log_service_1 = require("../activity-log/activity-log.service");
 // ─── Bean Wallet ─────────────────────────────────────────────────────────────
+// Accessible by company_admin, top_up_agent, and reseller
 const getBeanWallet = async (req, res) => {
     try {
         const user = await user_model_1.User.findById(req.adminUser.id).select('beanWallet').lean();

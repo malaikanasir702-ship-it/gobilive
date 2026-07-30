@@ -108,6 +108,7 @@ app.get('/admin/*path', (_req, res) => {
 });
 
 app.use('/api/upload', uploadRouter);
+app.use('/api/admin-panel/v1/upload', uploadRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/feed', feedRouter);

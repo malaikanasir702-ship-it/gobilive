@@ -105,23 +105,35 @@ export const adminUploadFile = async (req: any, res: Response): Promise<void> =>
       return;
     }
 
-    const isImage = file.mimetype.startsWith('image/');
-    const isPdf = file.mimetype === 'application/pdf';
+    let url: string | undefined;
+    let publicId: string | undefined;
 
-    const result = await cloudinary.uploader.upload(file.path, {
-      folder: 'gobilive_admin_slips',
-      resource_type: isPdf ? 'raw' : 'image',
-      ...(isImage && { quality: 'auto:best' }),
-    });
+    try {
+      const isImage = file.mimetype.startsWith('image/');
+      const isPdf = file.mimetype === 'application/pdf';
 
-    if (fs.existsSync(file.path)) {
-      fs.unlinkSync(file.path);
+      const result = await cloudinary.uploader.upload(file.path, {
+        folder: 'gobilive_admin_slips',
+        resource_type: isPdf ? 'raw' : 'image',
+        ...(isImage && { quality: 'auto:best' }),
+      });
+      url = result.secure_url;
+      publicId = result.public_id;
+
+      if (fs.existsSync(file.path)) {
+        fs.unlinkSync(file.path);
+      }
+    } catch (cloudErr: any) {
+      console.warn('[AdminUpload] Cloudinary upload failed, falling back to local file URL:', cloudErr.message);
+      // Fallback: use local /uploads/ static path served by app.ts
+      url = `${req.protocol}://${req.get('host')}/uploads/${file.filename}`;
+      publicId = file.filename;
     }
 
     res.status(201).json({
       success: true,
-      url: result.secure_url,
-      public_id: result.public_id,
+      url,
+      public_id: publicId,
     });
   } catch (error: any) {
     if (file && fs.existsSync(file.path)) {

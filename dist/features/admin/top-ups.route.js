@@ -19,8 +19,11 @@ router.post('/resellers/:id/approve', COMPANY_OR_SUPER, top_ups_controller_1.app
 router.post('/resellers/:id/reject', COMPANY_OR_SUPER, top_ups_controller_1.rejectReseller);
 router.post('/resellers/:id/block', (0, rbac_middleware_1.requireRoles)('company_admin', 'super_admin', 'top_up_agent'), top_ups_controller_1.blockReseller);
 router.post('/resellers/:id/unblock', (0, rbac_middleware_1.requireRoles)('company_admin', 'super_admin', 'top_up_agent'), top_ups_controller_1.unblockReseller);
-router.get('/bean-requests', COMPANY_OR_AGENT, top_ups_controller_1.getBeanRequestsForTopUp);
+const COMPANY_OR_AGENT_APPROVER = (0, rbac_middleware_1.requireRoles)('company_admin', 'super_admin', 'top_up_agent');
+router.get('/bean-requests', (0, rbac_middleware_1.requireRoles)('company_admin', 'super_admin', 'top_up_agent', 'reseller'), top_ups_controller_1.getBeanRequestsForTopUp);
 router.post('/bean-requests', AGENT_OR_RESELLER, top_ups_controller_1.submitBeanRequest);
+router.post('/bean-requests/:id/approve', COMPANY_OR_AGENT_APPROVER, top_ups_controller_1.approveBeanRequest);
+router.post('/bean-requests/:id/reject', COMPANY_OR_AGENT_APPROVER, top_ups_controller_1.rejectBeanRequest);
 router.get('/bean-transfers', COMPANY_OR_AGENT, top_ups_controller_1.getBeanTransfers);
 router.post('/bean-transfers', AGENT_OR_RESELLER, top_ups_controller_1.submitBeanTransfer);
 exports.default = router;

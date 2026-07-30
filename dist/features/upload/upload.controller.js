@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.uploadFile = void 0;
+exports.adminUploadFile = exports.uploadFile = void 0;
 const cloudinary_1 = require("cloudinary");
 const fs_1 = __importDefault(require("fs"));
 /**
@@ -91,3 +91,55 @@ const uploadFile = async (req, res) => {
     }
 };
 exports.uploadFile = uploadFile;
+/**
+ * POST /api/upload/admin-file
+ * Admin panel file upload — authenticated via admin JWT.
+ * Used for transfer slips, screenshots, etc.
+ */
+const adminUploadFile = async (req, res) => {
+    const file = req.file;
+    try {
+        if (!file) {
+            res.status(400).json({ success: false, message: 'No file uploaded.' });
+            return;
+        }
+        let url;
+        let publicId;
+        try {
+            const isImage = file.mimetype.startsWith('image/');
+            const isPdf = file.mimetype === 'application/pdf';
+            const result = await cloudinary_1.v2.uploader.upload(file.path, {
+                folder: 'gobilive_admin_slips',
+                resource_type: isPdf ? 'raw' : 'image',
+                ...(isImage && { quality: 'auto:best' }),
+            });
+            url = result.secure_url;
+            publicId = result.public_id;
+            if (fs_1.default.existsSync(file.path)) {
+                fs_1.default.unlinkSync(file.path);
+            }
+        }
+        catch (cloudErr) {
+            console.warn('[AdminUpload] Cloudinary upload failed, falling back to local file URL:', cloudErr.message);
+            // Fallback: use local /uploads/ static path served by app.ts
+            url = `${req.protocol}://${req.get('host')}/uploads/${file.filename}`;
+            publicId = file.filename;
+        }
+        res.status(201).json({
+            success: true,
+            url,
+            public_id: publicId,
+        });
+    }
+    catch (error) {
+        if (file && fs_1.default.existsSync(file.path)) {
+            try {
+                fs_1.default.unlinkSync(file.path);
+            }
+            catch (_) { }
+        }
+        console.error('[AdminUpload] error:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.adminUploadFile = adminUploadFile;

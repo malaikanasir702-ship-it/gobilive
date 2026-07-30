@@ -10,7 +10,7 @@ const BeanTransactionSchema = new mongoose_1.Schema({
     },
     fromId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', sparse: true },
     fromRole: { type: String },
-    toId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
+    toId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', sparse: true },
     toRole: { type: String, required: true },
     amount: { type: Number, required: true, min: 1 },
     transferSlipUrl: { type: String },

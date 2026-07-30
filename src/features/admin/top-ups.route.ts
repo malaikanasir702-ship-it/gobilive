@@ -40,10 +40,12 @@ router.post('/resellers/:id/reject', COMPANY_OR_SUPER, rejectReseller as any);
 router.post('/resellers/:id/block', requireRoles('company_admin', 'super_admin', 'top_up_agent') as any, blockReseller as any);
 router.post('/resellers/:id/unblock', requireRoles('company_admin', 'super_admin', 'top_up_agent') as any, unblockReseller as any);
 
+const COMPANY_OR_AGENT_APPROVER = requireRoles('company_admin', 'super_admin', 'top_up_agent') as any;
+
 router.get('/bean-requests', requireRoles('company_admin', 'super_admin', 'top_up_agent', 'reseller') as any, getBeanRequestsForTopUp as any);
 router.post('/bean-requests', AGENT_OR_RESELLER, submitBeanRequest as any);
-router.post('/bean-requests/:id/approve', COMPANY_OR_SUPER, approveBeanRequest as any);
-router.post('/bean-requests/:id/reject', COMPANY_OR_SUPER, rejectBeanRequest as any);
+router.post('/bean-requests/:id/approve', COMPANY_OR_AGENT_APPROVER, approveBeanRequest as any);
+router.post('/bean-requests/:id/reject', COMPANY_OR_AGENT_APPROVER, rejectBeanRequest as any);
 
 router.get('/bean-transfers', COMPANY_OR_AGENT, getBeanTransfers as any);
 router.post('/bean-transfers', AGENT_OR_RESELLER, submitBeanTransfer as any);
