@@ -12,6 +12,8 @@ import {
   unblockReseller,
   getBeanRequestsForTopUp,
   submitBeanRequest,
+  approveBeanRequest,
+  rejectBeanRequest,
   getBeanTransfers,
   submitBeanTransfer,
 } from './top-ups.controller';
@@ -40,6 +42,8 @@ router.post('/resellers/:id/unblock', requireRoles('company_admin', 'super_admin
 
 router.get('/bean-requests', COMPANY_OR_AGENT, getBeanRequestsForTopUp as any);
 router.post('/bean-requests', AGENT_OR_RESELLER, uploadMedia.single('transferSlip'), submitBeanRequest as any);
+router.post('/bean-requests/:id/approve', COMPANY_OR_SUPER, approveBeanRequest as any);
+router.post('/bean-requests/:id/reject', COMPANY_OR_SUPER, rejectBeanRequest as any);
 
 router.get('/bean-transfers', COMPANY_OR_AGENT, getBeanTransfers as any);
 router.post('/bean-transfers', AGENT_OR_RESELLER, uploadMedia.single('transferSlip'), submitBeanTransfer as any);

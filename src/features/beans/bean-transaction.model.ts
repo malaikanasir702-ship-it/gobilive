@@ -24,7 +24,7 @@ const BeanTransactionSchema = new Schema<IBeanTransaction>(
     },
     fromId: { type: Schema.Types.ObjectId, ref: 'User', sparse: true },
     fromRole: { type: String },
-    toId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    toId: { type: Schema.Types.ObjectId, ref: 'User', sparse: true },
     toRole: { type: String, required: true },
     amount: { type: Number, required: true, min: 1 },
     transferSlipUrl: { type: String },

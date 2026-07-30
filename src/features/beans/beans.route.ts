@@ -24,7 +24,7 @@ router.get('/public/agents', getPublicAgents as any);
 // All beans routes require admin-panel authentication and company_admin role.
 router.use(authenticateAdminPanel as any);
 
-router.get('/wallet', requireRoles('company_admin') as any, getBeanWallet as any);
+router.get('/wallet', requireRoles('company_admin', 'top_up_agent', 'reseller') as any, getBeanWallet as any);
 router.post('/generate', requireRoles('company_admin') as any, generateBeans as any);
 router.post('/assign', requireRoles('company_admin') as any, assignBeans as any);
 

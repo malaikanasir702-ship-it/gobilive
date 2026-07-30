@@ -169,7 +169,58 @@ export const submitBeanRequest = async (req: AdminAuthRequest, res: Response): P
   } catch (err: any) { await session.abortTransaction(); res.status(500).json({ success: false, message: err.message }); } finally { session.endSession(); }
 };
 
-export const getBeanTransfers = async (req: AdminAuthRequest, res: Response): Promise<void> => {
+export const approveBeanRequest = async (req: AdminAuthRequest, res: Response): Promise<void> => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const id = String(req.params.id);
+    const tx = await BeanTransaction.findById(id).session(session);
+    if (!tx) { await session.abortTransaction(); session.endSession(); res.status(404).json({ success: false, message: 'Bean request not found.' }); return; }
+    if (tx.status !== 'pending') { await session.abortTransaction(); session.endSession(); res.status(400).json({ success: false, message: `Request is already ${tx.status}.` }); return; }
+
+    // Credit beans to the requester's wallet
+    await User.findByIdAndUpdate(tx.fromId, { $inc: { beanWallet: tx.amount } }, { session });
+
+    tx.status = 'completed';
+    tx.toId = req.adminUser!.id as any;
+    await tx.save({ session });
+
+    await session.commitTransaction();
+
+    await logActivity({
+      actorId: req.adminUser!.id, actorRole: req.adminUser!.role,
+      actionType: 'approve_bean_request', targetEntityType: 'BeanTransaction', targetEntityId: id,
+      description: `Approved bean request of ${tx.amount} beans for user ${tx.fromId}`,
+    });
+
+    res.status(200).json({ success: true, request: tx });
+  } catch (err: any) { await session.abortTransaction(); res.status(500).json({ success: false, message: err.message }); } finally { session.endSession(); }
+};
+
+export const rejectBeanRequest = async (req: AdminAuthRequest, res: Response): Promise<void> => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const id = String(req.params.id);
+    const { reason } = req.body;
+    const tx = await BeanTransaction.findById(id).session(session);
+    if (!tx) { await session.abortTransaction(); session.endSession(); res.status(404).json({ success: false, message: 'Bean request not found.' }); return; }
+    if (tx.status !== 'pending') { await session.abortTransaction(); session.endSession(); res.status(400).json({ success: false, message: `Request is already ${tx.status}.` }); return; }
+
+    tx.status = 'rejected';
+    if (reason) tx.note = reason;
+    await tx.save({ session });
+    await session.commitTransaction();
+
+    await logActivity({
+      actorId: req.adminUser!.id, actorRole: req.adminUser!.role,
+      actionType: 'reject_bean_request', targetEntityType: 'BeanTransaction', targetEntityId: id,
+      description: `Rejected bean request of ${tx.amount} beans. Reason: ${reason || 'N/A'}`,
+    });
+
+    res.status(200).json({ success: true, request: tx });
+  } catch (err: any) { await session.abortTransaction(); res.status(500).json({ success: false, message: err.message }); } finally { session.endSession(); }
+};
   try {
     const page = Math.max(1, parseInt((req.query.page as string) || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || '20', 10)));
