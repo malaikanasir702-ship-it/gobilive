@@ -144,9 +144,25 @@ export const submitBeanRequest = async (req: AdminAuthRequest, res: Response): P
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    const { amount, transferSlipUrl } = req.body;
-    if (!amount || amount <= 0) { res.status(400).json({ success: false, message: 'Amount must be positive.' }); await session.abortTransaction(); session.endSession(); return; }
-    const tx = await BeanTransaction.create([{ type: 'request', fromId: req.adminUser!.id, fromRole: req.adminUser!.role, toId: undefined as any, toRole: 'company_admin', amount, transferSlipUrl, status: 'pending' }], { session });
+    // req.body may be empty when Content-Type is multipart/form-data and multer
+    // hasn't run yet, so we always coerce amount to a number here.
+    const amount = Number(req.body?.amount);
+    if (!amount || amount <= 0) {
+      await session.abortTransaction(); session.endSession();
+      res.status(400).json({ success: false, message: 'Amount must be positive.' });
+      return;
+    }
+
+    // Resolve transfer slip URL: uploaded file takes priority over plain URL in body
+    const uploadedFile = (req as any).file as Express.Multer.File | undefined;
+    const transferSlipUrl: string | undefined = uploadedFile
+      ? `${req.protocol}://${req.get('host')}/uploads/${uploadedFile.filename}`
+      : (req.body?.transferSlipUrl as string | undefined);
+
+    const tx = await BeanTransaction.create(
+      [{ type: 'request', fromId: req.adminUser!.id, fromRole: req.adminUser!.role, toId: undefined as any, toRole: 'company_admin', amount, transferSlipUrl, status: 'pending' }],
+      { session }
+    );
     await session.commitTransaction();
     await logActivity({ actorId: req.adminUser!.id, actorRole: req.adminUser!.role, actionType: 'submit_bean_request', targetEntityType: 'BeanTransaction', targetEntityId: tx[0]._id.toString(), description: `Requested ${amount} beans` });
     res.status(200).json({ success: true, request: tx[0] });
@@ -169,8 +185,19 @@ export const submitBeanTransfer = async (req: AdminAuthRequest, res: Response): 
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    const { recipientId, amount, transferSlipUrl } = req.body;
-    if (!recipientId || !amount || amount <= 0) { res.status(400).json({ success: false, message: 'recipientId and positive amount required.' }); await session.abortTransaction(); session.endSession(); return; }
+    const recipientId = req.body?.recipientId;
+    const amount = Number(req.body?.amount);
+    if (!recipientId || !amount || amount <= 0) {
+      await session.abortTransaction(); session.endSession();
+      res.status(400).json({ success: false, message: 'recipientId and positive amount required.' });
+      return;
+    }
+
+    // Resolve transfer slip URL from uploaded file or body
+    const uploadedFile = (req as any).file as Express.Multer.File | undefined;
+    const transferSlipUrl: string | undefined = uploadedFile
+      ? `${req.protocol}://${req.get('host')}/uploads/${uploadedFile.filename}`
+      : (req.body?.transferSlipUrl as string | undefined);
 
     const sender = await User.findById(req.adminUser!.id).session(session).select('beanWallet role username');
     if (!sender) { res.status(404).json({ success: false, message: 'Sender not found.' }); await session.abortTransaction(); session.endSession(); return; }
