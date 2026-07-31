@@ -76,6 +76,7 @@ const UserSchema = new mongoose_1.Schema({
     blockedUntil: { type: Date },
     blockType: { type: String, enum: ['permanent', 'temporary'], sparse: true },
     isTerminated: { type: Boolean, default: false },
+    isGiftingSuspended: { type: Boolean, default: false },
     parentId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', sparse: true },
     // Identity / KYC
     idCardNumber: { type: String },

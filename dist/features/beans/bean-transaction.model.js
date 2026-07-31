@@ -5,7 +5,7 @@ const mongoose_1 = require("mongoose");
 const BeanTransactionSchema = new mongoose_1.Schema({
     type: {
         type: String,
-        enum: ['generate', 'assign', 'transfer', 'request', 'receive'],
+        enum: ['generate', 'assign', 'transfer', 'request', 'receive', 'deduct'],
         required: true,
     },
     fromId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', sparse: true },

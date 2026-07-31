@@ -1,6 +1,6 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
-export type BeanTxType = 'generate' | 'assign' | 'transfer' | 'request' | 'receive';
+export type BeanTxType = 'generate' | 'assign' | 'transfer' | 'request' | 'receive' | 'deduct';
 
 export interface IBeanTransaction extends Document {
   type: BeanTxType;
@@ -19,7 +19,7 @@ const BeanTransactionSchema = new Schema<IBeanTransaction>(
   {
     type: {
       type: String,
-      enum: ['generate', 'assign', 'transfer', 'request', 'receive'],
+      enum: ['generate', 'assign', 'transfer', 'request', 'receive', 'deduct'],
       required: true,
     },
     fromId: { type: Schema.Types.ObjectId, ref: 'User', sparse: true },

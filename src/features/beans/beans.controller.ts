@@ -113,7 +113,16 @@ export const assignBeans = async (req: AdminAuthRequest, res: Response): Promise
     }
 
     await User.findByIdAndUpdate(req.adminUser!.id, { $inc: { beanWallet: -amount } }, { session });
-    await User.findByIdAndUpdate(recipient._id, { $inc: { beanWallet: amount } }, { session });
+
+    // Credit beans and auto-lift gifting suspension if balance becomes >= 0
+    const updatedRecipient = await User.findByIdAndUpdate(
+      recipient._id,
+      { $inc: { beanWallet: amount } },
+      { new: true, session }
+    ).select('beanWallet isGiftingSuspended');
+    if (updatedRecipient && (updatedRecipient.beanWallet ?? 0) >= 0 && updatedRecipient.isGiftingSuspended) {
+      await User.findByIdAndUpdate(recipient._id, { isGiftingSuspended: false }, { session });
+    }
 
     await BeanTransaction.create(
       [
@@ -346,6 +355,15 @@ export const getBeanLogs = async (req: AdminAuthRequest, res: Response): Promise
         .populate('fromId', 'username')
         .populate('toId', 'username role')
         .lean();
+    } else if (tab === 'deducted_beans') {
+      total = await BeanTransaction.countDocuments({ type: 'deduct' });
+      data = await BeanTransaction.find({ type: 'deduct' })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('fromId', 'username')
+        .populate('toId', 'username role')
+        .lean();
     } else if (tab === 'generated_beans') {
       total = await BeanTransaction.countDocuments({ type: 'generate' });
       data = await BeanTransaction.find({ type: 'generate' })
@@ -377,6 +395,106 @@ export const getBeanLogs = async (req: AdminAuthRequest, res: Response): Promise
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ─── Deduct / Revoke Beans ────────────────────────────────────────────────────
+// Allows company_admin to forcibly subtract beans from any user/agent/reseller.
+// Balance can go negative (overdraft). When negative, gifting is auto-suspended.
+// When a subsequent top-up clears the negative balance, suspension is auto-lifted.
+
+export const deductBeans = async (req: AdminAuthRequest, res: Response): Promise<void> => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const { recipientIdOrEmail, amount, reason } = req.body;
+
+    if (!amount || Number(amount) <= 0) {
+      res.status(400).json({ success: false, message: 'Amount must be a positive number.' });
+      return;
+    }
+    const deductAmount = Number(amount);
+
+    if (!recipientIdOrEmail) {
+      res.status(400).json({ success: false, message: 'recipientIdOrEmail is required.' });
+      return;
+    }
+
+    // Resolve recipient by ID, email, or username
+    const raw = String(recipientIdOrEmail).trim();
+    const isEmail = raw.includes('@');
+    const query = isEmail
+      ? { email: raw.toLowerCase() }
+      : mongoose.Types.ObjectId.isValid(raw)
+        ? { _id: raw }
+        : { username: raw };
+
+    const recipient = await User.findOne(query).select('username role beanWallet isGiftingSuspended').session(session);
+    if (!recipient) {
+      await session.abortTransaction();
+      res.status(404).json({ success: false, message: 'Recipient not found.' });
+      return;
+    }
+
+    // Compute new balance (allow negative overdraft)
+    const previousBalance = recipient.beanWallet ?? 0;
+    const newBalance = previousBalance - deductAmount;
+
+    // Auto-freeze gifting if balance goes negative
+    const shouldSuspend = newBalance < 0;
+
+    await User.findByIdAndUpdate(
+      recipient._id,
+      {
+        $inc: { beanWallet: -deductAmount },
+        isGiftingSuspended: shouldSuspend,
+      },
+      { session }
+    );
+
+    // Record the deduction in BeanTransaction audit trail
+    await BeanTransaction.create(
+      [
+        {
+          type: 'deduct',
+          fromId: req.adminUser!.id,  // admin who performed deduction
+          fromRole: req.adminUser!.role,
+          toId: recipient._id,
+          toRole: recipient.role,
+          amount: deductAmount,
+          status: 'completed',
+          note: reason ? `Deducted by admin. Reason: ${reason}` : 'Deducted by admin.',
+        },
+      ],
+      { session }
+    );
+
+    await session.commitTransaction();
+
+    // Activity log (outside session — fire-and-forget)
+    await logActivity({
+      actorId: req.adminUser!.id,
+      actorRole: req.adminUser!.role,
+      actionType: 'bean_deduction',
+      targetEntityType: 'User',
+      targetEntityId: recipient._id.toString(),
+      description: `Deducted ${deductAmount} beans from ${recipient.username} (${recipient.role}). Previous: ${previousBalance} → New: ${newBalance}. Gifting suspended: ${shouldSuspend}`,
+      metadata: { previousBalance, newBalance, deductAmount, reason: reason || null },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully deducted ${deductAmount.toLocaleString()} beans from @${recipient.username}.${shouldSuspend ? ' ⚠️ Account gifting has been suspended due to negative balance.' : ''}`,
+      recipientUsername: recipient.username,
+      previousBalance,
+      newBalance,
+      isGiftingSuspended: shouldSuspend,
+    });
+  } catch (error: any) {
+    await session.abortTransaction();
+    res.status(500).json({ success: false, message: error.message });
+  } finally {
+    session.endSession();
   }
 };
 

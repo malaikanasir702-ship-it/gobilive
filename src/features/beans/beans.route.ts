@@ -3,6 +3,7 @@ import {
   getBeanWallet,
   generateBeans,
   assignBeans,
+  deductBeans,
   getBeanDollarRate,
   updateBeanDollarRate,
   getD2BCommission,
@@ -27,6 +28,7 @@ router.use(authenticateAdminPanel as any);
 router.get('/wallet', requireRoles('company_admin', 'top_up_agent', 'reseller') as any, getBeanWallet as any);
 router.post('/generate', requireRoles('company_admin') as any, generateBeans as any);
 router.post('/assign', requireRoles('company_admin') as any, assignBeans as any);
+router.post('/deduct', requireRoles('company_admin') as any, deductBeans as any);
 
 // Frontend calls /beans/dollar-rate  (flat, no "bean-" prefix)
 router.get('/dollar-rate',      requireRoles('company_admin') as any, getBeanDollarRate as any);

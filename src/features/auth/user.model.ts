@@ -75,6 +75,7 @@ export interface IUser extends Document {
   blockedUntil?: Date;
   blockType?: 'permanent' | 'temporary';
   isTerminated: boolean;
+  isGiftingSuspended?: boolean;
   parentId?: Schema.Types.ObjectId;
   // Identity / KYC fields (for admin roles)
   idCardNumber?: string;
@@ -164,6 +165,7 @@ const UserSchema = new Schema<IUser>({
   blockedUntil: { type: Date },
   blockType: { type: String, enum: ['permanent', 'temporary'], sparse: true },
   isTerminated: { type: Boolean, default: false },
+  isGiftingSuspended: { type: Boolean, default: false },
   parentId: { type: Schema.Types.ObjectId, ref: 'User', sparse: true },
   // Identity / KYC
   idCardNumber: { type: String },

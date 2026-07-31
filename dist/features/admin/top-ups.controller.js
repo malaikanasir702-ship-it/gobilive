@@ -301,8 +301,11 @@ const approveBeanRequest = async (req, res) => {
             }
             await user_model_1.User.findByIdAndUpdate(actor.id, { $inc: { beanWallet: -tx.amount } }, { session });
         }
-        // Credit beans to requester's wallet
-        await user_model_1.User.findByIdAndUpdate(tx.fromId, { $inc: { beanWallet: tx.amount } }, { session });
+        // Credit beans to requester's wallet and auto-lift gifting suspension if balance >= 0
+        const updatedRequester = await user_model_1.User.findByIdAndUpdate(tx.fromId, { $inc: { beanWallet: tx.amount } }, { new: true, session }).select('beanWallet isGiftingSuspended');
+        if (updatedRequester && (updatedRequester.beanWallet ?? 0) >= 0 && updatedRequester.isGiftingSuspended) {
+            await user_model_1.User.findByIdAndUpdate(tx.fromId, { isGiftingSuspended: false }, { session });
+        }
         tx.status = 'completed';
         tx.toId = actor.id;
         await tx.save({ session });
@@ -399,7 +402,7 @@ const submitBeanTransfer = async (req, res) => {
             return;
         }
         const transferSlipUrl = req.body?.transferSlipUrl;
-        const sender = await user_model_1.User.findById(req.adminUser.id).session(session).select('beanWallet role username');
+        const sender = await user_model_1.User.findById(req.adminUser.id).session(session).select('beanWallet role username isGiftingSuspended');
         if (!sender) {
             res.status(404).json({ success: false, message: 'Sender not found.' });
             await session.abortTransaction();
@@ -408,6 +411,12 @@ const submitBeanTransfer = async (req, res) => {
         }
         if (sender.beanWallet < amount) {
             res.status(400).json({ success: false, message: 'Insufficient bean wallet balance.' });
+            await session.abortTransaction();
+            session.endSession();
+            return;
+        }
+        if (sender.isGiftingSuspended) {
+            res.status(403).json({ success: false, message: 'Account restricted due to negative balance. Please clear your dues.' });
             await session.abortTransaction();
             session.endSession();
             return;

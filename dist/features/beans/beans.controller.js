@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPublicAgents = exports.getBeanLogs = exports.updateDollarConversionRate = exports.getDollarConversionRates = exports.updateD2BRate = exports.getD2BRate = exports.updateD2BCommission = exports.getD2BCommission = exports.updateBeanDollarRate = exports.getBeanDollarRate = exports.assignBeans = exports.generateBeans = exports.getBeanWallet = void 0;
+exports.getPublicAgents = exports.deductBeans = exports.getBeanLogs = exports.updateDollarConversionRate = exports.getDollarConversionRates = exports.updateD2BRate = exports.getD2BRate = exports.updateD2BCommission = exports.getD2BCommission = exports.updateBeanDollarRate = exports.getBeanDollarRate = exports.assignBeans = exports.generateBeans = exports.getBeanWallet = void 0;
 const mongoose_1 = __importDefault(require("mongoose"));
 const user_model_1 = require("../auth/user.model");
 const bean_transaction_model_1 = require("./bean-transaction.model");
@@ -100,7 +100,11 @@ const assignBeans = async (req, res) => {
             return;
         }
         await user_model_1.User.findByIdAndUpdate(req.adminUser.id, { $inc: { beanWallet: -amount } }, { session });
-        await user_model_1.User.findByIdAndUpdate(recipient._id, { $inc: { beanWallet: amount } }, { session });
+        // Credit beans and auto-lift gifting suspension if balance becomes >= 0
+        const updatedRecipient = await user_model_1.User.findByIdAndUpdate(recipient._id, { $inc: { beanWallet: amount } }, { new: true, session }).select('beanWallet isGiftingSuspended');
+        if (updatedRecipient && (updatedRecipient.beanWallet ?? 0) >= 0 && updatedRecipient.isGiftingSuspended) {
+            await user_model_1.User.findByIdAndUpdate(recipient._id, { isGiftingSuspended: false }, { session });
+        }
         await bean_transaction_model_1.BeanTransaction.create([
             {
                 type: 'assign',
@@ -307,6 +311,16 @@ const getBeanLogs = async (req, res) => {
                 .populate('toId', 'username role')
                 .lean();
         }
+        else if (tab === 'deducted_beans') {
+            total = await bean_transaction_model_1.BeanTransaction.countDocuments({ type: 'deduct' });
+            data = await bean_transaction_model_1.BeanTransaction.find({ type: 'deduct' })
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .populate('fromId', 'username')
+                .populate('toId', 'username role')
+                .lean();
+        }
         else if (tab === 'generated_beans') {
             total = await bean_transaction_model_1.BeanTransaction.countDocuments({ type: 'generate' });
             data = await bean_transaction_model_1.BeanTransaction.find({ type: 'generate' })
@@ -343,6 +357,89 @@ const getBeanLogs = async (req, res) => {
     }
 };
 exports.getBeanLogs = getBeanLogs;
+// ─── Deduct / Revoke Beans ────────────────────────────────────────────────────
+// Allows company_admin to forcibly subtract beans from any user/agent/reseller.
+// Balance can go negative (overdraft). When negative, gifting is auto-suspended.
+// When a subsequent top-up clears the negative balance, suspension is auto-lifted.
+const deductBeans = async (req, res) => {
+    const session = await mongoose_1.default.startSession();
+    session.startTransaction();
+    try {
+        const { recipientIdOrEmail, amount, reason } = req.body;
+        if (!amount || Number(amount) <= 0) {
+            res.status(400).json({ success: false, message: 'Amount must be a positive number.' });
+            return;
+        }
+        const deductAmount = Number(amount);
+        if (!recipientIdOrEmail) {
+            res.status(400).json({ success: false, message: 'recipientIdOrEmail is required.' });
+            return;
+        }
+        // Resolve recipient by ID, email, or username
+        const raw = String(recipientIdOrEmail).trim();
+        const isEmail = raw.includes('@');
+        const query = isEmail
+            ? { email: raw.toLowerCase() }
+            : mongoose_1.default.Types.ObjectId.isValid(raw)
+                ? { _id: raw }
+                : { username: raw };
+        const recipient = await user_model_1.User.findOne(query).select('username role beanWallet isGiftingSuspended').session(session);
+        if (!recipient) {
+            await session.abortTransaction();
+            res.status(404).json({ success: false, message: 'Recipient not found.' });
+            return;
+        }
+        // Compute new balance (allow negative overdraft)
+        const previousBalance = recipient.beanWallet ?? 0;
+        const newBalance = previousBalance - deductAmount;
+        // Auto-freeze gifting if balance goes negative
+        const shouldSuspend = newBalance < 0;
+        await user_model_1.User.findByIdAndUpdate(recipient._id, {
+            $inc: { beanWallet: -deductAmount },
+            isGiftingSuspended: shouldSuspend,
+        }, { session });
+        // Record the deduction in BeanTransaction audit trail
+        await bean_transaction_model_1.BeanTransaction.create([
+            {
+                type: 'deduct',
+                fromId: req.adminUser.id, // admin who performed deduction
+                fromRole: req.adminUser.role,
+                toId: recipient._id,
+                toRole: recipient.role,
+                amount: deductAmount,
+                status: 'completed',
+                note: reason ? `Deducted by admin. Reason: ${reason}` : 'Deducted by admin.',
+            },
+        ], { session });
+        await session.commitTransaction();
+        // Activity log (outside session — fire-and-forget)
+        await (0, activity_log_service_1.logActivity)({
+            actorId: req.adminUser.id,
+            actorRole: req.adminUser.role,
+            actionType: 'bean_deduction',
+            targetEntityType: 'User',
+            targetEntityId: recipient._id.toString(),
+            description: `Deducted ${deductAmount} beans from ${recipient.username} (${recipient.role}). Previous: ${previousBalance} → New: ${newBalance}. Gifting suspended: ${shouldSuspend}`,
+            metadata: { previousBalance, newBalance, deductAmount, reason: reason || null },
+        });
+        res.status(200).json({
+            success: true,
+            message: `Successfully deducted ${deductAmount.toLocaleString()} beans from @${recipient.username}.${shouldSuspend ? ' ⚠️ Account gifting has been suspended due to negative balance.' : ''}`,
+            recipientUsername: recipient.username,
+            previousBalance,
+            newBalance,
+            isGiftingSuspended: shouldSuspend,
+        });
+    }
+    catch (error) {
+        await session.abortTransaction();
+        res.status(500).json({ success: false, message: error.message });
+    }
+    finally {
+        session.endSession();
+    }
+};
+exports.deductBeans = deductBeans;
 // ─── Public: Top-up Agents list (Flutter app) ────────────────────────────────
 const getPublicAgents = async (req, res) => {
     try {

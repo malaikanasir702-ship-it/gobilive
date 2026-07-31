@@ -328,6 +328,16 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
+    // ── Gifting suspension check (negative bean balance) ─────────────────────
+    const senderProfile = await User.findById(req.user.id).select('isGiftingSuspended').lean();
+    if (senderProfile?.isGiftingSuspended) {
+      res.status(403).json({
+        success: false,
+        message: 'Account restricted due to negative balance. Please clear your dues.',
+      });
+      return;
+    }
+
     // targetUserId — optional: gift a specific seat member instead of host
     const { giftId, channelName, count = 1, targetUserId } = req.body;
     if (!giftId || !channelName) {
