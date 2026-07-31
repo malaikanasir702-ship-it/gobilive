@@ -1,7 +1,7 @@
 {
-  "name": "Gobilive Admin",
-  "short_name": "Gobilive",
-  "description": "Gobilive Admin Panel - Manage users, beans, agencies and more",
+  "name": "Globilive Admin",
+  "short_name": "Globilive",
+  "description": "Globilive Admin Panel - Manage users, beans, agencies and more",
   "start_url": "/admin/",
   "scope": "/admin/",
   "display": "standalone",
