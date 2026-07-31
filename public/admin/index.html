@@ -2,16 +2,43 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GoLive Admin Panel</title>
+    <title>Gobilive Admin</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/admin/manifest.json" />
+
+    <!-- Theme color (browser toolbar) -->
+    <meta name="theme-color" content="#6C3DE8" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Gobilive" />
+
+    <!-- App icons -->
+    <link rel="icon" type="image/png" sizes="512x512" href="/admin/icons/icon-512.png" />
+    <link rel="apple-touch-icon" href="/admin/icons/icon-192.png" />
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-    <script type="module" crossorigin src="/admin/assets/index-vCrNrXog.js"></script>
-    <link rel="stylesheet" crossorigin href="/admin/assets/index-fQvy6LU7.css">
+    <script type="module" crossorigin src="/admin/assets/index-BWJSt6gQ.js"></script>
+    <link rel="stylesheet" crossorigin href="/admin/assets/index-DSp-RDxv.css">
   </head>
   <body>
     <div id="root"></div>
+
+    <!-- Register Service Worker -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/admin/sw.js', { scope: '/admin/' })
+            .then(reg => console.log('[SW] Registered:', reg.scope))
+            .catch(err => console.warn('[SW] Registration failed:', err));
+        });
+      }
+    </script>
   </body>
 </html>
+
