@@ -124,16 +124,15 @@ async function approveRegistration(req, res) {
             const agencyDoc = await agency_model_1.Agency.findOne({ agencyCode: request.formData.agencyCode }).select('_id').lean();
             resolvedAgencyId = agencyDoc ? agencyDoc._id : request.formData.agencyCode;
         }
-        // ── Check if a user with this email already exists ───────────────────
-        // If so, update that user's role instead of creating a duplicate account.
+        // ── Check if a user with this email AND role already exists ───────────
+        // If so, update that account. Otherwise create a separate account for this role.
         let newUser;
         const existingEmailUser = request.formData.email
-            ? await user_model_1.User.findOne({ email: request.formData.email.toLowerCase().trim() })
+            ? await user_model_1.User.findOne({ email: request.formData.email.toLowerCase().trim(), role: userRole })
             : null;
         if (existingEmailUser) {
-            // Update the existing user's role and relevant fields instead of creating duplicate
+            // Update the existing user's fields for this role
             await user_model_1.User.findByIdAndUpdate(existingEmailUser._id, {
-                role: userRole,
                 passwordHash, // reset to temp password so they can login
                 ...(resolvedParentId ? { parentId: resolvedParentId } : {}),
                 ...(resolvedAgencyId ? { agencyId: resolvedAgencyId } : {}),
