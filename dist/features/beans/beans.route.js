@@ -10,6 +10,7 @@ router.get('/public/agents', beans_controller_1.getPublicAgents);
 router.use(rbac_middleware_1.authenticateAdminPanel);
 router.get('/wallet', (0, rbac_middleware_1.requireRoles)('company_admin', 'top_up_agent', 'reseller'), beans_controller_1.getBeanWallet);
 router.post('/generate', (0, rbac_middleware_1.requireRoles)('company_admin'), beans_controller_1.generateBeans);
+router.get('/preview-recipient', (0, rbac_middleware_1.requireRoles)('company_admin'), beans_controller_1.previewRecipient);
 router.post('/assign', (0, rbac_middleware_1.requireRoles)('company_admin'), beans_controller_1.assignBeans);
 router.post('/deduct', (0, rbac_middleware_1.requireRoles)('company_admin'), beans_controller_1.deductBeans);
 // Frontend calls /beans/dollar-rate  (flat, no "bean-" prefix)

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPublicAgents = exports.deductBeans = exports.getBeanLogs = exports.updateDollarConversionRate = exports.getDollarConversionRates = exports.updateD2BRate = exports.getD2BRate = exports.updateD2BCommission = exports.getD2BCommission = exports.updateBeanDollarRate = exports.getBeanDollarRate = exports.assignBeans = exports.generateBeans = exports.getBeanWallet = void 0;
+exports.getPublicAgents = exports.deductBeans = exports.getBeanLogs = exports.updateDollarConversionRate = exports.getDollarConversionRates = exports.updateD2BRate = exports.getD2BRate = exports.updateD2BCommission = exports.getD2BCommission = exports.updateBeanDollarRate = exports.getBeanDollarRate = exports.assignBeans = exports.previewRecipient = exports.generateBeans = exports.getBeanWallet = void 0;
 const mongoose_1 = __importDefault(require("mongoose"));
 const user_model_1 = require("../auth/user.model");
 const bean_transaction_model_1 = require("./bean-transaction.model");
@@ -63,6 +63,58 @@ const generateBeans = async (req, res) => {
     }
 };
 exports.generateBeans = generateBeans;
+// ─── Preview Recipient (for assign-beans confirmation modal) ─────────────────
+const previewRecipient = async (req, res) => {
+    try {
+        const raw = ((req.query.q || req.body?.recipientIdOrEmail) || '').trim();
+        if (!raw) {
+            res.status(400).json({ success: false, message: 'recipientIdOrEmail is required.' });
+            return;
+        }
+        const isEmail = raw.includes('@');
+        const query = isEmail
+            ? { email: raw.toLowerCase() }
+            : mongoose_1.default.Types.ObjectId.isValid(raw)
+                ? { _id: raw }
+                : { username: raw };
+        const user = await user_model_1.User.findOne(query)
+            .select('username email phone role beanWallet isBlocked isSuspended isTerminated isGiftingSuspended country region profilePic')
+            .lean();
+        if (!user) {
+            res.status(404).json({ success: false, message: 'User not found.' });
+            return;
+        }
+        if (!['top_up_agent', 'reseller'].includes(user.role)) {
+            res.status(400).json({
+                success: false,
+                message: `This user is a "${user.role}". Beans can only be assigned to Top Up Agents or Resellers.`,
+            });
+            return;
+        }
+        res.status(200).json({
+            success: true,
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email ?? null,
+                phone: user.phone ?? null,
+                role: user.role,
+                beanWallet: user.beanWallet ?? 0,
+                isBlocked: user.isBlocked,
+                isSuspended: user.isSuspended,
+                isTerminated: user.isTerminated,
+                isGiftingSuspended: user.isGiftingSuspended ?? false,
+                country: user.country ?? null,
+                region: user.region ?? null,
+                profilePic: user.profilePic ?? '',
+            },
+        });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.previewRecipient = previewRecipient;
 // ─── Assign Beans ─────────────────────────────────────────────────────────────
 const assignBeans = async (req, res) => {
     const session = await mongoose_1.default.startSession();

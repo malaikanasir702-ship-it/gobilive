@@ -70,6 +70,63 @@ export const generateBeans = async (req: AdminAuthRequest, res: Response): Promi
   }
 };
 
+// ─── Preview Recipient (for assign-beans confirmation modal) ─────────────────
+
+export const previewRecipient = async (req: AdminAuthRequest, res: Response): Promise<void> => {
+  try {
+    const raw = ((req.query.q || req.body?.recipientIdOrEmail) as string || '').trim();
+    if (!raw) {
+      res.status(400).json({ success: false, message: 'recipientIdOrEmail is required.' });
+      return;
+    }
+
+    const isEmail = raw.includes('@');
+    const query = isEmail
+      ? { email: raw.toLowerCase() }
+      : mongoose.Types.ObjectId.isValid(raw)
+        ? { _id: raw }
+        : { username: raw };
+
+    const user = await User.findOne(query)
+      .select('username email phone role beanWallet isBlocked isSuspended isTerminated isGiftingSuspended country region profilePic')
+      .lean();
+
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found.' });
+      return;
+    }
+
+    if (!['top_up_agent', 'reseller'].includes((user as any).role)) {
+      res.status(400).json({
+        success: false,
+        message: `This user is a "${(user as any).role}". Beans can only be assigned to Top Up Agents or Resellers.`,
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      user: {
+        id: (user as any)._id,
+        username: user.username,
+        email: user.email ?? null,
+        phone: (user as any).phone ?? null,
+        role: (user as any).role,
+        beanWallet: user.beanWallet ?? 0,
+        isBlocked: user.isBlocked,
+        isSuspended: user.isSuspended,
+        isTerminated: user.isTerminated,
+        isGiftingSuspended: (user as any).isGiftingSuspended ?? false,
+        country: (user as any).country ?? null,
+        region: (user as any).region ?? null,
+        profilePic: user.profilePic ?? '',
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // ─── Assign Beans ─────────────────────────────────────────────────────────────
 
 export const assignBeans = async (req: AdminAuthRequest, res: Response): Promise<void> => {
