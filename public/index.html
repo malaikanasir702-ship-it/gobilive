@@ -1,24 +1,31 @@
-
-
 Globilive · HTML
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GlobiLive — Next-Gen Streaming, Gaming & Social Platform</title>
- 
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet" />
- 
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap"
+    rel="stylesheet" />
+
   <!-- GSAP & ScrollTrigger -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
- 
+
   <style>
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
- 
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     :root {
       --c-bg: #F8FAFC;
       --c-surface: #FFFFFF;
@@ -28,7 +35,7 @@ Globilive · HTML
       --c-border-bright: #CBD5E1;
       --c-text: #0F172A;
       --c-muted: #64748B;
- 
+
       --c-purple: #7C3AED;
       --c-purple-light: #F3E8FF;
       --c-pink: #DB2777;
@@ -38,16 +45,19 @@ Globilive · HTML
       --c-amber: #D97706;
       --c-amber-light: #FEF3C7;
       --c-green: #059669;
- 
+
       --r-lg: 1.5rem;
       --r-md: 1rem;
       --r-sm: 0.5rem;
- 
+
       --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
       --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
     }
- 
-    html { scroll-behavior: smooth; }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
       font-family: 'Plus Jakarta Sans', sans-serif;
       background-color: var(--c-bg);
@@ -56,157 +66,381 @@ Globilive · HTML
       -webkit-font-smoothing: antialiased;
       position: relative;
     }
- 
+
     /* ── PREMIUM GRAIN OVERLAY ── */
     body::before {
       content: "";
-      position: fixed; inset: 0; z-index: 999; pointer-events: none;
-      opacity: 0.025; mix-blend-mode: multiply;
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      pointer-events: none;
+      opacity: 0.025;
+      mix-blend-mode: multiply;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     }
- 
-    ::selection { background: var(--c-purple); color: #FFF; }
-    a { text-decoration: none; color: inherit; }
- 
+
+    ::selection {
+      background: var(--c-purple);
+      color: #FFF;
+    }
+
+    a {
+      text-decoration: none;
+      color: inherit;
+    }
+
     /* ── CURVED SVG VECTOR BACKGROUND LINES ── */
     .hero-curved-bg {
-      position: absolute; inset: 0; width: 100%; height: 100%;
-      overflow: hidden; pointer-events: none; z-index: 0;
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
     }
-    .hero-curved-bg svg { width: 100%; height: 100%; object-fit: cover; }
+
+    .hero-curved-bg svg {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
     .hero-curved-bg path.draw {
       stroke-dasharray: 2200;
       stroke-dashoffset: 2200;
       animation: drawLine 3.2s var(--ease-out) forwards;
     }
-    .hero-curved-bg path.draw.delay1 { animation-delay: 0.25s; }
-    .hero-curved-bg path.draw.delay2 { animation-delay: 0.5s; }
-    @keyframes drawLine { to { stroke-dashoffset: 0; } }
- 
+
+    .hero-curved-bg path.draw.delay1 {
+      animation-delay: 0.25s;
+    }
+
+    .hero-curved-bg path.draw.delay2 {
+      animation-delay: 0.5s;
+    }
+
+    @keyframes drawLine {
+      to {
+        stroke-dashoffset: 0;
+      }
+    }
+
     .hero-glow {
-      position: absolute; border-radius: 50%; filter: blur(90px); pointer-events: none; z-index: 0;
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(90px);
+      pointer-events: none;
+      z-index: 0;
       animation: driftGlow 14s ease-in-out infinite;
     }
-    .hero-glow.g1 { width: 480px; height: 480px; background: radial-gradient(circle, rgba(124,58,237,0.16), transparent 70%); top: -8%; left: -6%; }
-    .hero-glow.g2 { width: 420px; height: 420px; background: radial-gradient(circle, rgba(219,39,119,0.14), transparent 70%); bottom: -12%; right: -4%; animation-delay: -6s; }
-    .hero-glow.g3 { width: 320px; height: 320px; background: radial-gradient(circle, rgba(8,145,178,0.13), transparent 70%); top: 40%; right: 22%; animation-delay: -10s; }
-    @keyframes driftGlow {
-      0%, 100% { transform: translate(0, 0) scale(1); }
-      50% { transform: translate(3%, -4%) scale(1.08); }
+
+    .hero-glow.g1 {
+      width: 480px;
+      height: 480px;
+      background: radial-gradient(circle, rgba(124, 58, 237, 0.16), transparent 70%);
+      top: -8%;
+      left: -6%;
     }
- 
+
+    .hero-glow.g2 {
+      width: 420px;
+      height: 420px;
+      background: radial-gradient(circle, rgba(219, 39, 119, 0.14), transparent 70%);
+      bottom: -12%;
+      right: -4%;
+      animation-delay: -6s;
+    }
+
+    .hero-glow.g3 {
+      width: 320px;
+      height: 320px;
+      background: radial-gradient(circle, rgba(8, 145, 178, 0.13), transparent 70%);
+      top: 40%;
+      right: 22%;
+      animation-delay: -10s;
+    }
+
+    @keyframes driftGlow {
+
+      0%,
+      100% {
+        transform: translate(0, 0) scale(1);
+      }
+
+      50% {
+        transform: translate(3%, -4%) scale(1.08);
+      }
+    }
+
     /* ── SECTION AMBIENT BACKGROUNDS ── */
     .section-ambient {
-      position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0;
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
     }
+
     .section-ambient .blob {
-      position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.5;
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.5;
       animation: driftGlow 16s ease-in-out infinite;
     }
-    section { position: relative; }
-    section > .container { position: r    /* ── NAVIGATION ── */
-    nav {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 1.25rem 4rem; transition: all 0.3s var(--ease-out);
-      background: rgba(248, 250, 252, 0.85);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--c-border);
-    }
-    nav.scrolled {
-      background: rgba(255, 255, 255, 0.95);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
-      padding: 1rem 4rem;
-    }
-    .nav-brand { display: flex; align-items: center; gap: 0.75rem; font-weight: 900; font-size: 1.35rem; color: var(--c-text); }
-    .brand-icon {
-      width: 36px; height: 36px; background: var(--c-purple); border-radius: 10px;
-      display: flex; align-items: center; justify-content: center; color: #FFF;
-      position: relative; box-shadow: 0 0 0 0 rgba(124,58,237,0.4);
-      animation: pulseIcon 3.5s ease-in-out infinite;
-    }
-    @keyframes pulseIcon {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(124,58,237,0.28); }
-      50% { box-shadow: 0 0 0 8px rgba(124,58,237,0); }
-    }
-    .nav-links { display: flex; align-items: center; gap: 2.2rem; }
-    .nav-links a { font-size: 0.9rem; font-weight: 600; color: var(--c-muted); position: relative; transition: color 0.2s; }
-    .nav-links a::after {
-      content: ""; position: absolute; left: 0; bottom: -4px; width: 0; height: 2px;
-      background: var(--c-purple); transition: width 0.3s var(--ease-out);
-    }
-    .nav-links a:hover { color: var(--c-purple); }
-    .nav-links a:hover::after { width: 100%; }
 
-    .nav-actions { display: flex; align-items: center; gap: 0.75rem; }
-
-    /* Hamburger Menu Button */
-    .mobile-menu-btn {
-      display: none; background: none; border: none; cursor: pointer; padding: 0.5rem;
-      color: var(--c-text); flex-direction: column; gap: 5px; z-index: 110;
+    section {
+      position: relative;
     }
-    .mobile-menu-btn span {
-      display: block; width: 24px; height: 2.5px; background-color: var(--c-text);
-      border-radius: 2px; transition: all 0.3s ease;
-    }
-    .mobile-menu-btn.active span:nth-child(1) { transform: translateY(7.5px) rotate(45deg); }
-    .mobile-menu-btn.active span:nth-child(2) { opacity: 0; }
-    .mobile-menu-btn.active span:nth-child(3) { transform: translateY(-7.5px) rotate(-45deg); }
 
-    @media (max-width: 900px) {
-      nav, nav.scrolled { padding: 1rem 1.5rem; }
-      .mobile-menu-btn { display: flex; }
+    section>.container {
+      position: r
+
+      /* ── NAVIGATION ── */
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.25rem 4rem;
+        transition: all 0.3s var(--ease-out);
+        background: rgba(248, 250, 252, 0.85);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--c-border);
+      }
+
+      nav.scrolled {
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+        padding: 1rem 4rem;
+      }
+
+      .nav-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-weight: 900;
+        font-size: 1.35rem;
+        color: var(--c-text);
+      }
+
+      .brand-icon {
+        width: 36px;
+        height: 36px;
+        background: var(--c-purple);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #FFF;
+        position: relative;
+        box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.4);
+        animation: pulseIcon 3.5s ease-in-out infinite;
+      }
+
+      @keyframes pulseIcon {
+
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.28);
+        }
+
+        50% {
+          box-shadow: 0 0 0 8px rgba(124, 58, 237, 0);
+        }
+      }
+
       .nav-links {
-        position: fixed; top: 0; right: -100%; width: 80%; max-width: 320px; height: 100vh;
-        background: #FFFFFF; flex-direction: column; align-items: flex-start; justify-content: flex-start;
-        padding: 6rem 2rem 2rem; gap: 1.5rem; box-shadow: -10px 0 30px rgba(0,0,0,0.1);
-        transition: right 0.4s var(--ease-out); z-index: 105;
+        display: flex;
+        align-items: center;
+        gap: 2.2rem;
       }
-      .nav-links.active { right: 0; }
-      .nav-links a { font-size: 1.1rem; width: 100%; padding-bottom: 0.5rem; border-bottom: 1px solid var(--c-border); }
-      .nav-actions { display: none; }
-      .nav-links .mobile-nav-actions {
-        display: flex; flex-direction: column; gap: 1rem; width: 100%; margin-top: 1rem;
+
+      .nav-links a {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--c-muted);
+        position: relative;
+        transition: color 0.2s;
       }
-    }
+
+      .nav-links a::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        bottom: -4px;
+        width: 0;
+        height: 2px;
+        background: var(--c-purple);
+        transition: width 0.3s var(--ease-out);
+      }
+
+      .nav-links a:hover {
+        color: var(--c-purple);
+      }
+
+      .nav-links a:hover::after {
+        width: 100%;
+      }
+
+      .nav-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      /* Hamburger Menu Button */
+      .mobile-menu-btn {
+        display: none;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0.5rem;
+        color: var(--c-text);
+        flex-direction: column;
+        gap: 5px;
+        z-index: 110;
+      }
+
+      .mobile-menu-btn span {
+        display: block;
+        width: 24px;
+        height: 2.5px;
+        background-color: var(--c-text);
+        border-radius: 2px;
+        transition: all 0.3s ease;
+      }
+
+      .mobile-menu-btn.active span:nth-child(1) {
+        transform: translateY(7.5px) rotate(45deg);
+      }
+
+      .mobile-menu-btn.active span:nth-child(2) {
+        opacity: 0;
+      }
+
+      .mobile-menu-btn.active span:nth-child(3) {
+        transform: translateY(-7.5px) rotate(-45deg);
+      }
+
+      @media (max-width: 900px) {
+
+        nav,
+        nav.scrolled {
+          padding: 1rem 1.5rem;
+        }
+
+        .mobile-menu-btn {
+          display: flex;
+        }
+
+        .nav-links {
+          position: fixed;
+          top: 0;
+          right: -100%;
+          width: 80%;
+          max-width: 320px;
+          height: 100vh;
+          background: #FFFFFF;
+          flex-direction: column;
+          align-items: flex-start;
+          justify-content: flex-start;
+          padding: 6rem 2rem 2rem;
+          gap: 1.5rem;
+          box-shadow: -10px 0 30px rgba(0, 0, 0, 0.1);
+          transition: right 0.4s var(--ease-out);
+          z-index: 105;
+        }
+
+        .nav-links.active {
+          right: 0;
+        }
+
+        .nav-links a {
+          font-size: 1.1rem;
+          width: 100%;
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid var(--c-border);
+        }
+
+        .nav-actions {
+          display: none;
+        }
+
+        .nav-links .mobile-nav-actions {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          width: 100%;
+          margin-top: 1rem;
+        }
+      }
   </style>
 </head>
+
 <body>
 
   <!-- ── ICON SPRITE (no emoji, consistent line-icon set) ── -->
   <svg style="display:none" aria-hidden="true">
-    <symbol id="icon-diamond" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/>
+    <symbol id="icon-diamond" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 3h12l4 6-10 13L2 9Z" />
+      <path d="M11 3 8 9l4 13 4-13-3-6" />
+      <path d="M2 9h20" />
     </symbol>
-    <symbol id="icon-car" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M5 17h14M5 17a2 2 0 01-2-2v-2.5L5 8h14l2 4.5V15a2 2 0 01-2 2M5 17a2 2 0 002 2 2 2 0 002-2M17 17a2 2 0 002 2 2 2 0 002-2M9 17h6"/>
+    <symbol id="icon-car" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+      stroke-linejoin="round">
+      <path
+        d="M5 17h14M5 17a2 2 0 01-2-2v-2.5L5 8h14l2 4.5V15a2 2 0 01-2 2M5 17a2 2 0 002 2 2 2 0 002-2M17 17a2 2 0 002 2 2 2 0 002-2M9 17h6" />
     </symbol>
-    <symbol id="icon-crown" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M3 6l4 4 5-6 5 6 4-4-2 11H5L3 6z"/><path d="M5 20h14"/>
+    <symbol id="icon-crown" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 6l4 4 5-6 5 6 4-4-2 11H5L3 6z" />
+      <path d="M5 20h14" />
     </symbol>
-    <symbol id="icon-rocket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 2c2.5 2 4 5.5 4 9.5 0 2-1 4-2 5.5l-2 2-2-2c-1-1.5-2-3.5-2-5.5C8 7.5 9.5 4 12 2z"/><path d="M9 15l-3 2 1-4M15 15l3 2-1-4"/><circle cx="12" cy="10" r="1.6"/>
+    <symbol id="icon-rocket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2c2.5 2 4 5.5 4 9.5 0 2-1 4-2 5.5l-2 2-2-2c-1-1.5-2-3.5-2-5.5C8 7.5 9.5 4 12 2z" />
+      <path d="M9 15l-3 2 1-4M15 15l3 2-1-4" />
+      <circle cx="12" cy="10" r="1.6" />
     </symbol>
-    <symbol id="icon-ring" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="15" r="6"/><path d="M9 9l3-6 3 6-3 2.5z"/>
+    <symbol id="icon-ring" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+      stroke-linejoin="round">
+      <circle cx="12" cy="15" r="6" />
+      <path d="M9 9l3-6 3 6-3 2.5z" />
     </symbol>
-    <symbol id="icon-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/>
+    <symbol id="icon-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6l7-3z" />
+      <path d="M9 12l2 2 4-4" />
     </symbol>
-    <symbol id="icon-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/>
+    <symbol id="icon-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+      stroke-linejoin="round">
+      <rect x="4" y="11" width="16" height="9" rx="2" />
+      <path d="M8 11V7a4 4 0 018 0v4" />
     </symbol>
-    <symbol id="icon-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L2.7 17a2 2 0 001.7 3h15.2a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/>
+    <symbol id="icon-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+      stroke-linejoin="round">
+      <path d="M12 9v4M12 17h.01" />
+      <path d="M10.3 3.9L2.7 17a2 2 0 001.7 3h15.2a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" />
     </symbol>
-    <symbol id="icon-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+    <symbol id="icon-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      stroke-linecap="round" stroke-linejoin="round">
+      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
     </symbol>
     <symbol id="icon-star" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-      <path d="M12 2l2.9 6.6 7.1.6-5.4 4.8 1.7 7-6.3-3.9L5.7 21l1.7-7L2 9.2l7.1-.6L12 2z"/>
+      <path d="M12 2l2.9 6.6 7.1.6-5.4 4.8 1.7 7-6.3-3.9L5.7 21l1.7-7L2 9.2l7.1-.6L12 2z" />
     </symbol>
     <symbol id="icon-quote" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-      <path d="M9.5 6C6 6 3.5 8.7 3.5 12.5S6 19 9 19v-3c-1.5 0-2.5-1.2-2.5-3h3V6H9.5zm10 0c-3.5 0-6 2.7-6 6.5s2.5 6.5 5.5 6.5v-3c-1.5 0-2.5-1.2-2.5-3h3V6h-.5z"/>
+      <path
+        d="M9.5 6C6 6 3.5 8.7 3.5 12.5S6 19 9 19v-3c-1.5 0-2.5-1.2-2.5-3h3V6H9.5zm10 0c-3.5 0-6 2.7-6 6.5s2.5 6.5 5.5 6.5v-3c-1.5 0-2.5-1.2-2.5-3h3V6h-.5z" />
     </symbol>
   </svg>
 
@@ -223,25 +457,33 @@ Globilive · HTML
       <a href="#network" onclick="closeMobileMenu()">Global Network</a>
       <a href="#agency" onclick="closeMobileMenu()">Agency Hub</a>
       <a href="#faq" onclick="closeMobileMenu()">FAQ</a>
-      
+
       <div class="mobile-nav-actions">
         <a href="/admin/login" class="btn btn-outline" style="width: 100%;">
-          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3" />
+          </svg>
           Login
         </a>
-        <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank" class="play-badge" style="width: 100%; text-align: center;">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Get it on Google Play" style="height:44px; margin: 0 auto;" />
+        <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank"
+          class="play-badge" style="width: 100%; text-align: center;">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg"
+            alt="Get it on Google Play" style="height:44px; margin: 0 auto;" />
         </a>
       </div>
     </div>
 
     <div class="nav-actions">
       <a href="/admin/login" class="btn btn-outline">
-        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3" />
+        </svg>
         Login
       </a>
-      <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank" class="play-badge">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Get it on Google Play" style="height:38px;" />
+      <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank"
+        class="play-badge">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg"
+          alt="Get it on Google Play" style="height:38px;" />
       </a>
     </div>
 
@@ -251,1053 +493,1228 @@ Globilive · HTML
       <span></span>
     </button>
   </nav>100%; }
- 
-    /* ── BUTTONS ── */
-    .btn {
-      display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem;
-      padding: 0.75rem 1.6rem; border-radius: 100px; font-size: 0.88rem; font-weight: 700;
-      cursor: pointer; transition: transform 0.25s var(--ease-spring), background 0.2s, border-color 0.2s, box-shadow 0.3s;
-      border: 1px solid transparent; position: relative; overflow: hidden; isolation: isolate;
-    }
-    .btn::before {
-      content: ""; position: absolute; inset: 0; z-index: -1;
-      background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.35) 48%, rgba(255,255,255,0.35) 52%, transparent 70%);
-      transform: translateX(-120%); transition: transform 0.7s var(--ease-out);
-    }
-    .btn:hover::before { transform: translateX(120%); }
-    .btn-purple { background: var(--c-purple); color: #FFF; box-shadow: 0 10px 20px rgba(124, 58, 237, 0.2); }
-    .btn-purple:hover { transform: translateY(-3px) scale(1.02); background: #6D28D9; box-shadow: 0 16px 30px rgba(124, 58, 237, 0.3); }
-    .btn-outline { background: var(--c-surface); border-color: var(--c-border-bright); color: var(--c-text); }
-    .btn-outline:hover { border-color: var(--c-purple); color: var(--c-purple); transform: translateY(-3px); }
-    .play-badge {
-      display: inline-block; cursor: pointer; transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s;
-    }
-    .play-badge:hover { transform: translateY(-3px) scale(1.04); opacity: 0.92; }
-    .play-badge img { height: 52px; width: auto; display: block; border-radius: 8px; }
- 
-    /* ── HERO SECTION ── */
-    .hero {
-      min-height: 100vh; padding: 10rem 4rem 6rem;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      position: relative; text-align: center; overflow: hidden;
-    }
-    .hero-pill {
-      display: inline-flex; align-items: center; gap: 0.6rem;
-      padding: 0.45rem 1.1rem; background: var(--c-purple-light); border: 1px solid var(--c-purple);
-      border-radius: 100px; font-size: 0.8rem; font-weight: 800; color: var(--c-purple);
-      margin-bottom: 2rem; z-index: 2;
-    }
-    .hero-pill svg { animation: sparkle 2.4s ease-in-out infinite; }
-    @keyframes sparkle { 0%, 100% { transform: scale(1) rotate(0deg); } 50% { transform: scale(1.15) rotate(8deg); } }
- 
-    .hero-title {
-      font-size: clamp(3rem, 7vw, 5.8rem); font-weight: 900; line-height: 1.05;
-      letter-spacing: -0.04em; max-width: 1050px; margin-bottom: 1.5rem; color: var(--c-text); z-index: 2;
-    }
-    .text-purple { color: var(--c-purple); }
-    .text-pink {
-      background: linear-gradient(100deg, var(--c-pink), var(--c-purple), var(--c-pink));
-      background-size: 220% auto;
-      -webkit-background-clip: text; background-clip: text; color: transparent;
-      animation: shimmerText 6s linear infinite;
-    }
-    @keyframes shimmerText { to { background-position: -220% center; } }
-    .text-cyan { color: var(--c-cyan); }
- 
-    .hero-sub {
-      font-size: clamp(1rem, 1.8vw, 1.2rem); color: var(--c-muted); max-width: 720px;
-      line-height: 1.6; margin-bottom: 2.5rem; font-weight: 500; z-index: 2;
-    }
- 
-    /* Floating Dynamic Widgets */
-    .widget {
-      position: absolute; background: var(--c-surface); padding: 0.85rem 1.2rem;
-      border-radius: var(--r-md); border: 1px solid var(--c-border);
-      display: flex; align-items: center; gap: 0.85rem; z-index: 3;
-      box-shadow: 0 15px 35px rgba(15, 23, 42, 0.08);
-      transition: transform 0.35s var(--ease-spring), box-shadow 0.35s;
-    }
-    .widget:hover { transform: translateY(-6px) scale(1.03) !important; box-shadow: 0 22px 45px rgba(15,23,42,0.14); }
-    .w-1 { top: 22%; left: 5%; transform: rotate(-3deg); }
-    .w-2 { top: 25%; right: 5%; transform: rotate(3deg); }
-    .w-3 { bottom: 18%; left: 7%; transform: rotate(2deg); }
-    .w-4 { bottom: 20%; right: 7%; transform: rotate(-3deg); }
- 
-    .w-icon {
-      width: 40px; height: 40px; border-radius: 10px; display: flex;
-      align-items: center; justify-content: center; flex-shrink: 0; color: #FFF;
-    }
- 
-    /* ── SECTIONS GENERAL ── */
-    section { padding: 6rem 4rem; }
-    .container { max-width: 1250px; margin: 0 auto; }
- 
-    .section-head { text-align: center; max-width: 700px; margin: 0 auto 3.5rem; }
-    .tag { font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: var(--c-purple); margin-bottom: 0.75rem; display: block; }
-    .title { font-size: clamp(2rem, 3.5vw, 3rem); font-weight: 800; letter-spacing: -0.03em; color: var(--c-text); margin-bottom: 1rem; }
-    .desc { font-size: 1.05rem; color: var(--c-muted); line-height: 1.6; }
- 
-    /* ── LIVE METRICS & COUNTERS ── */
-    .stats-grid {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem;
-      background: var(--c-surface); padding: 2.5rem; border-radius: var(--r-lg);
-      border: 1px solid var(--c-border); box-shadow: 0 10px 30px rgba(0,0,0,0.02);
-      margin-top: -3rem; z-index: 10; position: relative;
-      overflow: hidden;
-    }
-    .stats-grid::before {
-      content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-      background: linear-gradient(90deg, var(--c-purple), var(--c-pink), var(--c-cyan), var(--c-purple));
-      background-size: 300% auto; animation: shimmerText 5s linear infinite;
-    }
-    .stat-item { text-align: center; }
-    .stat-number { font-size: 2.5rem; font-weight: 900; color: var(--c-purple); margin-bottom: 0.3rem; }
-    .stat-label { font-size: 0.9rem; color: var(--c-muted); font-weight: 600; }
- 
-    /* Tabs & Bento Grid Features */
-    .tab-bar {
-      display: flex; justify-content: center; gap: 0.75rem; margin-bottom: 3.5rem;
-      background: var(--c-surface); padding: 0.4rem; border-radius: 100px;
-      border: 1px solid var(--c-border); width: fit-content; margin-left: auto; margin-right: auto;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-    }
-    .tab-btn {
-      padding: 0.65rem 1.6rem; border-radius: 100px; font-size: 0.88rem; font-weight: 700;
-      color: var(--c-muted); cursor: pointer; border: none; background: transparent; transition: all 0.25s var(--ease-out);
-    }
-    .tab-btn.active { background: var(--c-purple); color: #FFF; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25); }
- 
-    .bento-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
-    .bento-card {
-      background: var(--c-surface); border-radius: var(--r-lg); padding: 2.25rem;
-      border: 1px solid var(--c-border); display: flex; flex-direction: column; justify-content: space-between;
-      transition: all 0.35s var(--ease-out);
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
-      position: relative; overflow: hidden;
-    }
-    .bento-card::before {
-      content: ""; position: absolute; top: -60%; left: -20%; width: 60%; height: 220%;
-      background: linear-gradient(120deg, transparent, rgba(124,58,237,0.06), transparent);
-      transform: rotate(20deg) translateX(-140%); transition: transform 0.7s var(--ease-out);
-      pointer-events: none;
-    }
-    .bento-card:hover::before { transform: rotate(20deg) translateX(160%); }
-    .bento-card:hover {
-      border-color: var(--c-purple); transform: translateY(-6px);
-      box-shadow: 0 20px 35px rgba(124, 58, 237, 0.1);
-    }
-    .bento-card:hover .w-icon { transform: rotate(-8deg) scale(1.08); }
-    .w-icon { transition: transform 0.35s var(--ease-spring); }
-    .col-2 { grid-column: span 2; }
- 
-    .bento-card h3 { font-size: 1.35rem; font-weight: 800; color: var(--c-text); margin: 1.25rem 0 0.5rem; }
-    .bento-card p { font-size: 0.95rem; color: var(--c-muted); line-height: 1.6; }
- 
-    .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.75rem; }
-    .chip {
-      font-size: 0.75rem; font-weight: 700; padding: 0.35rem 0.8rem; border-radius: 8px;
-      background: var(--c-bg); color: var(--c-text); border: 1px solid var(--c-border);
-      transition: border-color 0.25s, transform 0.25s;
-    }
-    .bento-card:hover .chip { border-color: var(--c-border-bright); }
- 
-    /* ── EARNINGS CALCULATOR ── */
-    .calc-box {
-      background: var(--c-surface); border-radius: var(--r-lg); padding: 3.5rem;
-      border: 1px solid var(--c-border); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.03);
-      display: grid; grid-template-columns: 1fr 1fr; gap: 3.5rem; align-items: center;
-    }
-    .calc-controls { display: flex; flex-direction: column; gap: 1.5rem; }
-    .calc-slider {
-      width: 100%; height: 8px; border-radius: 4px; background: var(--c-border);
-      outline: none; -webkit-appearance: none; accent-color: var(--c-purple); cursor: pointer;
-    }
-    .calc-val-display { font-size: 2rem; font-weight: 900; color: var(--c-purple); transition: transform 0.2s; }
-    .calc-result-card {
-      background: var(--c-purple-light); border: 1px solid var(--c-purple);
-      border-radius: var(--r-md); padding: 2.5rem; text-align: center;
-      position: relative; overflow: hidden;
-    }
-    .calc-result-card::after {
-      content: ""; position: absolute; inset: -40%; background: radial-gradient(circle, rgba(124,58,237,0.14), transparent 65%);
-      animation: driftGlow 10s ease-in-out infinite;
-    }
- 
-    /* ── GIFT SHOWCASE GRID ── */
-    .gift-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; }
-    .gift-card {
-      background: var(--c-surface); border-radius: var(--r-md); padding: 1.75rem;
-      border: 1px solid var(--c-border); text-align: center; transition: all 0.35s var(--ease-out);
-    }
-    .gift-card:hover { transform: translateY(-5px); border-color: var(--c-pink); box-shadow: 0 15px 30px rgba(219, 39, 119, 0.12); }
-    .gift-icon-box {
-      width: 70px; height: 70px; border-radius: 50%; background: var(--c-pink-light);
-      display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem; font-size: 2rem;
-      transition: transform 0.4s var(--ease-spring);
-    }
-    .gift-card:hover .gift-icon-box { transform: scale(1.12) rotate(-6deg); }
- 
-    /* ── GLOBAL SERVERS ── */
-    .server-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
-    .server-card {
-      background: var(--c-surface); padding: 2rem; border-radius: var(--r-md);
-      border: 1px solid var(--c-border); display: flex; align-items: center; gap: 1.25rem;
-      transition: transform 0.3s var(--ease-out), box-shadow 0.3s;
-    }
-    .server-card:hover { transform: translateY(-4px); box-shadow: 0 14px 28px rgba(15,23,42,0.06); }
-    .ping-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c-green); box-shadow: 0 0 10px var(--c-green); animation: pingPulse 2s ease-in-out infinite; }
-    @keyframes pingPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
- 
-    /* ── MOCKUP SECTION ── */
-    .mockup-container {
-      background: var(--c-surface); border-radius: var(--r-lg); padding: 4.5rem;
-      border: 1px solid var(--c-border); display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.04);
-    }
-    .mock-list { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 2rem; }
-    .mock-item { display: flex; gap: 1rem; }
-    .mock-num {
-      width: 32px; height: 32px; border-radius: 50%; background: var(--c-purple-light);
-      border: 1px solid var(--c-purple); display: flex; align-items: center; justify-content: center;
-      font-size: 0.85rem; font-weight: 800; color: var(--c-purple); flex-shrink: 0;
-    }
- 
-    .phone-frame {
-      width: 320px; background: var(--c-bg); border: 2px solid var(--c-border-bright);
-      border-radius: 2.2rem; padding: 1.25rem; margin: 0 auto;
-      box-shadow: 0 25px 50px rgba(15, 23, 42, 0.12);
-      display: flex; flex-direction: column; gap: 1rem;
-      animation: floatPhone 5s ease-in-out infinite;
-    }
-    @keyframes floatPhone { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-    .phone-top { display: flex; justify-content: space-between; align-items: center; }
-    .live-badge {
-      background: var(--c-pink); color: #FFF; font-size: 0.65rem; font-weight: 800;
-      padding: 0.2rem 0.5rem; border-radius: 4px; display: flex; align-items: center; gap: 0.3rem;
-      box-shadow: 0 0 0 0 rgba(219,39,119,0.5); animation: pulseIcon 2s ease-in-out infinite;
-    }
-    .cohost-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; }
-    .cohost-seat {
-      aspect-ratio: 1; background: var(--c-surface); border-radius: 8px; border: 1px solid var(--c-border);
-      display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: var(--c-muted); font-weight: 700;
-    }
-    .chat-box { font-size: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; margin-top: auto; }
-    .chat-msg { background: var(--c-surface); padding: 0.45rem 0.65rem; border-radius: 6px; border: 1px solid var(--c-border); }
- 
-    /* ── FAQ ACCORDION ── */
-    .faq-container { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 1rem; }
-    .faq-item {
-      background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-md);
-      overflow: hidden; transition: border-color 0.25s, box-shadow 0.25s;
-    }
-    .faq-item:hover { box-shadow: 0 8px 20px rgba(15,23,42,0.04); }
-    .faq-question {
-      padding: 1.25rem 1.5rem; font-weight: 700; cursor: pointer; display: flex;
-      justify-content: space-between; align-items: center; color: var(--c-text);
-    }
-    .faq-question span:last-child { transition: transform 0.3s var(--ease-out); color: var(--c-muted); }
-    .faq-item.active .faq-question span:last-child { transform: rotate(180deg); color: var(--c-purple); }
-    .faq-answer {
-      max-height: 0; overflow: hidden; padding: 0 1.5rem; color: var(--c-muted); font-size: 0.92rem; line-height: 1.6;
-      transition: max-height 0.4s var(--ease-out), padding 0.4s var(--ease-out);
-    }
-    .faq-item.active .faq-answer { max-height: 220px; padding: 0 1.5rem 1.25rem; }
-    .faq-item.active { border-color: var(--c-purple); }
- 
-    /* ── CTA BOX ── */
-    .cta-wrapper {
-      background: var(--c-surface); border-radius: var(--r-lg); padding: 5rem 2rem;
-      border: 1px solid var(--c-purple); text-align: center; position: relative; overflow: hidden;
-      box-shadow: 0 20px 40px rgba(124, 58, 237, 0.08);
-    }
-    .cta-wrapper::before {
-      content: ""; position: absolute; inset: -50%;
-      background: conic-gradient(from 0deg, transparent, rgba(124,58,237,0.08), transparent 30%);
-      animation: spinSlow 12s linear infinite;
-    }
-    @keyframes spinSlow { to { transform: rotate(360deg); } }
-    .cta-wrapper > * { position: relative; z-index: 1; }
-    .cta-wrapper h2 { font-size: clamp(2rem, 4vw, 3.5rem); font-weight: 900; color: var(--c-text); margin-bottom: 1rem; }
- 
-    /* ── TRUST & SECURITY GRID ── */
-    .trust-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; }
-    .trust-card {
-      background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-md);
-      padding: 2rem; transition: all 0.35s var(--ease-out); position: relative; overflow: hidden;
-    }
-    .trust-card:hover { transform: translateY(-6px); border-color: var(--c-cyan); box-shadow: 0 18px 32px rgba(8,145,178,0.1); }
-    .trust-icon {
-      width: 52px; height: 52px; border-radius: 12px; background: var(--c-cyan-light); color: var(--c-cyan);
-      display: flex; align-items: center; justify-content: center; margin-bottom: 1.25rem;
-      transition: transform 0.35s var(--ease-spring);
-    }
-    .trust-card:hover .trust-icon { transform: rotate(-6deg) scale(1.08); }
-    .trust-card h3 { font-size: 1.05rem; font-weight: 800; color: var(--c-text); margin-bottom: 0.5rem; }
-    .trust-card p { font-size: 0.88rem; color: var(--c-muted); line-height: 1.55; }
- 
-    /* ── TESTIMONIALS ── */
-    .testimonial-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
-    .testimonial-card {
-      background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-lg);
-      padding: 2.25rem; display: flex; flex-direction: column; gap: 1.25rem;
-      transition: all 0.35s var(--ease-out); position: relative;
-    }
-    .testimonial-card:hover { transform: translateY(-6px); border-color: var(--c-purple); box-shadow: 0 18px 32px rgba(124,58,237,0.1); }
-    .testimonial-card .icon-quote { width: 30px; height: 30px; color: var(--c-purple-light); }
-    .testimonial-stars { display: flex; gap: 0.2rem; color: var(--c-amber); }
-    .testimonial-stars svg { width: 15px; height: 15px; }
-    .testimonial-quote { font-size: 0.95rem; color: var(--c-text); line-height: 1.65; font-weight: 500; }
-    .testimonial-person { display: flex; align-items: center; gap: 0.75rem; margin-top: auto; padding-top: 0.5rem; border-top: 1px solid var(--c-border); }
-    .testimonial-avatar {
-      width: 40px; height: 40px; border-radius: 50%; background: var(--c-purple-light); color: var(--c-purple);
-      display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; flex-shrink: 0;
-    }
-    .testimonial-name { font-weight: 800; font-size: 0.88rem; color: var(--c-text); }
-    .testimonial-role { font-size: 0.78rem; color: var(--c-muted); }
- 
-    /* ── FOOTER ── */
-    footer { padding: 4rem; border-top: 1px solid var(--c-border); display: flex; justify-content: space-between; align-items: center; }
- 
-    /* ── SCROLL REVEAL ── */
-    .reveal-up { opacity: 0; transform: translateY(28px); }
- 
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
-    }
- 
-    @media (max-width: 1024px) {
-      .bento-grid, .stats-grid, .calc-box, .gift-grid, .server-grid, .trust-grid, .testimonial-grid { grid-template-columns: 1fr; }
-      .col-2 { grid-column: span 1; }
-      .mockup-container { grid-template-columns: 1fr; padding: 2rem; }
-      nav { padding: 1.25rem 2rem; }
-      section { padding: 4rem 2rem; }
-      .widget { display: none; }
-    }
+
+  /* ── BUTTONS ── */
+  .btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem;
+  padding: 0.75rem 1.6rem; border-radius: 100px; font-size: 0.88rem; font-weight: 700;
+  cursor: pointer; transition: transform 0.25s var(--ease-spring), background 0.2s, border-color 0.2s, box-shadow 0.3s;
+  border: 1px solid transparent; position: relative; overflow: hidden; isolation: isolate;
+  }
+  .btn::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.35) 48%, rgba(255,255,255,0.35) 52%,
+  transparent 70%);
+  transform: translateX(-120%); transition: transform 0.7s var(--ease-out);
+  }
+  .btn:hover::before { transform: translateX(120%); }
+  .btn-purple { background: var(--c-purple); color: #FFF; box-shadow: 0 10px 20px rgba(124, 58, 237, 0.2); }
+  .btn-purple:hover { transform: translateY(-3px) scale(1.02); background: #6D28D9; box-shadow: 0 16px 30px rgba(124,
+  58, 237, 0.3); }
+  .btn-outline { background: var(--c-surface); border-color: var(--c-border-bright); color: var(--c-text); }
+  .btn-outline:hover { border-color: var(--c-purple); color: var(--c-purple); transform: translateY(-3px); }
+  .play-badge {
+  display: inline-block; cursor: pointer; transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s;
+  }
+  .play-badge:hover { transform: translateY(-3px) scale(1.04); opacity: 0.92; }
+  .play-badge img { height: 52px; width: auto; display: block; border-radius: 8px; }
+
+  /* ── HERO SECTION ── */
+  .hero {
+  min-height: 100vh; padding: 10rem 4rem 6rem;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  position: relative; text-align: center; overflow: hidden;
+  }
+  .hero-pill {
+  display: inline-flex; align-items: center; gap: 0.6rem;
+  padding: 0.45rem 1.1rem; background: var(--c-purple-light); border: 1px solid var(--c-purple);
+  border-radius: 100px; font-size: 0.8rem; font-weight: 800; color: var(--c-purple);
+  margin-bottom: 2rem; z-index: 2;
+  }
+  .hero-pill svg { animation: sparkle 2.4s ease-in-out infinite; }
+  @keyframes sparkle { 0%, 100% { transform: scale(1) rotate(0deg); } 50% { transform: scale(1.15) rotate(8deg); } }
+
+  .hero-title {
+  font-size: clamp(3rem, 7vw, 5.8rem); font-weight: 900; line-height: 1.05;
+  letter-spacing: -0.04em; max-width: 1050px; margin-bottom: 1.5rem; color: var(--c-text); z-index: 2;
+  }
+  .text-purple { color: var(--c-purple); }
+  .text-pink {
+  background: linear-gradient(100deg, var(--c-pink), var(--c-purple), var(--c-pink));
+  background-size: 220% auto;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: shimmerText 6s linear infinite;
+  }
+  @keyframes shimmerText { to { background-position: -220% center; } }
+  .text-cyan { color: var(--c-cyan); }
+
+  .hero-sub {
+  font-size: clamp(1rem, 1.8vw, 1.2rem); color: var(--c-muted); max-width: 720px;
+  line-height: 1.6; margin-bottom: 2.5rem; font-weight: 500; z-index: 2;
+  }
+
+  /* Floating Dynamic Widgets */
+  .widget {
+  position: absolute; background: var(--c-surface); padding: 0.85rem 1.2rem;
+  border-radius: var(--r-md); border: 1px solid var(--c-border);
+  display: flex; align-items: center; gap: 0.85rem; z-index: 3;
+  box-shadow: 0 15px 35px rgba(15, 23, 42, 0.08);
+  transition: transform 0.35s var(--ease-spring), box-shadow 0.35s;
+  }
+  .widget:hover { transform: translateY(-6px) scale(1.03) !important; box-shadow: 0 22px 45px rgba(15,23,42,0.14); }
+  .w-1 { top: 22%; left: 5%; transform: rotate(-3deg); }
+  .w-2 { top: 25%; right: 5%; transform: rotate(3deg); }
+  .w-3 { bottom: 18%; left: 7%; transform: rotate(2deg); }
+  .w-4 { bottom: 20%; right: 7%; transform: rotate(-3deg); }
+
+  .w-icon {
+  width: 40px; height: 40px; border-radius: 10px; display: flex;
+  align-items: center; justify-content: center; flex-shrink: 0; color: #FFF;
+  }
+
+  /* ── SECTIONS GENERAL ── */
+  section { padding: 6rem 4rem; }
+  .container { max-width: 1250px; margin: 0 auto; }
+
+  .section-head { text-align: center; max-width: 700px; margin: 0 auto 3.5rem; }
+  .tag { font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: var(--c-purple);
+  margin-bottom: 0.75rem; display: block; }
+  .title { font-size: clamp(2rem, 3.5vw, 3rem); font-weight: 800; letter-spacing: -0.03em; color: var(--c-text);
+  margin-bottom: 1rem; }
+  .desc { font-size: 1.05rem; color: var(--c-muted); line-height: 1.6; }
+
+  /* ── LIVE METRICS & COUNTERS ── */
+  .stats-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem;
+  background: var(--c-surface); padding: 2.5rem; border-radius: var(--r-lg);
+  border: 1px solid var(--c-border); box-shadow: 0 10px 30px rgba(0,0,0,0.02);
+  margin-top: -3rem; z-index: 10; position: relative;
+  overflow: hidden;
+  }
+  .stats-grid::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--c-purple), var(--c-pink), var(--c-cyan), var(--c-purple));
+  background-size: 300% auto; animation: shimmerText 5s linear infinite;
+  }
+  .stat-item { text-align: center; }
+  .stat-number { font-size: 2.5rem; font-weight: 900; color: var(--c-purple); margin-bottom: 0.3rem; }
+  .stat-label { font-size: 0.9rem; color: var(--c-muted); font-weight: 600; }
+
+  /* Tabs & Bento Grid Features */
+  .tab-bar {
+  display: flex; justify-content: center; gap: 0.75rem; margin-bottom: 3.5rem;
+  background: var(--c-surface); padding: 0.4rem; border-radius: 100px;
+  border: 1px solid var(--c-border); width: fit-content; margin-left: auto; margin-right: auto;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  }
+  .tab-btn {
+  padding: 0.65rem 1.6rem; border-radius: 100px; font-size: 0.88rem; font-weight: 700;
+  color: var(--c-muted); cursor: pointer; border: none; background: transparent; transition: all 0.25s var(--ease-out);
+  }
+  .tab-btn.active { background: var(--c-purple); color: #FFF; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25); }
+
+  .bento-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+  .bento-card {
+  background: var(--c-surface); border-radius: var(--r-lg); padding: 2.25rem;
+  border: 1px solid var(--c-border); display: flex; flex-direction: column; justify-content: space-between;
+  transition: all 0.35s var(--ease-out);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
+  position: relative; overflow: hidden;
+  }
+  .bento-card::before {
+  content: ""; position: absolute; top: -60%; left: -20%; width: 60%; height: 220%;
+  background: linear-gradient(120deg, transparent, rgba(124,58,237,0.06), transparent);
+  transform: rotate(20deg) translateX(-140%); transition: transform 0.7s var(--ease-out);
+  pointer-events: none;
+  }
+  .bento-card:hover::before { transform: rotate(20deg) translateX(160%); }
+  .bento-card:hover {
+  border-color: var(--c-purple); transform: translateY(-6px);
+  box-shadow: 0 20px 35px rgba(124, 58, 237, 0.1);
+  }
+  .bento-card:hover .w-icon { transform: rotate(-8deg) scale(1.08); }
+  .w-icon { transition: transform 0.35s var(--ease-spring); }
+  .col-2 { grid-column: span 2; }
+
+  .bento-card h3 { font-size: 1.35rem; font-weight: 800; color: var(--c-text); margin: 1.25rem 0 0.5rem; }
+  .bento-card p { font-size: 0.95rem; color: var(--c-muted); line-height: 1.6; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.75rem; }
+  .chip {
+  font-size: 0.75rem; font-weight: 700; padding: 0.35rem 0.8rem; border-radius: 8px;
+  background: var(--c-bg); color: var(--c-text); border: 1px solid var(--c-border);
+  transition: border-color 0.25s, transform 0.25s;
+  }
+  .bento-card:hover .chip { border-color: var(--c-border-bright); }
+
+  /* ── EARNINGS CALCULATOR ── */
+  .calc-box {
+  background: var(--c-surface); border-radius: var(--r-lg); padding: 3.5rem;
+  border: 1px solid var(--c-border); box-shadow: 0 20px 40px rgba(0, 0, 0, 0.03);
+  display: grid; grid-template-columns: 1fr 1fr; gap: 3.5rem; align-items: center;
+  }
+  .calc-controls { display: flex; flex-direction: column; gap: 1.5rem; }
+  .calc-slider {
+  width: 100%; height: 8px; border-radius: 4px; background: var(--c-border);
+  outline: none; -webkit-appearance: none; accent-color: var(--c-purple); cursor: pointer;
+  }
+  .calc-val-display { font-size: 2rem; font-weight: 900; color: var(--c-purple); transition: transform 0.2s; }
+  .calc-result-card {
+  background: var(--c-purple-light); border: 1px solid var(--c-purple);
+  border-radius: var(--r-md); padding: 2.5rem; text-align: center;
+  position: relative; overflow: hidden;
+  }
+  .calc-result-card::after {
+  content: ""; position: absolute; inset: -40%; background: radial-gradient(circle, rgba(124,58,237,0.14), transparent
+  65%);
+  animation: driftGlow 10s ease-in-out infinite;
+  }
+
+  /* ── GIFT SHOWCASE GRID ── */
+  .gift-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; }
+  .gift-card {
+  background: var(--c-surface); border-radius: var(--r-md); padding: 1.75rem;
+  border: 1px solid var(--c-border); text-align: center; transition: all 0.35s var(--ease-out);
+  }
+  .gift-card:hover { transform: translateY(-5px); border-color: var(--c-pink); box-shadow: 0 15px 30px rgba(219, 39,
+  119, 0.12); }
+  .gift-icon-box {
+  width: 70px; height: 70px; border-radius: 50%; background: var(--c-pink-light);
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem; font-size: 2rem;
+  transition: transform 0.4s var(--ease-spring);
+  }
+  .gift-card:hover .gift-icon-box { transform: scale(1.12) rotate(-6deg); }
+
+  /* ── GLOBAL SERVERS ── */
+  .server-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+  .server-card {
+  background: var(--c-surface); padding: 2rem; border-radius: var(--r-md);
+  border: 1px solid var(--c-border); display: flex; align-items: center; gap: 1.25rem;
+  transition: transform 0.3s var(--ease-out), box-shadow 0.3s;
+  }
+  .server-card:hover { transform: translateY(-4px); box-shadow: 0 14px 28px rgba(15,23,42,0.06); }
+  .ping-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c-green); box-shadow: 0 0 10px
+  var(--c-green); animation: pingPulse 2s ease-in-out infinite; }
+  @keyframes pingPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* ── MOCKUP SECTION ── */
+  .mockup-container {
+  background: var(--c-surface); border-radius: var(--r-lg); padding: 4.5rem;
+  border: 1px solid var(--c-border); display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.04);
+  }
+  .mock-list { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 2rem; }
+  .mock-item { display: flex; gap: 1rem; }
+  .mock-num {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--c-purple-light);
+  border: 1px solid var(--c-purple); display: flex; align-items: center; justify-content: center;
+  font-size: 0.85rem; font-weight: 800; color: var(--c-purple); flex-shrink: 0;
+  }
+
+  .phone-frame {
+  width: 320px; background: var(--c-bg); border: 2px solid var(--c-border-bright);
+  border-radius: 2.2rem; padding: 1.25rem; margin: 0 auto;
+  box-shadow: 0 25px 50px rgba(15, 23, 42, 0.12);
+  display: flex; flex-direction: column; gap: 1rem;
+  animation: floatPhone 5s ease-in-out infinite;
+  }
+  @keyframes floatPhone { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+  .phone-top { display: flex; justify-content: space-between; align-items: center; }
+  .live-badge {
+  background: var(--c-pink); color: #FFF; font-size: 0.65rem; font-weight: 800;
+  padding: 0.2rem 0.5rem; border-radius: 4px; display: flex; align-items: center; gap: 0.3rem;
+  box-shadow: 0 0 0 0 rgba(219,39,119,0.5); animation: pulseIcon 2s ease-in-out infinite;
+  }
+  .cohost-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; }
+  .cohost-seat {
+  aspect-ratio: 1; background: var(--c-surface); border-radius: 8px; border: 1px solid var(--c-border);
+  display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: var(--c-muted); font-weight:
+  700;
+  }
+  .chat-box { font-size: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; margin-top: auto; }
+  .chat-msg { background: var(--c-surface); padding: 0.45rem 0.65rem; border-radius: 6px; border: 1px solid
+  var(--c-border); }
+
+  /* ── FAQ ACCORDION ── */
+  .faq-container { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 1rem; }
+  .faq-item {
+  background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-md);
+  overflow: hidden; transition: border-color 0.25s, box-shadow 0.25s;
+  }
+  .faq-item:hover { box-shadow: 0 8px 20px rgba(15,23,42,0.04); }
+  .faq-question {
+  padding: 1.25rem 1.5rem; font-weight: 700; cursor: pointer; display: flex;
+  justify-content: space-between; align-items: center; color: var(--c-text);
+  }
+  .faq-question span:last-child { transition: transform 0.3s var(--ease-out); color: var(--c-muted); }
+  .faq-item.active .faq-question span:last-child { transform: rotate(180deg); color: var(--c-purple); }
+  .faq-answer {
+  max-height: 0; overflow: hidden; padding: 0 1.5rem; color: var(--c-muted); font-size: 0.92rem; line-height: 1.6;
+  transition: max-height 0.4s var(--ease-out), padding 0.4s var(--ease-out);
+  }
+  .faq-item.active .faq-answer { max-height: 220px; padding: 0 1.5rem 1.25rem; }
+  .faq-item.active { border-color: var(--c-purple); }
+
+  /* ── CTA BOX ── */
+  .cta-wrapper {
+  background: var(--c-surface); border-radius: var(--r-lg); padding: 5rem 2rem;
+  border: 1px solid var(--c-purple); text-align: center; position: relative; overflow: hidden;
+  box-shadow: 0 20px 40px rgba(124, 58, 237, 0.08);
+  }
+  .cta-wrapper::before {
+  content: ""; position: absolute; inset: -50%;
+  background: conic-gradient(from 0deg, transparent, rgba(124,58,237,0.08), transparent 30%);
+  animation: spinSlow 12s linear infinite;
+  }
+  @keyframes spinSlow { to { transform: rotate(360deg); } }
+  .cta-wrapper > * { position: relative; z-index: 1; }
+  .cta-wrapper h2 { font-size: clamp(2rem, 4vw, 3.5rem); font-weight: 900; color: var(--c-text); margin-bottom: 1rem; }
+
+  /* ── TRUST & SECURITY GRID ── */
+  .trust-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; }
+  .trust-card {
+  background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-md);
+  padding: 2rem; transition: all 0.35s var(--ease-out); position: relative; overflow: hidden;
+  }
+  .trust-card:hover { transform: translateY(-6px); border-color: var(--c-cyan); box-shadow: 0 18px 32px
+  rgba(8,145,178,0.1); }
+  .trust-icon {
+  width: 52px; height: 52px; border-radius: 12px; background: var(--c-cyan-light); color: var(--c-cyan);
+  display: flex; align-items: center; justify-content: center; margin-bottom: 1.25rem;
+  transition: transform 0.35s var(--ease-spring);
+  }
+  .trust-card:hover .trust-icon { transform: rotate(-6deg) scale(1.08); }
+  .trust-card h3 { font-size: 1.05rem; font-weight: 800; color: var(--c-text); margin-bottom: 0.5rem; }
+  .trust-card p { font-size: 0.88rem; color: var(--c-muted); line-height: 1.55; }
+
+  /* ── TESTIMONIALS ── */
+  .testimonial-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+  .testimonial-card {
+  background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-lg);
+  padding: 2.25rem; display: flex; flex-direction: column; gap: 1.25rem;
+  transition: all 0.35s var(--ease-out); position: relative;
+  }
+  .testimonial-card:hover { transform: translateY(-6px); border-color: var(--c-purple); box-shadow: 0 18px 32px
+  rgba(124,58,237,0.1); }
+  .testimonial-card .icon-quote { width: 30px; height: 30px; color: var(--c-purple-light); }
+  .testimonial-stars { display: flex; gap: 0.2rem; color: var(--c-amber); }
+  .testimonial-stars svg { width: 15px; height: 15px; }
+  .testimonial-quote { font-size: 0.95rem; color: var(--c-text); line-height: 1.65; font-weight: 500; }
+  .testimonial-person { display: flex; align-items: center; gap: 0.75rem; margin-top: auto; padding-top: 0.5rem;
+  border-top: 1px solid var(--c-border); }
+  .testimonial-avatar {
+  width: 40px; height: 40px; border-radius: 50%; background: var(--c-purple-light); color: var(--c-purple);
+  display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; flex-shrink: 0;
+  }
+  .testimonial-name { font-weight: 800; font-size: 0.88rem; color: var(--c-text); }
+  .testimonial-role { font-size: 0.78rem; color: var(--c-muted); }
+
+  /* ── FOOTER ── */
+  footer { padding: 4rem; border-top: 1px solid var(--c-border); display: flex; justify-content: space-between;
+  align-items: center; }
+
+  /* ── SCROLL REVEAL ── */
+  .reveal-up { opacity: 0; transform: translateY(28px); }
+
+  @media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important; }
+  }
+
+  @media (max-width: 1024px) {
+  .bento-grid, .stats-grid, .calc-box, .gift-grid, .server-grid, .trust-grid, .testimonial-grid { grid-template-columns:
+  1fr; }
+  .col-2 { grid-column: span 1; }
+  .mockup-container { grid-template-columns: 1fr; padding: 2rem; }
+  nav { padding: 1.25rem 2rem; }
+  section { padding: 4rem 2rem; }
+  .widget { display: none; }
+  }
   </style>
-</head>
-<body>
- 
-  <!-- ── ICON SPRITE (no emoji, consistent line-icon set) ── -->
-  <svg style="display:none" aria-hidden="true">
-    <symbol id="icon-diamond" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/>
-    </symbol>
-    <symbol id="icon-car" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M5 17h14M5 17a2 2 0 01-2-2v-2.5L5 8h14l2 4.5V15a2 2 0 01-2 2M5 17a2 2 0 002 2 2 2 0 002-2M17 17a2 2 0 002 2 2 2 0 002-2M9 17h6"/>
-    </symbol>
-    <symbol id="icon-crown" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M3 6l4 4 5-6 5 6 4-4-2 11H5L3 6z"/><path d="M5 20h14"/>
-    </symbol>
-    <symbol id="icon-rocket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 2c2.5 2 4 5.5 4 9.5 0 2-1 4-2 5.5l-2 2-2-2c-1-1.5-2-3.5-2-5.5C8 7.5 9.5 4 12 2z"/><path d="M9 15l-3 2 1-4M15 15l3 2-1-4"/><circle cx="12" cy="10" r="1.6"/>
-    </symbol>
-    <symbol id="icon-ring" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="15" r="6"/><path d="M9 9l3-6 3 6-3 2.5z"/>
-    </symbol>
-    <symbol id="icon-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/>
-    </symbol>
-    <symbol id="icon-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/>
-    </symbol>
-    <symbol id="icon-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L2.7 17a2 2 0 001.7 3h15.2a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/>
-    </symbol>
-    <symbol id="icon-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
-    </symbol>
-    <symbol id="icon-star" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-      <path d="M12 2l2.9 6.6 7.1.6-5.4 4.8 1.7 7-6.3-3.9L5.7 21l1.7-7L2 9.2l7.1-.6L12 2z"/>
-    </symbol>
-    <symbol id="icon-quote" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-      <path d="M9.5 6C6 6 3.5 8.7 3.5 12.5S6 19 9 19v-3c-1.5 0-2.5-1.2-2.5-3h3V6H9.5zm10 0c-3.5 0-6 2.7-6 6.5s2.5 6.5 5.5 6.5v-3c-1.5 0-2.5-1.2-2.5-3h3V6h-.5z"/>
-    </symbol>
-  </svg>
- 
-  <!-- ── NAVIGATION ── -->
-  <nav id="nav">
-    <div class="nav-brand">
-      <img src="/logo.png" alt="GlobiLive" style="height:38px; width:38px; border-radius:10px; object-fit:cover;" />
-      GlobiLive
-    </div>
-    <div class="nav-links">
-      <a href="#features">Features</a>
-      <a href="#calculator">Calculator</a>
-      <a href="#gifting">Virtual Gifts</a>
-      <a href="#network">Global Network</a>
-      <a href="#agency">Agency Hub</a>
-      <a href="#faq">FAQ</a>
-    </div>
-    <div style="display:flex; align-items:center; gap:0.75rem;">
-      <a href="/admin/login" class="btn btn-outline">
-        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
-        Login
-      </a>
-      <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank" class="play-badge">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Get it on Google Play" style="height:38px;" />
-      </a>
-    </div>
-  </nav>
- 
-  <!-- ── HERO SECTION ── -->
-  <section class="hero">
- 
-    <div class="hero-glow g1"></div>
-    <div class="hero-glow g2"></div>
-    <div class="hero-glow g3"></div>
- 
-    <!-- Organic Curved Background Lines -->
-    <div class="hero-curved-bg">
-      <svg viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path class="draw" d="M-100,200 C300,50 800,450 1540,100" stroke="#7C3AED" stroke-width="2.5" stroke-opacity="0.25" fill="none" />
-        <path class="draw delay1" d="M-50,600 C400,850 900,300 1500,750" stroke="#DB2777" stroke-width="2" stroke-opacity="0.25" fill="none" />
-        <path class="draw delay2" d="M150,120 Q 720,-80 1290,120 T 720,880 Z" stroke="#0891B2" stroke-width="1.5" stroke-opacity="0.18" fill="none" stroke-dasharray="6 6" />
-        <circle cx="280" cy="170" r="6" fill="#7C3AED" opacity="0.3" />
-        <circle cx="1180" cy="240" r="8" fill="#DB2777" opacity="0.3" />
-        <circle cx="950" cy="680" r="5" fill="#0891B2" opacity="0.4" />
-      </svg>
-    </div>
- 
-    <!-- Floating Widgets -->
-    <div class="widget w-1 gsap-float">
-      <div class="w-icon" style="background:var(--c-purple);">
-        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"/></svg>
+  </head>
+
+  <body>
+
+    <!-- ── ICON SPRITE (no emoji, consistent line-icon set) ── -->
+    <svg style="display:none" aria-hidden="true">
+      <symbol id="icon-diamond" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 3h12l4 6-10 13L2 9Z" />
+        <path d="M11 3 8 9l4 13 4-13-3-6" />
+        <path d="M2 9h20" />
+      </symbol>
+      <symbol id="icon-car" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path
+          d="M5 17h14M5 17a2 2 0 01-2-2v-2.5L5 8h14l2 4.5V15a2 2 0 01-2 2M5 17a2 2 0 002 2 2 2 0 002-2M17 17a2 2 0 002 2 2 2 0 002-2M9 17h6" />
+      </symbol>
+      <symbol id="icon-crown" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 6l4 4 5-6 5 6 4-4-2 11H5L3 6z" />
+        <path d="M5 20h14" />
+      </symbol>
+      <symbol id="icon-rocket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2c2.5 2 4 5.5 4 9.5 0 2-1 4-2 5.5l-2 2-2-2c-1-1.5-2-3.5-2-5.5C8 7.5 9.5 4 12 2z" />
+        <path d="M9 15l-3 2 1-4M15 15l3 2-1-4" />
+        <circle cx="12" cy="10" r="1.6" />
+      </symbol>
+      <symbol id="icon-ring" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="15" r="6" />
+        <path d="M9 9l3-6 3 6-3 2.5z" />
+      </symbol>
+      <symbol id="icon-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6l7-3z" />
+        <path d="M9 12l2 2 4-4" />
+      </symbol>
+      <symbol id="icon-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="11" width="16" height="9" rx="2" />
+        <path d="M8 11V7a4 4 0 018 0v4" />
+      </symbol>
+      <symbol id="icon-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 9v4M12 17h.01" />
+        <path d="M10.3 3.9L2.7 17a2 2 0 001.7 3h15.2a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" />
+      </symbol>
+      <symbol id="icon-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+      </symbol>
+      <symbol id="icon-star" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+        <path d="M12 2l2.9 6.6 7.1.6-5.4 4.8 1.7 7-6.3-3.9L5.7 21l1.7-7L2 9.2l7.1-.6L12 2z" />
+      </symbol>
+      <symbol id="icon-quote" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+        <path
+          d="M9.5 6C6 6 3.5 8.7 3.5 12.5S6 19 9 19v-3c-1.5 0-2.5-1.2-2.5-3h3V6H9.5zm10 0c-3.5 0-6 2.7-6 6.5s2.5 6.5 5.5 6.5v-3c-1.5 0-2.5-1.2-2.5-3h3V6h-.5z" />
+      </symbol>
+    </svg>
+
+    <!-- ── NAVIGATION ── -->
+    <nav id="nav">
+      <div class="nav-brand">
+        <img src="/logo.png" alt="GlobiLive" style="height:38px; width:38px; border-radius:10px; object-fit:cover;" />
+        GlobiLive
       </div>
-      <div style="text-align:left;">
-        <div style="font-weight:800; font-size:0.85rem; color:var(--c-text);">Live Streaming</div>
-        <div style="font-size:0.75rem; color:var(--c-muted);">Multi-Seat Audio/Video</div>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#calculator">Calculator</a>
+        <a href="#gifting">Virtual Gifts</a>
+        <a href="#network">Global Network</a>
+        <a href="#agency">Agency Hub</a>
+        <a href="#faq">FAQ</a>
       </div>
-    </div>
- 
-    <div class="widget w-2 gsap-float">
-      <div class="w-icon" style="background:var(--c-amber);">
-        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-      </div>
-      <div style="text-align:left;">
-        <div style="font-weight:800; font-size:0.85rem; color:var(--c-text);">Beans & Diamonds</div>
-        <div style="font-size:0.75rem; color:var(--c-muted);">Wallet & Cash Out System</div>
-      </div>
-    </div>
- 
-    <div class="widget w-3 gsap-float">
-      <div class="w-icon" style="background:var(--c-cyan);">
-        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-      </div>
-      <div style="text-align:left;">
-        <div style="font-weight:800; font-size:0.85rem; color:var(--c-text);">Real-Time Chat</div>
-        <div style="font-size:0.75rem; color:var(--c-muted);">Instant Room Messaging</div>
-      </div>
-    </div>
- 
-    <div class="widget w-4 gsap-float">
-      <div class="w-icon" style="background:var(--c-pink);">
-        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-      </div>
-      <div style="text-align:left;">
-        <div style="font-weight:800; font-size:0.85rem; color:var(--c-text);">Short-Video Feed</div>
-        <div style="font-size:0.75rem; color:var(--c-muted);">Vertical Feed & Stories</div>
-      </div>
-    </div>
- 
-    <div class="hero-pill gsap-hero">
-      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-      Mobile App
-    </div>
- 
-    <h1 class="hero-title gsap-hero">
-      Stream Live. <span class="text-purple">Play Games.</span> <br/>
-      <span class="text-pink">Monetize</span> Your Audience.
-    </h1>
- 
-    <p class="hero-sub gsap-hero">
-      Complete real-time broadcasting platform with multi-seat live video rooms, real-time chat, Teen Patti & Plinko gaming, host agency management, and direct cash payout integration.
-    </p>
- 
-    <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; z-index:2;" class="gsap-hero">
-      <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank" class="play-badge gsap-hero" style="z-index:2;">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Get it on Google Play" style="height:56px;" />
-      </a>
-      <a href="#live" class="btn btn-outline" style="display:none;">
-        View Live Room Engine
-      </a>
-    </div>
-  </section>
- 
-  <!-- ── STATS COUNTER ── -->
-  <div class="container">
-    <div class="stats-grid">
-      <div class="stat-item">
-        <div class="stat-number" data-count="10" data-suffix="M+">0</div>
-        <div class="stat-label">Virtual Gifts Sent</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-number" data-count="50" data-suffix="K+">0</div>
-        <div class="stat-label">Active Broadcasters</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-number" data-count="99.9" data-suffix="%">0</div>
-        <div class="stat-label">Live Uptime</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-number" data-count="120" data-suffix="+">0</div>
-        <div class="stat-label">Registered Agencies</div>
-      </div>
-    </div>
-  </div>
- 
-  <!-- ── BENTO FEATURES WITH TABS ── -->
-  <section id="features">
-    <div class="section-ambient">
-      <div class="blob" style="width:420px; height:420px; background:radial-gradient(circle, rgba(124,58,237,0.08), transparent 70%); top:-8%; left:-6%;"></div>
-      <div class="blob" style="width:380px; height:380px; background:radial-gradient(circle, rgba(219,39,119,0.07), transparent 70%); bottom:-10%; right:-4%; animation-delay:-7s;"></div>
-    </div>
-    <div class="container">
-      <div class="section-head">
-        <span class="tag">Platform Pillars</span>
-        <h2 class="title">Engineered For Scale & Retention</h2>
-        <p class="desc">A structured look at the foundational systems driving GlobiLive's mobile application.</p>
-      </div>
- 
-      <div class="tab-bar">
-        <button class="tab-btn active" onclick="switchTab('all', event)">All Modules</button>
-        <button class="tab-btn" onclick="switchTab('streaming', event)">Streaming & Chat</button>
-        <button class="tab-btn" onclick="switchTab('monetization', event)">Monetization</button>
-      </div>
- 
-      <div class="bento-grid" id="bento-container">
-        <div class="bento-card col-2 reveal-up" data-cat="streaming" id="live">
-          <div>
-            <div class="w-icon" style="background:var(--c-purple);">
-              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-            </div>
-            <h3>Multi-Seat Live Streaming Rooms</h3>
-            <p>High-definition live video broadcast with multi-seat co-host grids, interactive audio seating, floating Picture-in-Picture mode, dynamic virtual gift triggers, and real-time room leaderboards.</p>
-          </div>
-          <div class="chips">
-            <span class="chip">HD Live Streaming</span>
-            <span class="chip">Picture-in-Picture</span>
-            <span class="chip">Multi-Seat Co-Host</span>
-            <span class="chip">Animated Gifts</span>
-          </div>
-        </div>
- 
-        <div class="bento-card reveal-up" data-cat="monetization">
-          <div>
-            <div class="w-icon" style="background:var(--c-amber);">
-              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            </div>
-            <h3>Wallet & Diamond Cashout</h3>
-            <p>Dual currency system (Beans & Diamonds), secure checkout, Google Play IAP, coin exchange marketplace, and automated seller payouts.</p>
-          </div>
-          <div class="chips">
-            <span class="chip">Secure Wallet</span>
-            <span class="chip">Diamond Payouts</span>
-            <span class="chip">Coin Reseller Market</span>
-          </div>
-        </div>
- 
-        <div class="bento-card reveal-up" data-cat="streaming">
-          <div>
-            <div class="w-icon" style="background:var(--c-pink);">
-              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            </div>
-            <h3>Vertical Video Feed & Stories</h3>
-            <p>Vertical video feed with gesture scrolling, post interaction, user stories viewer, media uploads, and post archiving.</p>
-          </div>
-          <div class="chips">
-            <span class="chip">Vertical Feed</span>
-            <span class="chip">Stories Engine</span>
-            <span class="chip">Media Uploads</span>
-          </div>
-        </div>
- 
-        <div class="bento-card col-2 reveal-up" data-cat="monetization" id="games">
-          <div>
-            <div class="w-icon" style="background:var(--c-cyan);">
-              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4a2 2 0 114 0v1a2 2 0 01-2 2 2 2 0 01-2-2V4zm-6 8a2 2 0 114 0v1a2 2 0 01-2 2 2 2 0 01-2-2v-1zm12 0a2 2 0 114 0v1a2 2 0 01-2 2 2 2 0 01-2-2v-1z"/></svg>
-            </div>
-            <h3>In-App Gaming Hub</h3>
-            <p>Keep users engaged in rooms with integrated multiplayer games. Features Teen Patti card tables, Plinko ball drops, Dice Roll wagers, and Daily Fortune Wheels that seamlessly sync with user coin balances.</p>
-          </div>
-          <div class="chips">
-            <span class="chip">Teen Patti</span>
-            <span class="chip">Plinko</span>
-            <span class="chip">Dice Roll</span>
-            <span class="chip">Spin Wheel</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
- 
-  <!-- ── INTERACTIVE HOST EARNINGS CALCULATOR ── -->
-  <section id="calculator" style="background:var(--c-surface); border-top: 1px solid var(--c-border); border-bottom: 1px solid var(--c-border);">
-    <div class="container">
-      <div class="section-head">
-        <span class="tag">Earnings Estimator</span>
-        <h2 class="title">Calculate Host & Agency Income</h2>
-        <p class="desc">Estimate your potential daily and monthly cash payouts based on room gifting activity.</p>
-      </div>
- 
-      <div class="calc-box reveal-up">
-        <div class="calc-controls">
-          <div>
-            <label style="font-weight:700; font-size:0.9rem; color:var(--c-text); display:block; margin-bottom:0.5rem;">
-              Daily Broadcast Hours: <span id="hoursVal" style="color:var(--c-purple);">4 Hours</span>
-            </label>
-            <input type="range" min="1" max="12" value="4" class="calc-slider" id="hoursInput" oninput="calculateEarnings()" />
-          </div>
- 
-          <div>
-            <label style="font-weight:700; font-size:0.9rem; color:var(--c-text); display:block; margin-bottom:0.5rem;">
-              Diamonds Received Per Hour: <span style="color:var(--c-purple); display:inline-flex; align-items:center; gap:0.3rem;"><svg width="14" height="14" style="flex-shrink:0;"><use href="#icon-diamond"/></svg><span id="diamondsVal">50,000</span></span>
-            </label>
-            <input type="range" min="5000" max="200000" step="5000" value="50000" class="calc-slider" id="diamondsInput" oninput="calculateEarnings()" />
-          </div>
- 
-          <div style="font-size:0.8rem; color:var(--c-muted); line-height:1.5;">
-            * Payout calculations assume standard 10,000 Diamonds = $1.00 USD cash conversion rate via direct payouts.
-          </div>
-        </div>
- 
-        <div class="calc-result-card">
-          <div style="font-size:0.85rem; font-weight:800; color:var(--c-purple); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.5rem;">
-            Estimated Monthly Earnings
-          </div>
-          <div class="calc-val-display" id="monthlyTotal">$600.00 USD</div>
-          <div style="font-size:0.85rem; color:var(--c-muted); margin-top:0.5rem;">
-            Daily Target: <strong style="color:var(--c-text); display:inline-flex; align-items:center; gap:0.3rem;"><svg width="13" height="13" style="color:var(--c-purple); flex-shrink:0;"><use href="#icon-diamond"/></svg><span id="dailyDiamonds">200,000 ($20.00)</span></strong>
-          </div>
-          <a href="#agency" class="btn btn-purple" style="margin-top:1.5rem; width:100%;">Register As Agency Host</a>
-        </div>
-      </div>
-    </div>
-  </section>
- 
-  <!-- ── VIRTUAL GIFTS SHOWCASE ── -->
-  <section id="gifting">
-    <div class="section-ambient">
-      <div class="blob" style="width:360px; height:360px; background:radial-gradient(circle, rgba(219,39,119,0.08), transparent 70%); top:10%; right:-6%;"></div>
-    </div>
-    <div class="container">
-      <div class="section-head">
-        <span class="tag">Gifting Ecosystem</span>
-        <h2 class="title">Interactive Animated Gifts</h2>
-        <p class="desc">High-impact entrance animations and combo gift multipliers designed to maximize room monetization.</p>
-      </div>
- 
-      <div class="gift-grid">
-        <div class="gift-card reveal-up">
-          <div class="gift-icon-box"><svg width="30" height="30" style="color:var(--c-pink);"><use href="#icon-car"/></svg></div>
-          <h3 style="font-size:1.1rem; font-weight:800; margin-bottom:0.4rem;">Supercar Entrance</h3>
-          <p style="font-size:0.85rem; color:var(--c-muted);">Full-screen animated entrance with custom sound effect.</p>
-          <div style="margin-top:1rem; font-weight:800; color:var(--c-purple); font-size:0.9rem;">100,000 Beans</div>
-        </div>
- 
-        <div class="gift-card reveal-up">
-          <div class="gift-icon-box"><svg width="30" height="30" style="color:var(--c-pink);"><use href="#icon-crown"/></svg></div>
-          <h3 style="font-size:1.1rem; font-weight:800; margin-bottom:0.4rem;">Royal Crown</h3>
-          <p style="font-size:0.85rem; color:var(--c-muted);">Pins donor on room's top supporter seat for 24 hours.</p>
-          <div style="margin-top:1rem; font-weight:800; color:var(--c-purple); font-size:0.9rem;">25,000 Beans</div>
-        </div>
- 
-        <div class="gift-card reveal-up">
-          <div class="gift-icon-box"><svg width="30" height="30" style="color:var(--c-pink);"><use href="#icon-rocket"/></svg></div>
-          <h3 style="font-size:1.1rem; font-weight:800; margin-bottom:0.4rem;">Rocket Combo</h3>
-          <p style="font-size:0.85rem; color:var(--c-muted);">Fast continuous tapping gift triggers streak banners.</p>
-          <div style="margin-top:1rem; font-weight:800; color:var(--c-purple); font-size:0.9rem;">5,000 Beans</div>
-        </div>
- 
-        <div class="gift-card reveal-up">
-          <div class="gift-icon-box"><svg width="30" height="30" style="color:var(--c-pink);"><use href="#icon-ring"/></svg></div>
-          <h3 style="font-size:1.1rem; font-weight:800; margin-bottom:0.4rem;">Diamond Ring</h3>
-          <p style="font-size:0.85rem; color:var(--c-muted);">Special audio room proposal animation effect.</p>
-          <div style="margin-top:1rem; font-weight:800; color:var(--c-purple); font-size:0.9rem;">10,000 Beans</div>
-        </div>
-      </div>
-    </div>
-  </section>
- 
-  <!-- ── GLOBAL NETWORK & INFRASTRUCTURE ── -->
-  <section id="network" style="background:var(--c-surface); border-top: 1px solid var(--c-border); border-bottom: 1px solid var(--c-border);">
-    <div class="container">
-      <div class="section-head">
-        <span class="tag">Ultra-Low Latency</span>
-        <h2 class="title">Global Broadcaster Node Network</h2>
-        <p class="desc">Engineered for seamless multi-country audio co-hosting with under 200ms real-time latency.</p>
-      </div>
- 
-      <div class="server-grid">
-        <div class="server-card reveal-up">
-          <div class="ping-dot"></div>
-          <div>
-            <div style="font-weight:800; font-size:1rem; color:var(--c-text);">Asia-Pacific (Singapore)</div>
-            <div style="font-size:0.8rem; color:var(--c-muted);">Average Latency: <strong>24ms</strong></div>
-          </div>
-        </div>
- 
-        <div class="server-card reveal-up">
-          <div class="ping-dot"></div>
-          <div>
-            <div style="font-weight:800; font-size:1rem; color:var(--c-text);">Middle East (Dubai)</div>
-            <div style="font-size:0.8rem; color:var(--c-muted);">Average Latency: <strong>32ms</strong></div>
-          </div>
-        </div>
- 
-        <div class="server-card reveal-up">
-          <div class="ping-dot"></div>
-          <div>
-            <div style="font-weight:800; font-size:1rem; color:var(--c-text);">Europe (Frankfurt)</div>
-            <div style="font-size:0.8rem; color:var(--c-muted);">Average Latency: <strong>45ms</strong></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
- 
-  <!-- ── TRUST & SECURITY ── -->
-  <section id="trust">
-    <div class="section-ambient">
-      <div class="blob" style="width:360px; height:360px; background:radial-gradient(circle, rgba(8,145,178,0.08), transparent 70%); top:-6%; right:-6%;"></div>
-    </div>
-    <div class="container">
-      <div class="section-head">
-        <span class="tag">Trust & Safety</span>
-        <h2 class="title">Built To Keep Rooms Safe & Payouts Reliable</h2>
-        <p class="desc">Every account, transaction, and live room is backed by verification and protection layers.</p>
-      </div>
- 
-      <div class="trust-grid">
-        <div class="trust-card reveal-up">
-          <div class="trust-icon"><svg width="24" height="24"><use href="#icon-shield"/></svg></div>
-          <h3>Verified Payouts</h3>
-          <p>Every cashout request runs through identity and threshold checks before funds are released.</p>
-        </div>
- 
-        <div class="trust-card reveal-up">
-          <div class="trust-icon"><svg width="24" height="24"><use href="#icon-lock"/></svg></div>
-          <h3>Encrypted Transactions</h3>
-          <p>Wallet top-ups, gifting, and withdrawals are protected end-to-end across every session.</p>
-        </div>
- 
-        <div class="trust-card reveal-up">
-          <div class="trust-icon"><svg width="24" height="24"><use href="#icon-users"/></svg></div>
-          <h3>Active Room Moderation</h3>
-          <p>Reporting tools, host controls, and review queues keep live rooms respectful and on-brand.</p>
-        </div>
- 
-        <div class="trust-card reveal-up">
-          <div class="trust-icon"><svg width="24" height="24"><use href="#icon-flag"/></svg></div>
-          <h3>Fraud Protection</h3>
-          <p>Automated risk scoring flags unusual gifting or top-up patterns before they become a problem.</p>
-        </div>
-      </div>
-    </div>
-  </section>
- 
-  <!-- ── AGENCY & MOCKUP SECTION ── -->
-  <section id="agency">
-    <div class="section-ambient">
-      <div class="blob" style="width:400px; height:400px; background:radial-gradient(circle, rgba(8,145,178,0.07), transparent 70%); bottom:-10%; left:-8%;"></div>
-    </div>
-    <div class="container">
-      <div class="mockup-container">
-        <div class="reveal-up">
-          <span class="tag">Agency & Creator Portal</span>
-          <h2 class="title" style="text-align:left;">Complete Host Management & Agency Dashboard</h2>
-          <p class="desc" style="text-align:left;">Empower agency managers to onboard hosts, set daily broadcast targets, track diamond commissions, and process payouts.</p>
- 
-          <div class="mock-list">
-            <div class="mock-item">
-              <div class="mock-num">1</div>
-              <div>
-                <strong style="color:var(--c-text); font-size:0.95rem; display:block;">Agency Invite Code System</strong>
-                <span style="color:var(--c-muted); font-size:0.85rem;">Simplified agency registration and host binding via unique code invitations.</span>
-              </div>
-            </div>
- 
-            <div class="mock-item">
-              <div class="mock-num">2</div>
-              <div>
-                <strong style="color:var(--c-text); font-size:0.95rem; display:block;">Creator Hub & Sound Library</strong>
-                <span style="color:var(--c-muted); font-size:0.85rem;">Access background sound tracks, streaming overlays, and daily target counters.</span>
-              </div>
-            </div>
- 
-            <div class="mock-item">
-              <div class="mock-num">3</div>
-              <div>
-                <strong style="color:var(--c-text); font-size:0.95rem; display:block;">Referral & Coin Reseller Engine</strong>
-                <span style="color:var(--c-muted); font-size:0.85rem;">Peer-to-peer coin selling network with commission tracking and referral rewards.</span>
-              </div>
-            </div>
-          </div>
-        </div>
- 
-        <div class="phone-frame reveal-up">
-          <div class="phone-top">
-            <div style="font-weight:800; font-size:0.8rem; color:var(--c-text);">@host_streamer</div>
-            <div class="live-badge">LIVE</div>
-          </div>
- 
-          <div style="background:var(--c-surface); border:1px solid var(--c-border); border-radius:12px; padding:0.75rem;">
-            <div style="font-size:0.7rem; font-weight:700; color:var(--c-muted); margin-bottom:0.5rem;">Co-Host Audio Grid (6 Seats)</div>
-            <div class="cohost-grid">
-              <div class="cohost-seat" style="color:var(--c-purple); border-color:var(--c-purple);">Host</div>
-              <div class="cohost-seat">Co-1</div>
-              <div class="cohost-seat">Co-2</div>
-              <div class="cohost-seat">Co-3</div>
-              <div class="cohost-seat">Co-4</div>
-              <div class="cohost-seat" style="border:1px dashed var(--c-border-bright);">+ Add</div>
-            </div>
-          </div>
- 
-          <div class="chat-box">
-            <div class="chat-msg" style="display:flex; align-items:center; gap:0.3rem;"><strong style="color:var(--c-pink);">User_99:</strong> Sent 1,000 Beans!<svg width="12" height="12" style="color:var(--c-purple);"><use href="#icon-diamond"/></svg></div>
-            <div class="chat-msg"><strong style="color:var(--c-cyan);">VIP_Member:</strong> Joined the live room!</div>
-          </div>
- 
-          <div style="background:var(--c-amber-light); border:1px solid var(--c-amber); padding:0.6rem; border-radius:8px; text-align:center;">
-            <span style="font-size:0.75rem; font-weight:800; color:var(--c-amber); display:inline-flex; align-items:center; gap:0.35rem;"><svg width="14" height="14"><use href="#icon-diamond"/></svg>+45,000 Diamonds Cashout Ready</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
- 
-  <!-- ── CREATOR SUCCESS STORIES ── -->
-  <section id="stories" style="background:var(--c-surface); border-top: 1px solid var(--c-border); border-bottom: 1px solid var(--c-border);">
-    <div class="container">
-      <div class="section-head">
-        <span class="tag">Creator Success Stories</span>
-        <h2 class="title">Hosts & Agencies Growing On GlobiLive</h2>
-        <p class="desc">A few of the broadcasters and agency owners building steady income on the platform.</p>
-      </div>
- 
-      <div class="testimonial-grid">
-        <div class="testimonial-card reveal-up">
-          <svg class="icon-quote"><use href="#icon-quote"/></svg>
-          <div class="testimonial-stars">
-            <svg><use href="#icon-star"/></svg><svg><use href="#icon-star"/></svg><svg><use href="#icon-star"/></svg><svg><use href="#icon-star"/></svg><svg><use href="#icon-star"/></svg>
-          </div>
-          <p class="testimonial-quote">The multi-seat rooms changed how my audience hangs out — co-hosting keeps everyone talking instead of just watching.</p>
-          <div class="testimonial-person">
-            <div class="testimonial-avatar">SQ</div>
-            <div>
-              <div class="testimonial-name">@stream_queen</div>
-              <div class="testimonial-role">Solo Host, 4 Hours Daily</div>
-            </div>
-          </div>
-        </div>
- 
-        <div class="testimonial-card reveal-up">
-          <svg class="icon-quote"><use href="#icon-quote"/></svg>
-          <div class="testimonial-stars">
-            <svg><use href="#icon-star"/></svg><svg><use href="#icon-star"/></svg><svg><use href="#icon-star"/></svg><svg><use href="#icon-star"/></svg><svg><use href="#icon-star"/></svg>
-          </div>
-          <p class="testimonial-quote">Managing thirty hosts used to be spreadsheets and guesswork. The agency dashboard gives me commission tracking in one place.</p>
-          <div class="testimonial-person">
-            <div class="testimonial-avatar">RA</div>
-            <div>
-              <div class="testimonial-name">Riverline Agency</div>
-              <div class="testimonial-role">Agency Owner, 30+ Hosts</div>
-            </div>
-          </div>
-        </div>
- 
-        <div class="testimonial-card reveal-up">
-          <svg class="icon-quote"><use href="#icon-quote"/></svg>
-          <div class="testimonial-stars">
-            <svg><use href="#icon-star"/></svg><svg><use href="#icon-star"/></svg><svg><use href="#icon-star"/></svg><svg><use href="#icon-star"/></svg><svg><use href="#icon-star"/></svg>
-          </div>
-          <p class="testimonial-quote">Gifting combos during PK battles reliably double my room's activity. Cashouts land on schedule every time.</p>
-          <div class="testimonial-person">
-            <div class="testimonial-avatar">MK</div>
-            <div>
-              <div class="testimonial-name">@midnight_karaoke</div>
-              <div class="testimonial-role">Solo Host, 6 Hours Daily</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
- 
-  <!-- ── FREQUENTLY ASKED QUESTIONS ── -->
-  <section id="faq">
-    <div class="container">
-      <div class="section-head">
-        <span class="tag">Got Questions?</span>
-        <h2 class="title">Frequently Asked Questions</h2>
-        <p class="desc">Everything you need to know about joining as a streamer or managing an agency.</p>
-      </div>
- 
-      <div class="faq-container">
-        <div class="faq-item active" onclick="toggleFaq(this)">
-          <div class="faq-question">
-            <span>How do host diamond payouts work?</span>
-            <span>▼</span>
-          </div>
-          <div class="faq-answer">
-            Hosts earn Diamonds whenever gifts are sent in their audio/video rooms. Diamonds can be exchanged back to cash and withdrawn to connected Bank accounts automatically once reaching the minimum payout threshold.
-          </div>
-        </div>
- 
-        <div class="faq-item" onclick="toggleFaq(this)">
-          <div class="faq-question">
-            <span>How do I create and manage a host agency?</span>
-            <span>▼</span>
-          </div>
-          <div class="faq-answer">
-            Agencies can register directly within the app dashboard. Upon approval, you will receive an Agency Code to invite hosts, monitor their daily live stream hours, and earn commissions on their diamond earnings.
-          </div>
-        </div>
- 
-        <div class="faq-item" onclick="toggleFaq(this)">
-          <div class="faq-question">
-            <span>Is live streaming supported on Android and iOS?</span>
-            <span>▼</span>
-          </div>
-          <div class="faq-answer">
-            Yes, GlobiLive delivers smooth, low-latency live streaming performance across both Android and iOS devices.
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
- 
-  <!-- ── CTA SECTION ── -->
-  <section>
-    <div class="container">
-      <div class="cta-wrapper">
-        <h2>Start Streaming & Earnings Today</h2>
-        <p class="desc" style="margin-bottom:2.5rem;">Join thousands of creators and agencies broadcasting live on GlobiLive.</p>
-        <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank" class="play-badge" style="margin:0 auto;">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Get it on Google Play" style="height:64px;" />
+      <div style="display:flex; align-items:center; gap:0.75rem;">
+        <a href="/admin/login" class="btn btn-outline">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3" />
+          </svg>
+          Login
+        </a>
+        <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank"
+          class="play-badge">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg"
+            alt="Get it on Google Play" style="height:38px;" />
         </a>
       </div>
-    </div>
-  </section>
- 
-  <!-- ── FOOTER ── -->
-  <footer class="container">
-    <div style="display:flex; align-items:center; gap:0.65rem;">
-      <img src="/logo.png" alt="GlobiLive" style="height:34px; width:34px; border-radius:8px; object-fit:cover;" />
-      <span style="font-weight:900; font-size:1.1rem; color:var(--c-text);">Globi<span style="color:var(--c-purple);">Live</span></span>
-    </div>
-    <div style="font-size:0.88rem; color:var(--c-muted); font-weight:600;">© 2026 GlobiLive Platform. Built for Android & iOS.</div>
-  </footer>
- 
-  <!-- ── SCRIPTS ── -->
-  <script>
-    gsap.registerPlugin(ScrollTrigger);
- 
-    window.addEventListener('scroll', () => {
-      document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 40);
-    });
- 
-    gsap.from(".gsap-hero", {
-      y: 30, opacity: 0, duration: 1, stagger: 0.12, ease: "power3.out"
-    });
- 
-    gsap.from(".widget", {
-      y: 20, opacity: 0, scale: 0.9, duration: 0.9, stagger: 0.15, delay: 0.4, ease: "back.out(1.6)"
-    });
- 
-    gsap.utils.toArray(".gsap-float").forEach((el, i) => {
-      gsap.to(el, {
-        y: (i % 2 === 0 ? 10 : -10),
-        duration: 2 + i * 0.3,
-        repeat: -1, yoyo: true, ease: "sine.inOut",
-        delay: 1.2
-      });
-    });
- 
-    // Scroll-triggered reveal for cards, list items, etc.
-    ScrollTrigger.batch(".reveal-up", {
-      start: "top 88%",
-      onEnter: batch => gsap.to(batch, { opacity: 1, y: 0, duration: 0.8, stagger: 0.1, ease: "power3.out" }),
-      once: true
-    });
- 
-    // Animated stat counters
-    document.querySelectorAll('.stat-number').forEach(el => {
-      const target = parseFloat(el.getAttribute('data-count'));
-      const suffix = el.getAttribute('data-suffix') || '';
-      const isDecimal = target % 1 !== 0;
-      const counter = { val: 0 };
-      ScrollTrigger.create({
-        trigger: el,
-        start: "top 90%",
-        once: true,
-        onEnter: () => {
-          gsap.to(counter, {
-            val: target,
-            duration: 1.8,
-            ease: "power2.out",
-            onUpdate: () => {
-              el.textContent = (isDecimal ? counter.val.toFixed(1) : Math.round(counter.val)) + suffix;
-            }
-          });
-        }
-      });
-    });
- 
-    function switchTab(cat, e) {
-      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-      e.target.classList.add('active');
- 
-      const cards = document.querySelectorAll('.bento-card');
-      cards.forEach(card => {
-        if (cat === 'all' || card.getAttribute('data-cat') === cat) {
-          card.style.display = 'flex';
-          gsap.fromTo(card, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" });
-        } else {
-          card.style.display = 'none';
-        }
-      });
-    }
- 
-    function calculateEarnings() {
-      const hours = parseInt(document.getElementById('hoursInput').value);
-      const diamonds = parseInt(document.getElementById('diamondsInput').value);
- 
-      document.getElementById('hoursVal').innerText = hours + ' Hours';
-      document.getElementById('diamondsVal').innerText = diamonds.toLocaleString();
- 
-      const dailyDiamondsTotal = hours * diamonds;
-      const dailyUsd = dailyDiamondsTotal / 10000;
-      const monthlyUsd = dailyUsd * 30;
- 
-      document.getElementById('dailyDiamonds').innerText = dailyDiamondsTotal.toLocaleString() + ' ($' + dailyUsd.toFixed(2) + ')';
- 
-      const totalEl = document.getElementById('monthlyTotal');
-      gsap.fromTo(totalEl, { scale: 1.08 }, { scale: 1, duration: 0.3, ease: "power2.out" });
-      totalEl.innerText = '$' + monthlyUsd.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' USD';
-    }
- 
-    function toggleFaq(el) {
-      const wasActive = el.classList.contains('active');
-      document.querySelectorAll('.faq-item').forEach(item => item.classList.remove('active'));
-      if (!wasActive) el.classList.add('active');
-    }
+    </nav>
 
-    function toggleMobileMenu() {
-      const btn = document.getElementById('mobileMenuBtn');
-      const links = document.getElementById('navLinks');
-      btn.classList.toggle('active');
-      links.classList.toggle('active');
-      document.body.style.overflow = links.classList.contains('active') ? 'hidden' : '';
-    }
+    <!-- ── HERO SECTION ── -->
+    <section class="hero">
 
-    function closeMobileMenu() {
-      const btn = document.getElementById('mobileMenuBtn');
-      const links = document.getElementById('navLinks');
-      btn.classList.remove('active');
-      links.classList.remove('active');
-      document.body.style.overflow = '';
-    }
-  </script>
-</body>
+      <div class="hero-glow g1"></div>
+      <div class="hero-glow g2"></div>
+      <div class="hero-glow g3"></div>
+
+      <!-- Organic Curved Background Lines -->
+      <div class="hero-curved-bg">
+        <svg viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path class="draw" d="M-100,200 C300,50 800,450 1540,100" stroke="#7C3AED" stroke-width="2.5"
+            stroke-opacity="0.25" fill="none" />
+          <path class="draw delay1" d="M-50,600 C400,850 900,300 1500,750" stroke="#DB2777" stroke-width="2"
+            stroke-opacity="0.25" fill="none" />
+          <path class="draw delay2" d="M150,120 Q 720,-80 1290,120 T 720,880 Z" stroke="#0891B2" stroke-width="1.5"
+            stroke-opacity="0.18" fill="none" stroke-dasharray="6 6" />
+          <circle cx="280" cy="170" r="6" fill="#7C3AED" opacity="0.3" />
+          <circle cx="1180" cy="240" r="8" fill="#DB2777" opacity="0.3" />
+          <circle cx="950" cy="680" r="5" fill="#0891B2" opacity="0.4" />
+        </svg>
+      </div>
+
+      <!-- Floating Widgets -->
+      <div class="widget w-1 gsap-float">
+        <div class="w-icon" style="background:var(--c-purple);">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" />
+          </svg>
+        </div>
+        <div style="text-align:left;">
+          <div style="font-weight:800; font-size:0.85rem; color:var(--c-text);">Live Streaming</div>
+          <div style="font-size:0.75rem; color:var(--c-muted);">Multi-Seat Audio/Video</div>
+        </div>
+      </div>
+
+      <div class="widget w-2 gsap-float">
+        <div class="w-icon" style="background:var(--c-amber);">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path
+              d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div style="text-align:left;">
+          <div style="font-weight:800; font-size:0.85rem; color:var(--c-text);">Beans & Diamonds</div>
+          <div style="font-size:0.75rem; color:var(--c-muted);">Wallet & Cash Out System</div>
+        </div>
+      </div>
+
+      <div class="widget w-3 gsap-float">
+        <div class="w-icon" style="background:var(--c-cyan);">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path
+              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        </div>
+        <div style="text-align:left;">
+          <div style="font-weight:800; font-size:0.85rem; color:var(--c-text);">Real-Time Chat</div>
+          <div style="font-size:0.75rem; color:var(--c-muted);">Instant Room Messaging</div>
+        </div>
+      </div>
+
+      <div class="widget w-4 gsap-float">
+        <div class="w-icon" style="background:var(--c-pink);">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path
+              d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+            <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div style="text-align:left;">
+          <div style="font-weight:800; font-size:0.85rem; color:var(--c-text);">Short-Video Feed</div>
+          <div style="font-size:0.75rem; color:var(--c-muted);">Vertical Feed & Stories</div>
+        </div>
+      </div>
+
+      <div class="hero-pill gsap-hero">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        Mobile App
+      </div>
+
+      <h1 class="hero-title gsap-hero">
+        Stream Live. <span class="text-purple">Play Games.</span> <br />
+        <span class="text-pink">Monetize</span> Your Audience.
+      </h1>
+
+      <p class="hero-sub gsap-hero">
+        Complete real-time broadcasting platform with multi-seat live video rooms, real-time chat, Teen Patti & Plinko
+        gaming, host agency management, and direct cash payout integration.
+      </p>
+
+      <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; z-index:2;" class="gsap-hero">
+        <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank"
+          class="play-badge gsap-hero" style="z-index:2;">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg"
+            alt="Get it on Google Play" style="height:56px;" />
+        </a>
+        <a href="#live" class="btn btn-outline" style="display:none;">
+          View Live Room Engine
+        </a>
+      </div>
+    </section>
+
+    <!-- ── STATS COUNTER ── -->
+    <div class="container">
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-number" data-count="10" data-suffix="M+">0</div>
+          <div class="stat-label">Virtual Gifts Sent</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number" data-count="50" data-suffix="K+">0</div>
+          <div class="stat-label">Active Broadcasters</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number" data-count="99.9" data-suffix="%">0</div>
+          <div class="stat-label">Live Uptime</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number" data-count="120" data-suffix="+">0</div>
+          <div class="stat-label">Registered Agencies</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── BENTO FEATURES WITH TABS ── -->
+    <section id="features">
+      <div class="section-ambient">
+        <div class="blob"
+          style="width:420px; height:420px; background:radial-gradient(circle, rgba(124,58,237,0.08), transparent 70%); top:-8%; left:-6%;">
+        </div>
+        <div class="blob"
+          style="width:380px; height:380px; background:radial-gradient(circle, rgba(219,39,119,0.07), transparent 70%); bottom:-10%; right:-4%; animation-delay:-7s;">
+        </div>
+      </div>
+      <div class="container">
+        <div class="section-head">
+          <span class="tag">Platform Pillars</span>
+          <h2 class="title">Engineered For Scale & Retention</h2>
+          <p class="desc">A structured look at the foundational systems driving GlobiLive's mobile application.</p>
+        </div>
+
+        <div class="tab-bar">
+          <button class="tab-btn active" onclick="switchTab('all', event)">All Modules</button>
+          <button class="tab-btn" onclick="switchTab('streaming', event)">Streaming & Chat</button>
+          <button class="tab-btn" onclick="switchTab('monetization', event)">Monetization</button>
+        </div>
+
+        <div class="bento-grid" id="bento-container">
+          <div class="bento-card col-2 reveal-up" data-cat="streaming" id="live">
+            <div>
+              <div class="w-icon" style="background:var(--c-purple);">
+                <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path
+                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h3>Multi-Seat Live Streaming Rooms</h3>
+              <p>High-definition live video broadcast with multi-seat co-host grids, interactive audio seating, floating
+                Picture-in-Picture mode, dynamic virtual gift triggers, and real-time room leaderboards.</p>
+            </div>
+            <div class="chips">
+              <span class="chip">HD Live Streaming</span>
+              <span class="chip">Picture-in-Picture</span>
+              <span class="chip">Multi-Seat Co-Host</span>
+              <span class="chip">Animated Gifts</span>
+            </div>
+          </div>
+
+          <div class="bento-card reveal-up" data-cat="monetization">
+            <div>
+              <div class="w-icon" style="background:var(--c-amber);">
+                <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path
+                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3>Wallet & Diamond Cashout</h3>
+              <p>Dual currency system (Beans & Diamonds), secure checkout, Google Play IAP, coin exchange marketplace,
+                and automated seller payouts.</p>
+            </div>
+            <div class="chips">
+              <span class="chip">Secure Wallet</span>
+              <span class="chip">Diamond Payouts</span>
+              <span class="chip">Coin Reseller Market</span>
+            </div>
+          </div>
+
+          <div class="bento-card reveal-up" data-cat="streaming">
+            <div>
+              <div class="w-icon" style="background:var(--c-pink);">
+                <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path
+                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3>Vertical Video Feed & Stories</h3>
+              <p>Vertical video feed with gesture scrolling, post interaction, user stories viewer, media uploads, and
+                post archiving.</p>
+            </div>
+            <div class="chips">
+              <span class="chip">Vertical Feed</span>
+              <span class="chip">Stories Engine</span>
+              <span class="chip">Media Uploads</span>
+            </div>
+          </div>
+
+          <div class="bento-card col-2 reveal-up" data-cat="monetization" id="games">
+            <div>
+              <div class="w-icon" style="background:var(--c-cyan);">
+                <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path
+                    d="M11 4a2 2 0 114 0v1a2 2 0 01-2 2 2 2 0 01-2-2V4zm-6 8a2 2 0 114 0v1a2 2 0 01-2 2 2 2 0 01-2-2v-1zm12 0a2 2 0 114 0v1a2 2 0 01-2 2 2 2 0 01-2-2v-1z" />
+                </svg>
+              </div>
+              <h3>In-App Gaming Hub</h3>
+              <p>Keep users engaged in rooms with integrated multiplayer games. Features Teen Patti card tables, Plinko
+                ball drops, Dice Roll wagers, and Daily Fortune Wheels that seamlessly sync with user coin balances.</p>
+            </div>
+            <div class="chips">
+              <span class="chip">Teen Patti</span>
+              <span class="chip">Plinko</span>
+              <span class="chip">Dice Roll</span>
+              <span class="chip">Spin Wheel</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── INTERACTIVE HOST EARNINGS CALCULATOR ── -->
+    <section id="calculator"
+      style="background:var(--c-surface); border-top: 1px solid var(--c-border); border-bottom: 1px solid var(--c-border);">
+      <div class="container">
+        <div class="section-head">
+          <span class="tag">Earnings Estimator</span>
+          <h2 class="title">Calculate Host & Agency Income</h2>
+          <p class="desc">Estimate your potential daily and monthly cash payouts based on room gifting activity.</p>
+        </div>
+
+        <div class="calc-box reveal-up">
+          <div class="calc-controls">
+            <div>
+              <label
+                style="font-weight:700; font-size:0.9rem; color:var(--c-text); display:block; margin-bottom:0.5rem;">
+                Daily Broadcast Hours: <span id="hoursVal" style="color:var(--c-purple);">4 Hours</span>
+              </label>
+              <input type="range" min="1" max="12" value="4" class="calc-slider" id="hoursInput"
+                oninput="calculateEarnings()" />
+            </div>
+
+            <div>
+              <label
+                style="font-weight:700; font-size:0.9rem; color:var(--c-text); display:block; margin-bottom:0.5rem;">
+                Diamonds Received Per Hour: <span
+                  style="color:var(--c-purple); display:inline-flex; align-items:center; gap:0.3rem;"><svg width="14"
+                    height="14" style="flex-shrink:0;">
+                    <use href="#icon-diamond" />
+                  </svg><span id="diamondsVal">50,000</span></span>
+              </label>
+              <input type="range" min="5000" max="200000" step="5000" value="50000" class="calc-slider"
+                id="diamondsInput" oninput="calculateEarnings()" />
+            </div>
+
+            <div style="font-size:0.8rem; color:var(--c-muted); line-height:1.5;">
+              * Payout calculations assume standard 10,000 Diamonds = $1.00 USD cash conversion rate via direct payouts.
+            </div>
+          </div>
+
+          <div class="calc-result-card">
+            <div
+              style="font-size:0.85rem; font-weight:800; color:var(--c-purple); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.5rem;">
+              Estimated Monthly Earnings
+            </div>
+            <div class="calc-val-display" id="monthlyTotal">$600.00 USD</div>
+            <div style="font-size:0.85rem; color:var(--c-muted); margin-top:0.5rem;">
+              Daily Target: <strong
+                style="color:var(--c-text); display:inline-flex; align-items:center; gap:0.3rem;"><svg width="13"
+                  height="13" style="color:var(--c-purple); flex-shrink:0;">
+                  <use href="#icon-diamond" />
+                </svg><span id="dailyDiamonds">200,000 ($20.00)</span></strong>
+            </div>
+            <a href="#agency" class="btn btn-purple" style="margin-top:1.5rem; width:100%;">Register As Agency Host</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── VIRTUAL GIFTS SHOWCASE ── -->
+    <section id="gifting">
+      <div class="section-ambient">
+        <div class="blob"
+          style="width:360px; height:360px; background:radial-gradient(circle, rgba(219,39,119,0.08), transparent 70%); top:10%; right:-6%;">
+        </div>
+      </div>
+      <div class="container">
+        <div class="section-head">
+          <span class="tag">Gifting Ecosystem</span>
+          <h2 class="title">Interactive Animated Gifts</h2>
+          <p class="desc">High-impact entrance animations and combo gift multipliers designed to maximize room
+            monetization.</p>
+        </div>
+
+        <div class="gift-grid">
+          <div class="gift-card reveal-up">
+            <div class="gift-icon-box"><svg width="30" height="30" style="color:var(--c-pink);">
+                <use href="#icon-car" />
+              </svg></div>
+            <h3 style="font-size:1.1rem; font-weight:800; margin-bottom:0.4rem;">Supercar Entrance</h3>
+            <p style="font-size:0.85rem; color:var(--c-muted);">Full-screen animated entrance with custom sound effect.
+            </p>
+            <div style="margin-top:1rem; font-weight:800; color:var(--c-purple); font-size:0.9rem;">100,000 Beans</div>
+          </div>
+
+          <div class="gift-card reveal-up">
+            <div class="gift-icon-box"><svg width="30" height="30" style="color:var(--c-pink);">
+                <use href="#icon-crown" />
+              </svg></div>
+            <h3 style="font-size:1.1rem; font-weight:800; margin-bottom:0.4rem;">Royal Crown</h3>
+            <p style="font-size:0.85rem; color:var(--c-muted);">Pins donor on room's top supporter seat for 24 hours.
+            </p>
+            <div style="margin-top:1rem; font-weight:800; color:var(--c-purple); font-size:0.9rem;">25,000 Beans</div>
+          </div>
+
+          <div class="gift-card reveal-up">
+            <div class="gift-icon-box"><svg width="30" height="30" style="color:var(--c-pink);">
+                <use href="#icon-rocket" />
+              </svg></div>
+            <h3 style="font-size:1.1rem; font-weight:800; margin-bottom:0.4rem;">Rocket Combo</h3>
+            <p style="font-size:0.85rem; color:var(--c-muted);">Fast continuous tapping gift triggers streak banners.
+            </p>
+            <div style="margin-top:1rem; font-weight:800; color:var(--c-purple); font-size:0.9rem;">5,000 Beans</div>
+          </div>
+
+          <div class="gift-card reveal-up">
+            <div class="gift-icon-box"><svg width="30" height="30" style="color:var(--c-pink);">
+                <use href="#icon-ring" />
+              </svg></div>
+            <h3 style="font-size:1.1rem; font-weight:800; margin-bottom:0.4rem;">Diamond Ring</h3>
+            <p style="font-size:0.85rem; color:var(--c-muted);">Special audio room proposal animation effect.</p>
+            <div style="margin-top:1rem; font-weight:800; color:var(--c-purple); font-size:0.9rem;">10,000 Beans</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── GLOBAL NETWORK & INFRASTRUCTURE ── -->
+    <section id="network"
+      style="background:var(--c-surface); border-top: 1px solid var(--c-border); border-bottom: 1px solid var(--c-border);">
+      <div class="container">
+        <div class="section-head">
+          <span class="tag">Ultra-Low Latency</span>
+          <h2 class="title">Global Broadcaster Node Network</h2>
+          <p class="desc">Engineered for seamless multi-country audio co-hosting with under 200ms real-time latency.</p>
+        </div>
+
+        <div class="server-grid">
+          <div class="server-card reveal-up">
+            <div class="ping-dot"></div>
+            <div>
+              <div style="font-weight:800; font-size:1rem; color:var(--c-text);">Asia-Pacific (Singapore)</div>
+              <div style="font-size:0.8rem; color:var(--c-muted);">Average Latency: <strong>24ms</strong></div>
+            </div>
+          </div>
+
+          <div class="server-card reveal-up">
+            <div class="ping-dot"></div>
+            <div>
+              <div style="font-weight:800; font-size:1rem; color:var(--c-text);">Middle East (Dubai)</div>
+              <div style="font-size:0.8rem; color:var(--c-muted);">Average Latency: <strong>32ms</strong></div>
+            </div>
+          </div>
+
+          <div class="server-card reveal-up">
+            <div class="ping-dot"></div>
+            <div>
+              <div style="font-weight:800; font-size:1rem; color:var(--c-text);">Europe (Frankfurt)</div>
+              <div style="font-size:0.8rem; color:var(--c-muted);">Average Latency: <strong>45ms</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── TRUST & SECURITY ── -->
+    <section id="trust">
+      <div class="section-ambient">
+        <div class="blob"
+          style="width:360px; height:360px; background:radial-gradient(circle, rgba(8,145,178,0.08), transparent 70%); top:-6%; right:-6%;">
+        </div>
+      </div>
+      <div class="container">
+        <div class="section-head">
+          <span class="tag">Trust & Safety</span>
+          <h2 class="title">Built To Keep Rooms Safe & Payouts Reliable</h2>
+          <p class="desc">Every account, transaction, and live room is backed by verification and protection layers.</p>
+        </div>
+
+        <div class="trust-grid">
+          <div class="trust-card reveal-up">
+            <div class="trust-icon"><svg width="24" height="24">
+                <use href="#icon-shield" />
+              </svg></div>
+            <h3>Verified Payouts</h3>
+            <p>Every cashout request runs through identity and threshold checks before funds are released.</p>
+          </div>
+
+          <div class="trust-card reveal-up">
+            <div class="trust-icon"><svg width="24" height="24">
+                <use href="#icon-lock" />
+              </svg></div>
+            <h3>Encrypted Transactions</h3>
+            <p>Wallet top-ups, gifting, and withdrawals are protected end-to-end across every session.</p>
+          </div>
+
+          <div class="trust-card reveal-up">
+            <div class="trust-icon"><svg width="24" height="24">
+                <use href="#icon-users" />
+              </svg></div>
+            <h3>Active Room Moderation</h3>
+            <p>Reporting tools, host controls, and review queues keep live rooms respectful and on-brand.</p>
+          </div>
+
+          <div class="trust-card reveal-up">
+            <div class="trust-icon"><svg width="24" height="24">
+                <use href="#icon-flag" />
+              </svg></div>
+            <h3>Fraud Protection</h3>
+            <p>Automated risk scoring flags unusual gifting or top-up patterns before they become a problem.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── AGENCY & MOCKUP SECTION ── -->
+    <section id="agency">
+      <div class="section-ambient">
+        <div class="blob"
+          style="width:400px; height:400px; background:radial-gradient(circle, rgba(8,145,178,0.07), transparent 70%); bottom:-10%; left:-8%;">
+        </div>
+      </div>
+      <div class="container">
+        <div class="mockup-container">
+          <div class="reveal-up">
+            <span class="tag">Agency & Creator Portal</span>
+            <h2 class="title" style="text-align:left;">Complete Host Management & Agency Dashboard</h2>
+            <p class="desc" style="text-align:left;">Empower agency managers to onboard hosts, set daily broadcast
+              targets, track diamond commissions, and process payouts.</p>
+
+            <div class="mock-list">
+              <div class="mock-item">
+                <div class="mock-num">1</div>
+                <div>
+                  <strong style="color:var(--c-text); font-size:0.95rem; display:block;">Agency Invite Code
+                    System</strong>
+                  <span style="color:var(--c-muted); font-size:0.85rem;">Simplified agency registration and host binding
+                    via unique code invitations.</span>
+                </div>
+              </div>
+
+              <div class="mock-item">
+                <div class="mock-num">2</div>
+                <div>
+                  <strong style="color:var(--c-text); font-size:0.95rem; display:block;">Creator Hub & Sound
+                    Library</strong>
+                  <span style="color:var(--c-muted); font-size:0.85rem;">Access background sound tracks, streaming
+                    overlays, and daily target counters.</span>
+                </div>
+              </div>
+
+              <div class="mock-item">
+                <div class="mock-num">3</div>
+                <div>
+                  <strong style="color:var(--c-text); font-size:0.95rem; display:block;">Referral & Coin Reseller
+                    Engine</strong>
+                  <span style="color:var(--c-muted); font-size:0.85rem;">Peer-to-peer coin selling network with
+                    commission tracking and referral rewards.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="phone-frame reveal-up">
+            <div class="phone-top">
+              <div style="font-weight:800; font-size:0.8rem; color:var(--c-text);">@host_streamer</div>
+              <div class="live-badge">LIVE</div>
+            </div>
+
+            <div
+              style="background:var(--c-surface); border:1px solid var(--c-border); border-radius:12px; padding:0.75rem;">
+              <div style="font-size:0.7rem; font-weight:700; color:var(--c-muted); margin-bottom:0.5rem;">Co-Host Audio
+                Grid (6 Seats)</div>
+              <div class="cohost-grid">
+                <div class="cohost-seat" style="color:var(--c-purple); border-color:var(--c-purple);">Host</div>
+                <div class="cohost-seat">Co-1</div>
+                <div class="cohost-seat">Co-2</div>
+                <div class="cohost-seat">Co-3</div>
+                <div class="cohost-seat">Co-4</div>
+                <div class="cohost-seat" style="border:1px dashed var(--c-border-bright);">+ Add</div>
+              </div>
+            </div>
+
+            <div class="chat-box">
+              <div class="chat-msg" style="display:flex; align-items:center; gap:0.3rem;"><strong
+                  style="color:var(--c-pink);">User_99:</strong> Sent 1,000 Beans!<svg width="12" height="12"
+                  style="color:var(--c-purple);">
+                  <use href="#icon-diamond" />
+                </svg></div>
+              <div class="chat-msg"><strong style="color:var(--c-cyan);">VIP_Member:</strong> Joined the live room!
+              </div>
+            </div>
+
+            <div
+              style="background:var(--c-amber-light); border:1px solid var(--c-amber); padding:0.6rem; border-radius:8px; text-align:center;">
+              <span
+                style="font-size:0.75rem; font-weight:800; color:var(--c-amber); display:inline-flex; align-items:center; gap:0.35rem;"><svg
+                  width="14" height="14">
+                  <use href="#icon-diamond" />
+                </svg>+45,000 Diamonds Cashout Ready</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── CREATOR SUCCESS STORIES ── -->
+    <section id="stories"
+      style="background:var(--c-surface); border-top: 1px solid var(--c-border); border-bottom: 1px solid var(--c-border);">
+      <div class="container">
+        <div class="section-head">
+          <span class="tag">Creator Success Stories</span>
+          <h2 class="title">Hosts & Agencies Growing On GlobiLive</h2>
+          <p class="desc">A few of the broadcasters and agency owners building steady income on the platform.</p>
+        </div>
+
+        <div class="testimonial-grid">
+          <div class="testimonial-card reveal-up">
+            <svg class="icon-quote">
+              <use href="#icon-quote" />
+            </svg>
+            <div class="testimonial-stars">
+              <svg>
+                <use href="#icon-star" />
+              </svg><svg>
+                <use href="#icon-star" />
+              </svg><svg>
+                <use href="#icon-star" />
+              </svg><svg>
+                <use href="#icon-star" />
+              </svg><svg>
+                <use href="#icon-star" />
+              </svg>
+            </div>
+            <p class="testimonial-quote">The multi-seat rooms changed how my audience hangs out — co-hosting keeps
+              everyone talking instead of just watching.</p>
+            <div class="testimonial-person">
+              <div class="testimonial-avatar">SQ</div>
+              <div>
+                <div class="testimonial-name">@stream_queen</div>
+                <div class="testimonial-role">Solo Host, 4 Hours Daily</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="testimonial-card reveal-up">
+            <svg class="icon-quote">
+              <use href="#icon-quote" />
+            </svg>
+            <div class="testimonial-stars">
+              <svg>
+                <use href="#icon-star" />
+              </svg><svg>
+                <use href="#icon-star" />
+              </svg><svg>
+                <use href="#icon-star" />
+              </svg><svg>
+                <use href="#icon-star" />
+              </svg><svg>
+                <use href="#icon-star" />
+              </svg>
+            </div>
+            <p class="testimonial-quote">Managing thirty hosts used to be spreadsheets and guesswork. The agency
+              dashboard gives me commission tracking in one place.</p>
+            <div class="testimonial-person">
+              <div class="testimonial-avatar">RA</div>
+              <div>
+                <div class="testimonial-name">Riverline Agency</div>
+                <div class="testimonial-role">Agency Owner, 30+ Hosts</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="testimonial-card reveal-up">
+            <svg class="icon-quote">
+              <use href="#icon-quote" />
+            </svg>
+            <div class="testimonial-stars">
+              <svg>
+                <use href="#icon-star" />
+              </svg><svg>
+                <use href="#icon-star" />
+              </svg><svg>
+                <use href="#icon-star" />
+              </svg><svg>
+                <use href="#icon-star" />
+              </svg><svg>
+                <use href="#icon-star" />
+              </svg>
+            </div>
+            <p class="testimonial-quote">Gifting combos during PK battles reliably double my room's activity. Cashouts
+              land on schedule every time.</p>
+            <div class="testimonial-person">
+              <div class="testimonial-avatar">MK</div>
+              <div>
+                <div class="testimonial-name">@midnight_karaoke</div>
+                <div class="testimonial-role">Solo Host, 6 Hours Daily</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── FREQUENTLY ASKED QUESTIONS ── -->
+    <section id="faq">
+      <div class="container">
+        <div class="section-head">
+          <span class="tag">Got Questions?</span>
+          <h2 class="title">Frequently Asked Questions</h2>
+          <p class="desc">Everything you need to know about joining as a streamer or managing an agency.</p>
+        </div>
+
+        <div class="faq-container">
+          <div class="faq-item active" onclick="toggleFaq(this)">
+            <div class="faq-question">
+              <span>How do host diamond payouts work?</span>
+              <span>▼</span>
+            </div>
+            <div class="faq-answer">
+              Hosts earn Diamonds whenever gifts are sent in their audio/video rooms. Diamonds can be exchanged back to
+              cash and withdrawn to connected Bank accounts automatically once reaching the minimum payout threshold.
+            </div>
+          </div>
+
+          <div class="faq-item" onclick="toggleFaq(this)">
+            <div class="faq-question">
+              <span>How do I create and manage a host agency?</span>
+              <span>▼</span>
+            </div>
+            <div class="faq-answer">
+              Agencies can register directly within the app dashboard. Upon approval, you will receive an Agency Code to
+              invite hosts, monitor their daily live stream hours, and earn commissions on their diamond earnings.
+            </div>
+          </div>
+
+          <div class="faq-item" onclick="toggleFaq(this)">
+            <div class="faq-question">
+              <span>Is live streaming supported on Android and iOS?</span>
+              <span>▼</span>
+            </div>
+            <div class="faq-answer">
+              Yes, GlobiLive delivers smooth, low-latency live streaming performance across both Android and iOS
+              devices.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── CTA SECTION ── -->
+    <section>
+      <div class="container">
+        <div class="cta-wrapper">
+          <h2>Start Streaming & Earnings Today</h2>
+          <p class="desc" style="margin-bottom:2.5rem;">Join thousands of creators and agencies broadcasting live on
+            GlobiLive.</p>
+          <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank"
+            class="play-badge" style="margin:0 auto;">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg"
+              alt="Get it on Google Play" style="height:64px;" />
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── FOOTER ── -->
+    <footer class="container">
+      <div style="display:flex; align-items:center; gap:0.65rem;">
+        <img src="/logo.png" alt="GlobiLive" style="height:34px; width:34px; border-radius:8px; object-fit:cover;" />
+        <span style="font-weight:900; font-size:1.1rem; color:var(--c-text);">Globi<span
+            style="color:var(--c-purple);">Live</span></span>
+      </div>
+      <div style="font-size:0.88rem; color:var(--c-muted); font-weight:600;">© 2026 GlobiLive Platform. Built for
+        Android & iOS.</div>
+    </footer>
+
+    <!-- ── SCRIPTS ── -->
+    <script>
+      gsap.registerPlugin(ScrollTrigger);
+
+      window.addEventListener('scroll', () => {
+        document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 40);
+      });
+
+      gsap.from(".gsap-hero", {
+        y: 30, opacity: 0, duration: 1, stagger: 0.12, ease: "power3.out"
+      });
+
+      gsap.from(".widget", {
+        y: 20, opacity: 0, scale: 0.9, duration: 0.9, stagger: 0.15, delay: 0.4, ease: "back.out(1.6)"
+      });
+
+      gsap.utils.toArray(".gsap-float").forEach((el, i) => {
+        gsap.to(el, {
+          y: (i % 2 === 0 ? 10 : -10),
+          duration: 2 + i * 0.3,
+          repeat: -1, yoyo: true, ease: "sine.inOut",
+          delay: 1.2
+        });
+      });
+
+      // Scroll-triggered reveal for cards, list items, etc.
+      ScrollTrigger.batch(".reveal-up", {
+        start: "top 88%",
+        onEnter: batch => gsap.to(batch, { opacity: 1, y: 0, duration: 0.8, stagger: 0.1, ease: "power3.out" }),
+        once: true
+      });
+
+      // Animated stat counters
+      document.querySelectorAll('.stat-number').forEach(el => {
+        const target = parseFloat(el.getAttribute('data-count'));
+        const suffix = el.getAttribute('data-suffix') || '';
+        const isDecimal = target % 1 !== 0;
+        const counter = { val: 0 };
+        ScrollTrigger.create({
+          trigger: el,
+          start: "top 90%",
+          once: true,
+          onEnter: () => {
+            gsap.to(counter, {
+              val: target,
+              duration: 1.8,
+              ease: "power2.out",
+              onUpdate: () => {
+                el.textContent = (isDecimal ? counter.val.toFixed(1) : Math.round(counter.val)) + suffix;
+              }
+            });
+          }
+        });
+      });
+
+      function switchTab(cat, e) {
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        e.target.classList.add('active');
+
+        const cards = document.querySelectorAll('.bento-card');
+        cards.forEach(card => {
+          if (cat === 'all' || card.getAttribute('data-cat') === cat) {
+            card.style.display = 'flex';
+            gsap.fromTo(card, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" });
+          } else {
+            card.style.display = 'none';
+          }
+        });
+      }
+
+      function calculateEarnings() {
+        const hours = parseInt(document.getElementById('hoursInput').value);
+        const diamonds = parseInt(document.getElementById('diamondsInput').value);
+
+        document.getElementById('hoursVal').innerText = hours + ' Hours';
+        document.getElementById('diamondsVal').innerText = diamonds.toLocaleString();
+
+        const dailyDiamondsTotal = hours * diamonds;
+        const dailyUsd = dailyDiamondsTotal / 10000;
+        const monthlyUsd = dailyUsd * 30;
+
+        document.getElementById('dailyDiamonds').innerText = dailyDiamondsTotal.toLocaleString() + ' ($' + dailyUsd.toFixed(2) + ')';
+
+        const totalEl = document.getElementById('monthlyTotal');
+        gsap.fromTo(totalEl, { scale: 1.08 }, { scale: 1, duration: 0.3, ease: "power2.out" });
+        totalEl.innerText = '$' + monthlyUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' USD';
+      }
+
+      function toggleFaq(el) {
+        const wasActive = el.classList.contains('active');
+        document.querySelectorAll('.faq-item').forEach(item => item.classList.remove('active'));
+        if (!wasActive) el.classList.add('active');
+      }
+    </script>
+  </body>
+
 </html>
- 
