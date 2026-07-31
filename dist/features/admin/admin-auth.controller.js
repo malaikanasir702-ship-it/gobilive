@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.adminChangePassword = exports.adminLogout = exports.adminLogin = void 0;
+exports.adminChangePassword = exports.adminLogout = exports.adminLogin = exports.checkRoles = void 0;
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const user_model_1 = require("../auth/user.model");
@@ -16,23 +16,146 @@ const ADMIN_ROLES = [
     'top_up_agent',
     'reseller',
 ];
+// Prevents timing-based user enumeration when no candidates exist
+const DUMMY_HASH = '$2b$12$invalidhashvaluethatnevermatchesXXXXXXXXXXXXXXXXXXXXXXX';
+const ROLE_LABELS = {
+    company_admin: 'Company Admin',
+    super_admin: 'Super Admin',
+    sub_admin: 'Sub Admin',
+    agency: 'Agency',
+    sub_agency: 'Sub Agency',
+    top_up_agent: 'Top-Up Agent',
+    reseller: 'Reseller',
+};
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_gobilive_token_key_123!';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
-const adminLogin = async (req, res) => {
+const checkRoles = async (req, res) => {
     try {
-        const { email, phone, username, password } = req.body;
-        if (!password || (!email && !phone && !username)) {
-            res.status(400).json({ success: false, message: 'Email/phone/username and password are required.' });
+        const { identity, password } = req.body;
+        // 1. Validate input
+        if (!identity?.trim() || !password?.trim()) {
+            res.status(400).json({ success: false, message: 'Identity and password are required.' });
             return;
         }
-        let query;
-        if (email)
-            query = { email: email.toLowerCase().trim() };
-        else if (phone)
-            query = { phone: phone.trim() };
-        else
-            query = { username: username.trim() };
-        const user = await user_model_1.User.findOne(query).select('username email role isBlocked blockedUntil blockType isTerminated isSuspended tokenVersion passwordHash profilePic beanWallet');
+        // 2. Query candidates
+        const candidates = await user_model_1.User.find({
+            $or: [
+                { email: identity.toLowerCase().trim() },
+                { phone: identity.trim() },
+                { username: identity.trim() },
+            ],
+            role: { $in: ADMIN_ROLES },
+        }).select('username email role passwordHash isBlocked blockedUntil blockType isTerminated isSuspended tokenVersion profilePic beanWallet');
+        // 3. Timing-safe guard — prevent user enumeration
+        if (candidates.length === 0) {
+            await bcryptjs_1.default.compare(password, DUMMY_HASH);
+            res.status(401).json({ success: false, message: 'Invalid credentials.' });
+            return;
+        }
+        // 4. Password matching
+        const matched = [];
+        for (const candidate of candidates) {
+            const ok = await bcryptjs_1.default.compare(password, candidate.passwordHash);
+            if (ok)
+                matched.push(candidate);
+        }
+        if (matched.length === 0) {
+            res.status(401).json({ success: false, message: 'Invalid credentials.' });
+            return;
+        }
+        // 5. Status filtering
+        const accessible = [];
+        for (const user of matched) {
+            if (user.isTerminated || user.isSuspended)
+                continue;
+            if (user.isBlocked) {
+                if (user.blockedUntil && user.blockedUntil < new Date()) {
+                    // Auto-clear expired block
+                    await user_model_1.User.findByIdAndUpdate(user._id, {
+                        isBlocked: false,
+                        $unset: { blockedUntil: 1, blockType: 1 },
+                    });
+                    accessible.push(user);
+                }
+                else {
+                    continue; // Still blocked
+                }
+            }
+            else {
+                accessible.push(user);
+            }
+        }
+        if (accessible.length === 0) {
+            res.status(403).json({ success: false, message: 'No accessible admin accounts found for these credentials.' });
+            return;
+        }
+        // 6. Single role shortcut
+        if (accessible.length === 1) {
+            const user = accessible[0];
+            const token = jsonwebtoken_1.default.sign({ id: user._id.toString(), username: user.username, role: user.role, tokenVersion: user.tokenVersion }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+            res.status(200).json({
+                success: true,
+                multipleRoles: false,
+                token,
+                user: {
+                    id: user._id,
+                    username: user.username,
+                    email: user.email,
+                    role: user.role,
+                    profilePic: user.profilePic,
+                    beanWallet: user.beanWallet,
+                },
+            });
+            return;
+        }
+        // 7. Multiple roles
+        const roles = accessible.map((u) => ({
+            roleId: u.role,
+            label: ROLE_LABELS[u.role],
+            userId: u._id.toString(),
+        }));
+        res.status(200).json({ success: true, multipleRoles: true, roles });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.checkRoles = checkRoles;
+const adminLogin = async (req, res) => {
+    try {
+        const identity = req.body.identity?.trim();
+        const { email, phone, username, password, selectedRole } = req.body;
+        if (!password || (!identity && !email && !phone && !username)) {
+            res.status(400).json({ success: false, message: 'Identity and password are required.' });
+            return;
+        }
+        let identityQuery;
+        if (identity) {
+            identityQuery = {
+                $or: [
+                    { email: identity.toLowerCase() },
+                    { phone: identity },
+                    { username: identity },
+                ],
+            };
+        }
+        else if (email) {
+            identityQuery = { email: email.toLowerCase().trim() };
+        }
+        else if (phone) {
+            identityQuery = { phone: phone.trim() };
+        }
+        else {
+            identityQuery = { username: username.trim() };
+        }
+        if (selectedRole) {
+            if (!ADMIN_ROLES.includes(selectedRole)) {
+                res.status(403).json({ success: false, message: 'Access denied. This portal is for admin roles only.' });
+                return;
+            }
+            identityQuery = { ...identityQuery, role: selectedRole };
+        }
+        const user = await user_model_1.User.findOne(identityQuery).select('username email role isBlocked blockedUntil blockType isTerminated isSuspended tokenVersion passwordHash profilePic beanWallet');
         if (!user) {
             res.status(401).json({ success: false, message: 'Invalid credentials.' });
             return;
