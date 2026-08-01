@@ -77,6 +77,125 @@ app.use((0, cors_1.default)({
 app.post('/api/wallet/stripe/webhook', express_1.default.raw({ type: 'application/json' }), wallet_controller_1.stripeWebhook);
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
+// Dynamic Role-Based Web App Manifest endpoint
+app.get('/admin/manifest.json', (req, res) => {
+    const role = req.query.role || 'default';
+    const roleConfigs = {
+        super_admin: {
+            name: 'Globilive Super Admin',
+            shortName: 'Super Admin',
+            themeColor: '#7c3aed',
+            shortcuts: [
+                { name: 'Super Admin Dashboard', short_name: 'Dashboard', description: 'Main Admin Dashboard', url: '/admin/dashboard' },
+                { name: 'Sub Admins List', short_name: 'Sub Admins', description: 'Manage Sub Admins', url: '/admin/sub-admins' },
+                { name: 'Cash Out Approvals', short_name: 'Cash Out', description: 'Review Cashouts', url: '/admin/cash-out' },
+                { name: 'Pending Registrations', short_name: 'Registrations', description: 'Review registrations', url: '/admin/registrations' },
+            ],
+        },
+        company_admin: {
+            name: 'Globilive Company Admin',
+            shortName: 'Company Admin',
+            themeColor: '#0284c7',
+            shortcuts: [
+                { name: 'Company Dashboard', short_name: 'Dashboard', description: 'Overview & metrics', url: '/admin/dashboard' },
+                { name: 'Beans Management', short_name: 'Beans', description: 'Bean balances & logs', url: '/admin/beans' },
+                { name: 'Agencies List', short_name: 'Agencies', description: 'Manage registered agencies', url: '/admin/agencies' },
+                { name: 'Top-Ups & Resellers', short_name: 'Top-Ups', description: 'Manage topup agents', url: '/admin/top-ups-resellers' },
+            ],
+        },
+        sub_admin: {
+            name: 'Globilive Sub Admin',
+            shortName: 'Sub Admin',
+            themeColor: '#6d28d9',
+            shortcuts: [
+                { name: 'Sub Admin Dashboard', short_name: 'Dashboard', description: 'Overview', url: '/admin/dashboard' },
+                { name: 'User Management', short_name: 'Users', description: 'Users directory', url: '/admin/users' },
+                { name: 'Hosts Management', short_name: 'Hosts', description: 'Hosts directory', url: '/admin/hosts' },
+            ],
+        },
+        agency: {
+            name: 'Globilive Agency Portal',
+            shortName: 'Agency Portal',
+            themeColor: '#059669',
+            shortcuts: [
+                { name: 'Agency Dashboard', short_name: 'Dashboard', description: 'Agency overview', url: '/admin/dashboard' },
+                { name: 'Agency Hosts', short_name: 'Hosts', description: 'Agency hosts list', url: '/admin/hosts' },
+                { name: 'Agency Users', short_name: 'Users', description: 'Agency user list', url: '/admin/users' },
+            ],
+        },
+        sub_agency: {
+            name: 'Globilive Sub-Agency',
+            shortName: 'Sub-Agency',
+            themeColor: '#0d9488',
+            shortcuts: [
+                { name: 'Sub-Agency Dashboard', short_name: 'Dashboard', description: 'Overview', url: '/admin/dashboard' },
+                { name: 'Sub-Agency Hosts', short_name: 'Hosts', description: 'Hosts list', url: '/admin/hosts' },
+            ],
+        },
+        top_up_agent: {
+            name: 'Globilive Topup Agent',
+            shortName: 'Topup Agent',
+            themeColor: '#d97706',
+            shortcuts: [
+                { name: 'Topup Agent Dashboard', short_name: 'Dashboard', description: 'Overview', url: '/admin/dashboard' },
+                { name: 'Bean Request', short_name: 'Bean Request', description: 'Request new beans', url: '/admin/bean-request' },
+                { name: 'Bean Transfer', short_name: 'Bean Transfer', description: 'Transfer beans to reseller', url: '/admin/bean-transfer' },
+                { name: 'Resellers List', short_name: 'Resellers', description: 'Manage resellers', url: '/admin/resellers' },
+            ],
+        },
+        reseller: {
+            name: 'Globilive Reseller Portal',
+            shortName: 'Reseller',
+            themeColor: '#ca8a04',
+            shortcuts: [
+                { name: 'Reseller Dashboard', short_name: 'Dashboard', description: 'Overview', url: '/admin/dashboard' },
+                { name: 'Bean Request', short_name: 'Bean Request', description: 'Request beans', url: '/admin/bean-request' },
+                { name: 'Bean Transfer', short_name: 'Bean Transfer', description: 'Transfer beans', url: '/admin/bean-transfer' },
+            ],
+        },
+    };
+    const config = roleConfigs[role] || {
+        name: 'Globilive Admin',
+        shortName: 'Globilive Admin',
+        themeColor: '#2563eb',
+        shortcuts: [],
+    };
+    res.setHeader('Content-Type', 'application/manifest+json');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.json({
+        id: `/admin/?role=${role}`,
+        name: config.name,
+        short_name: config.shortName,
+        description: `Add ${config.shortName} shortcut to home screen`,
+        start_url: `/admin/dashboard?role=${role}`,
+        scope: `/admin/?role=${role}`,
+        display: 'standalone',
+        orientation: 'any',
+        background_color: '#0f0f1a',
+        theme_color: config.themeColor,
+        icons: [
+            {
+                src: '/admin/icons/icon-192.png',
+                sizes: '192x192',
+                type: 'image/png',
+                purpose: 'any maskable',
+            },
+            {
+                src: '/admin/icons/icon-512.png',
+                sizes: '512x512',
+                type: 'image/png',
+                purpose: 'any maskable',
+            },
+        ],
+        shortcuts: config.shortcuts.map((s) => ({
+            name: s.name,
+            short_name: s.short_name,
+            description: s.description,
+            url: s.url,
+            icons: [{ src: '/admin/icons/icon-192.png', sizes: '192x192' }],
+        })),
+    });
+});
 app.use('/admin', express_1.default.static(path_1.default.join(__dirname, '../public/admin')));
 app.use('/uploads', express_1.default.static(path_1.default.join(process.cwd(), 'uploads')));
 // Serve landing page static assets (css, js if any)
