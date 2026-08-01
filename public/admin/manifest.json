@@ -2,6 +2,7 @@
   "name": "Globilive Admin",
   "short_name": "Globilive",
   "description": "Globilive Admin Panel - Manage users, beans, agencies and more",
+  "id": "/admin/",
   "start_url": "/admin/",
   "scope": "/admin/",
   "display": "standalone",
@@ -20,6 +21,36 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Super Admin Portal",
+      "short_name": "Super Admin",
+      "description": "Access Super Admin Management",
+      "url": "/admin/dashboard",
+      "icons": [{ "src": "/admin/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Company Admin Portal",
+      "short_name": "Company Admin",
+      "description": "Access Company Admin Management",
+      "url": "/admin/dashboard",
+      "icons": [{ "src": "/admin/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Agency Portal",
+      "short_name": "Agency",
+      "description": "Access Agency Management",
+      "url": "/admin/dashboard",
+      "icons": [{ "src": "/admin/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Topup Agent Portal",
+      "short_name": "Topup Agent",
+      "description": "Access TopUp & Bean Requests",
+      "url": "/admin/bean-request",
+      "icons": [{ "src": "/admin/icons/icon-192.png", "sizes": "192x192" }]
     }
   ],
   "categories": ["business", "productivity"]
