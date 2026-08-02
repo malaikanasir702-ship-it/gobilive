@@ -78,7 +78,6 @@ export async function escalateReport(req: Request, res: Response) {
     if (action === 'suspend') {
       host.isSuspended = true;
       await host.save();
-      // End any active streams
       await LiveRoom.updateMany({ hostId: host._id, isActive: true }, { isActive: false });
       await sendToUser(host._id.toString(), {
         title: 'Account Suspended',
@@ -96,7 +95,6 @@ export async function escalateReport(req: Request, res: Response) {
       await LiveRoom.updateMany({ hostId: host._id, isActive: true }, { isActive: false });
     }
 
-    // Delete the report after action
     await StreamReport.findByIdAndDelete(id);
 
     await logActivity({
@@ -106,6 +104,38 @@ export async function escalateReport(req: Request, res: Response) {
     });
 
     res.json({ success: true, action, hostId: host._id });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+// ── Bulk Dismiss Reports ──────────────────────────────────────────────────────
+// POST /reports/bulk-dismiss  { ids: string[] }
+export async function bulkDismissReports(req: Request, res: Response) {
+  try {
+    const { ids } = req.body as { ids: string[] };
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'ids array is required.' });
+    }
+    if (ids.length > 50) {
+      return res.status(400).json({ success: false, message: 'Max 50 reports per bulk operation.' });
+    }
+
+    const adminId   = (req as any).adminUser?.id   || 'system';
+    const adminRole = (req as any).adminUser?.role || 'company_admin';
+
+    const deleted = await StreamReport.deleteMany({ _id: { $in: ids } });
+
+    await logActivity({
+      actorId: adminId,
+      actorRole: adminRole,
+      actionType: 'bulk_dismiss_reports',
+      targetEntityType: 'StreamReport',
+      targetEntityId: ids.join(','),
+      description: `[Bulk] Dismissed ${deleted.deletedCount} stream report(s).`,
+    });
+
+    res.json({ success: true, dismissed: deleted.deletedCount });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }

@@ -12,6 +12,7 @@ const chat_signaling_1 = require("./features/chat/chat.signaling");
 const firebase_1 = require("./config/firebase");
 const live_seed_1 = require("./features/live/live.seed");
 const gifts_controller_1 = require("./features/gifts/gifts.controller");
+const scheduler_1 = require("./core/cron/scheduler");
 const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
 // Load .env once at the very top of the application.
@@ -48,6 +49,7 @@ const startServer = async () => {
         await (0, db_1.connectDB)();
         await (0, live_seed_1.ensureLiveDiscoverySeed)();
         await (0, gifts_controller_1.seedGiftCatalogIfEmpty)();
+        (0, scheduler_1.startCronJobs)();
         server.listen(PORT, () => {
             console.log(`🚀 Gobilive Server active on port ${PORT}`);
             console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);

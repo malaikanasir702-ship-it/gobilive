@@ -317,6 +317,178 @@ export async function submitPublicRegistration(req: Request, res: Response) {
 
 export default {};
 
+// ── Bulk Approve Registrations ────────────────────────────────────────────────
+// POST /registrations/bulk-approve  { ids: string[] }
+export async function bulkApproveRegistrations(req: Request, res: Response) {
+  try {
+    const { ids } = req.body as { ids: string[] };
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'ids array is required.' });
+    }
+    if (ids.length > 50) {
+      return res.status(400).json({ success: false, message: 'Max 50 registrations per bulk operation.' });
+    }
+
+    const results: { id: string; status: 'approved' | 'skipped'; reason?: string }[] = [];
+
+    for (const id of ids) {
+      try {
+        const request = await RegistrationRequest.findById(id);
+        if (!request || request.status !== 'pending') {
+          results.push({ id, status: 'skipped', reason: request ? `Already ${request.status}` : 'Not found' });
+          continue;
+        }
+
+        // Use same approval logic — mark approved, generate ID
+        const genId = `${request.role.slice(0, 3).toUpperCase()}${Date.now().toString().slice(-6)}`;
+        const baseUsername = (request.formData.fullName || genId).replace(/\s+/g, '_').toLowerCase().replace(/[^a-z0-9_]/g, '');
+        const username = `${baseUsername}_${Math.random().toString(36).slice(2, 5)}`;
+        const passwordHash = await bcrypt.hash('Gobilive@123', 10);
+
+        const newUser = await User.create({
+          username,
+          passwordHash,
+          role: request.role as any,
+          email: request.formData.email || undefined,
+          phone: request.formData.phone || undefined,
+          country: request.formData.country || undefined,
+          region: request.formData.region || undefined,
+          parentId: request.formData.parentId || undefined,
+        } as any);
+
+        request.status = 'approved';
+        request.reviewedBy = ((req as any).adminUser?.id || 'system') as any;
+        request.reviewedAt = new Date();
+        request.generatedId = genId;
+        await request.save();
+
+        // Send approval email (fire-and-forget)
+        if (request.formData.email) {
+          sendApprovalEmail({
+            to: request.formData.email,
+            fullName: request.formData.fullName || username,
+            username,
+            password: 'Gobilive@123',
+            role: request.role,
+          }).catch(() => {});
+        }
+
+        results.push({ id, status: 'approved' });
+
+        await logActivity({
+          actorId: (req as any).adminUser?.id || 'system',
+          actorRole: (req as any).adminUser?.role || 'company_admin',
+          actionType: 'approve_registration',
+          targetEntityType: 'RegistrationRequest',
+          targetEntityId: id,
+          description: `[Bulk] Approved ${request.role} registration for ${request.formData.fullName}. User: ${newUser._id}`,
+        });
+      } catch (innerErr: any) {
+        results.push({ id, status: 'skipped', reason: innerErr.message });
+      }
+    }
+
+    const approved = results.filter(r => r.status === 'approved').length;
+    const skipped  = results.filter(r => r.status === 'skipped').length;
+    res.json({ success: true, message: `Bulk approved ${approved} registration(s). ${skipped} skipped.`, results });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+// ── Bulk Reject Registrations ─────────────────────────────────────────────────
+// POST /registrations/bulk-reject  { ids: string[], reason?: string }
+export async function bulkRejectRegistrations(req: Request, res: Response) {
+  try {
+    const { ids, reason } = req.body as { ids: string[]; reason?: string };
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'ids array is required.' });
+    }
+    if (ids.length > 50) {
+      return res.status(400).json({ success: false, message: 'Max 50 registrations per bulk operation.' });
+    }
+
+    const results: { id: string; status: 'rejected' | 'skipped'; reason?: string }[] = [];
+    const adminId = (req as any).adminUser?.id || 'system';
+    const adminRole = (req as any).adminUser?.role || 'company_admin';
+
+    for (const id of ids) {
+      try {
+        const request = await RegistrationRequest.findById(id);
+        if (!request || request.status !== 'pending') {
+          results.push({ id, status: 'skipped', reason: request ? `Already ${request.status}` : 'Not found' });
+          continue;
+        }
+
+        request.status = 'rejected';
+        request.rejectionReason = reason || 'Bulk rejection';
+        request.reviewedBy = adminId as any;
+        request.reviewedAt = new Date();
+        await request.save();
+
+        if (request.formData.email) {
+          sendRejectionEmail({
+            to: request.formData.email,
+            fullName: request.formData.fullName || 'Applicant',
+            role: request.role,
+            reason: reason,
+          }).catch(() => {});
+        }
+
+        results.push({ id, status: 'rejected' });
+
+        await logActivity({
+          actorId: adminId,
+          actorRole: adminRole,
+          actionType: 'reject_registration',
+          targetEntityType: 'RegistrationRequest',
+          targetEntityId: id,
+          description: `[Bulk] Rejected ${request.role} registration for ${request.formData.fullName}. Reason: ${reason || 'N/A'}`,
+        });
+      } catch (innerErr: any) {
+        results.push({ id, status: 'skipped', reason: innerErr.message });
+      }
+    }
+
+    const rejected = results.filter(r => r.status === 'rejected').length;
+    const skipped  = results.filter(r => r.status === 'skipped').length;
+    res.json({ success: true, message: `Bulk rejected ${rejected} registration(s). ${skipped} skipped.`, results });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+// ── Export Registrations as CSV ───────────────────────────────────────────────
+export async function exportRegistrations(req: Request, res: Response) {
+  try {
+    const { role, status } = req.query as any;
+    const filter: any = {};
+    if (role) filter.role = role;
+    if (status) filter.status = status;
+
+    const docs = await RegistrationRequest.find(filter).sort({ createdAt: -1 }).limit(10000).lean();
+
+    const rows = docs.map((d: any) => ({
+      fullName: d.formData?.fullName ?? '',
+      email: d.formData?.email ?? '',
+      phone: d.formData?.phone ?? '',
+      role: d.role,
+      status: d.status,
+      country: d.formData?.country ?? '',
+      region: d.formData?.region ?? '',
+      generatedId: d.generatedId ?? '',
+      submittedAt: d.createdAt ? new Date(d.createdAt).toISOString() : '',
+      reviewedAt: d.reviewedAt ? new Date(d.reviewedAt).toISOString() : '',
+      rejectionReason: d.rejectionReason ?? '',
+    }));
+
+    const { sendCSV } = await import('../../core/middlewares/csv-export.middleware');
+    sendCSV(res, rows, 'registrations');
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+}
+
 /// GET /registrations/my-status?role=agency
 /// Called from the mobile app (authenticated app user) to check whether
 /// they have a pending/approved/rejected registration request.

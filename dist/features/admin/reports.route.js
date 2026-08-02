@@ -10,6 +10,7 @@ const VIEW_GUARD = (0, rbac_middleware_1.requireRoles)('company_admin', 'super_a
 const ACTION_GUARD = (0, rbac_middleware_1.requireRoles)('company_admin', 'super_admin', 'sub_admin');
 router.get('/', VIEW_GUARD, reports_controller_1.listReports);
 router.get('/:id', VIEW_GUARD, reports_controller_1.getReport);
+router.post('/bulk-dismiss', ACTION_GUARD, reports_controller_1.bulkDismissReports);
 router.post('/:id/dismiss', ACTION_GUARD, reports_controller_1.dismissReport);
 router.post('/:id/escalate', ACTION_GUARD, reports_controller_1.escalateReport);
 exports.default = router;

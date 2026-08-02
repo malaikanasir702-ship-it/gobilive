@@ -7,6 +7,7 @@ import { registerChatSignaling } from './features/chat/chat.signaling';
 import { initFirebase } from './config/firebase';
 import { ensureLiveDiscoverySeed } from './features/live/live.seed';
 import { seedGiftCatalogIfEmpty } from './features/gifts/gifts.controller';
+import { startCronJobs } from './core/cron/scheduler';
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -50,6 +51,7 @@ const startServer = async () => {
     await connectDB();
     await ensureLiveDiscoverySeed();
     await seedGiftCatalogIfEmpty();
+    startCronJobs();
 
     server.listen(PORT, () => {
       console.log(`🚀 Gobilive Server active on port ${PORT}`);

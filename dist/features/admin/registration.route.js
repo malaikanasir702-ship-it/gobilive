@@ -49,7 +49,10 @@ router.get('/my-status', auth_middleware_1.authenticateJWT, registration_control
 router.use(rbac_middleware_1.authenticateAdminPanel);
 const COMPANY_OR_SUPER = (0, rbac_middleware_1.requireRoles)('company_admin', 'super_admin');
 router.get('/', COMPANY_OR_SUPER, registration_controller_1.listRegistrationRequests);
+router.get('/export', COMPANY_OR_SUPER, registration_controller_1.exportRegistrations);
 router.get('/:id', COMPANY_OR_SUPER, registration_controller_1.getRegistrationRequest);
+router.post('/bulk-approve', COMPANY_OR_SUPER, registration_controller_1.bulkApproveRegistrations);
+router.post('/bulk-reject', COMPANY_OR_SUPER, registration_controller_1.bulkRejectRegistrations);
 router.post('/:id/approve', COMPANY_OR_SUPER, registration_controller_1.approveRegistration);
 router.post('/:id/reject', COMPANY_OR_SUPER, registration_controller_1.rejectRegistration);
 // ── Resend credentials email (for already-approved registrations) ────────

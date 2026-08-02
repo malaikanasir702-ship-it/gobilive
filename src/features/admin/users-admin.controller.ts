@@ -213,3 +213,41 @@ export const suspendUser = async (req: AdminAuthRequest, res: Response): Promise
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// ─── Export Users as CSV ──────────────────────────────────────────────────────
+
+export const exportUsers = async (req: AdminAuthRequest, res: Response): Promise<void> => {
+  try {
+    const search = (req.query.search as string) || '';
+    const status = req.query.status as string;
+    const filter: any = { role: { $in: ['user'] } };
+    if (search) { const re = new RegExp(search, 'i'); filter.$or = [{ username: re }, { email: re }, { phone: re }]; }
+    if (status === 'active') filter.isSuspended = false;
+    if (status === 'suspended') filter.isSuspended = true;
+    if (status === 'blocked') filter.isBlocked = true;
+
+    const users = await User.find(filter)
+      .select('username email phone diamonds rcoins beanWallet isSuspended isBlocked role createdAt')
+      .sort({ createdAt: -1 })
+      .limit(10000)
+      .lean();
+
+    const rows = users.map((u: any) => ({
+      username: u.username,
+      email: u.email ?? '',
+      phone: u.phone ?? '',
+      role: u.role,
+      diamonds: u.diamonds ?? 0,
+      rcoins: u.rcoins ?? 0,
+      beanWallet: u.beanWallet ?? 0,
+      isBlocked: u.isBlocked ? 'Yes' : 'No',
+      isSuspended: u.isSuspended ? 'Yes' : 'No',
+      joinedAt: u.createdAt ? new Date(u.createdAt).toISOString() : '',
+    }));
+
+    const { sendCSV } = await import('../../core/middlewares/csv-export.middleware');
+    sendCSV(res, rows, 'users');
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

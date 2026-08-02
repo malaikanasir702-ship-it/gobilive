@@ -7,6 +7,7 @@ const router = (0, express_1.Router)();
 router.use(rbac_middleware_1.authenticateAdminPanel);
 const GUARD = (0, rbac_middleware_1.requireRoles)('company_admin', 'super_admin', 'sub_admin', 'agency', 'sub_agency');
 router.get('/', GUARD, users_admin_controller_1.listUsers);
+router.get('/export', GUARD, users_admin_controller_1.exportUsers);
 router.get('/:id', GUARD, users_admin_controller_1.getUserProfile);
 router.post('/:id/block', GUARD, users_admin_controller_1.blockUser);
 router.post('/:id/unblock', GUARD, users_admin_controller_1.unblockUser);

@@ -7,6 +7,7 @@ exports.listReports = listReports;
 exports.getReport = getReport;
 exports.dismissReport = dismissReport;
 exports.escalateReport = escalateReport;
+exports.bulkDismissReports = bulkDismissReports;
 const report_model_1 = __importDefault(require("../live/report.model"));
 const user_model_1 = require("../auth/user.model");
 const live_model_1 = __importDefault(require("../live/live.model"));
@@ -85,7 +86,6 @@ async function escalateReport(req, res) {
         if (action === 'suspend') {
             host.isSuspended = true;
             await host.save();
-            // End any active streams
             await live_model_1.default.updateMany({ hostId: host._id, isActive: true }, { isActive: false });
             await (0, notification_service_1.sendToUser)(host._id.toString(), {
                 title: 'Account Suspended',
@@ -104,7 +104,6 @@ async function escalateReport(req, res) {
             await host.save();
             await live_model_1.default.updateMany({ hostId: host._id, isActive: true }, { isActive: false });
         }
-        // Delete the report after action
         await report_model_1.default.findByIdAndDelete(id);
         await (0, activity_log_service_1.logActivity)({
             actorId: adminId, actorRole: adminRole,
@@ -112,6 +111,34 @@ async function escalateReport(req, res) {
             description: `Escalated report against host ${rpt.hostUsername} with action: ${action}`,
         });
         res.json({ success: true, action, hostId: host._id });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+}
+// ── Bulk Dismiss Reports ──────────────────────────────────────────────────────
+// POST /reports/bulk-dismiss  { ids: string[] }
+async function bulkDismissReports(req, res) {
+    try {
+        const { ids } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ success: false, message: 'ids array is required.' });
+        }
+        if (ids.length > 50) {
+            return res.status(400).json({ success: false, message: 'Max 50 reports per bulk operation.' });
+        }
+        const adminId = req.adminUser?.id || 'system';
+        const adminRole = req.adminUser?.role || 'company_admin';
+        const deleted = await report_model_1.default.deleteMany({ _id: { $in: ids } });
+        await (0, activity_log_service_1.logActivity)({
+            actorId: adminId,
+            actorRole: adminRole,
+            actionType: 'bulk_dismiss_reports',
+            targetEntityType: 'StreamReport',
+            targetEntityId: ids.join(','),
+            description: `[Bulk] Dismissed ${deleted.deletedCount} stream report(s).`,
+        });
+        res.json({ success: true, dismissed: deleted.deletedCount });
     }
     catch (err) {
         res.status(500).json({ success: false, message: err.message });

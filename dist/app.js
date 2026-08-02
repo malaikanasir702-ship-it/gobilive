@@ -5,9 +5,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
+const helmet_1 = __importDefault(require("helmet"));
 const path_1 = __importDefault(require("path"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const cloudinary_1 = require("cloudinary");
+const logger_middleware_1 = require("./core/middlewares/logger.middleware");
+const rate_limit_middleware_1 = require("./core/middlewares/rate-limit.middleware");
 const auth_route_1 = __importDefault(require("./features/auth/auth.route"));
 const leaderboard_route_1 = __importDefault(require("./features/leaderboard/leaderboard.route"));
 const feed_route_1 = __importDefault(require("./features/feed/feed.route"));
@@ -56,6 +59,14 @@ cloudinary_1.v2.config({
     api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 const app = (0, express_1.default)();
+// ── Security Headers (helmet) ───────────────────────────────────────────────
+// Must be first middleware. Relaxed CSP for admin panel SPA + Cloudinary images.
+app.use((0, helmet_1.default)({
+    contentSecurityPolicy: false, // SPA + inline scripts need this disabled
+    crossOriginEmbedderPolicy: false,
+}));
+// ── HTTP Request Logger (morgan → winston) ──────────────────────────────────
+app.use(logger_middleware_1.httpLogger);
 // --- CORS ---
 // ALLOWED_ORIGINS env var accepts a comma-separated list of origins for tighter
 // production control (e.g. "https://app.gobilive.com,https://admin.gobilive.com").
@@ -73,6 +84,9 @@ app.use((0, cors_1.default)({
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-api-key'],
 }));
+// ── General API Rate Limiter ────────────────────────────────────────────────
+// Applied to all /api/* routes. Login-specific limiter is applied per route below.
+app.use('/api/', rate_limit_middleware_1.apiLimiter);
 // Stripe webhook needs raw body BEFORE the JSON parser — order matters.
 app.post('/api/wallet/stripe/webhook', express_1.default.raw({ type: 'application/json' }), wallet_controller_1.stripeWebhook);
 app.use(express_1.default.json());
@@ -216,6 +230,9 @@ app.get('/admin/*path', (_req, res) => {
 });
 app.use('/api/upload', upload_route_1.default);
 app.use('/api/admin-panel/v1/upload', upload_route_1.default);
+// Login rate limiter — applied specifically to auth login endpoints
+app.use('/api/auth/login', rate_limit_middleware_1.loginLimiter);
+app.use('/api/admin-panel/v1/auth/login', rate_limit_middleware_1.loginLimiter);
 app.use('/api/auth', auth_route_1.default);
 app.use('/api/leaderboard', leaderboard_route_1.default);
 app.use('/api/feed', feed_route_1.default);

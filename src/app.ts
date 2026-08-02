@@ -1,8 +1,11 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import path from 'path';
 import dotenv from 'dotenv';
 import { v2 as cloudinary } from 'cloudinary';
+import { httpLogger } from './core/middlewares/logger.middleware';
+import { loginLimiter, apiLimiter } from './core/middlewares/rate-limit.middleware';
 import authRouter from './features/auth/auth.route';
 import leaderboardRouter from './features/leaderboard/leaderboard.route';
 import feedRouter from './features/feed/feed.route';
@@ -55,6 +58,18 @@ cloudinary.config({
 
 const app = express();
 
+// ── Security Headers (helmet) ───────────────────────────────────────────────
+// Must be first middleware. Relaxed CSP for admin panel SPA + Cloudinary images.
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // SPA + inline scripts need this disabled
+    crossOriginEmbedderPolicy: false,
+  })
+);
+
+// ── HTTP Request Logger (morgan → winston) ──────────────────────────────────
+app.use(httpLogger);
+
 // --- CORS ---
 // ALLOWED_ORIGINS env var accepts a comma-separated list of origins for tighter
 // production control (e.g. "https://app.gobilive.com,https://admin.gobilive.com").
@@ -75,6 +90,10 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-api-key'],
   })
 );
+
+// ── General API Rate Limiter ────────────────────────────────────────────────
+// Applied to all /api/* routes. Login-specific limiter is applied per route below.
+app.use('/api/', apiLimiter);
 
 // Stripe webhook needs raw body BEFORE the JSON parser — order matters.
 app.post(
@@ -232,6 +251,9 @@ app.get('/admin/*path', (_req, res) => {
 
 app.use('/api/upload', uploadRouter);
 app.use('/api/admin-panel/v1/upload', uploadRouter);
+// Login rate limiter — applied specifically to auth login endpoints
+app.use('/api/auth/login', loginLimiter);
+app.use('/api/admin-panel/v1/auth/login', loginLimiter);
 app.use('/api/auth', authRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/feed', feedRouter);

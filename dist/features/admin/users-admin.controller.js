@@ -1,9 +1,42 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.suspendUser = exports.unblockUser = exports.blockUser = exports.getUserProfile = exports.listUsers = void 0;
+exports.exportUsers = exports.suspendUser = exports.unblockUser = exports.blockUser = exports.getUserProfile = exports.listUsers = void 0;
 const user_model_1 = require("../auth/user.model");
 const wallet_transaction_model_1 = __importDefault(require("../wallet/wallet.transaction.model"));
 const post_model_1 = require("../feed/post.model");
@@ -193,3 +226,44 @@ const suspendUser = async (req, res) => {
     }
 };
 exports.suspendUser = suspendUser;
+// ─── Export Users as CSV ──────────────────────────────────────────────────────
+const exportUsers = async (req, res) => {
+    try {
+        const search = req.query.search || '';
+        const status = req.query.status;
+        const filter = { role: { $in: ['user'] } };
+        if (search) {
+            const re = new RegExp(search, 'i');
+            filter.$or = [{ username: re }, { email: re }, { phone: re }];
+        }
+        if (status === 'active')
+            filter.isSuspended = false;
+        if (status === 'suspended')
+            filter.isSuspended = true;
+        if (status === 'blocked')
+            filter.isBlocked = true;
+        const users = await user_model_1.User.find(filter)
+            .select('username email phone diamonds rcoins beanWallet isSuspended isBlocked role createdAt')
+            .sort({ createdAt: -1 })
+            .limit(10000)
+            .lean();
+        const rows = users.map((u) => ({
+            username: u.username,
+            email: u.email ?? '',
+            phone: u.phone ?? '',
+            role: u.role,
+            diamonds: u.diamonds ?? 0,
+            rcoins: u.rcoins ?? 0,
+            beanWallet: u.beanWallet ?? 0,
+            isBlocked: u.isBlocked ? 'Yes' : 'No',
+            isSuspended: u.isSuspended ? 'Yes' : 'No',
+            joinedAt: u.createdAt ? new Date(u.createdAt).toISOString() : '',
+        }));
+        const { sendCSV } = await Promise.resolve().then(() => __importStar(require('../../core/middlewares/csv-export.middleware')));
+        sendCSV(res, rows, 'users');
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.exportUsers = exportUsers;
