@@ -350,12 +350,34 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
       await Gift.findOne({ id: giftId, isActive: true }).lean();
 
     if (!gift) {
-      const staticGift = getGiftById(giftId);
-      if (!staticGift) {
-        res.status(400).json({ success: false, message: `Invalid gift id: ${giftId}` });
-        return;
+      // ── Local TikTok-style assets (id starts with 'local_') ──────────────
+      // These gifts are bundled inside the app — no DB entry needed.
+      // The client sends the cost; we trust it because Beans are server-verified.
+      if (typeof giftId === 'string' && giftId.startsWith('local_')) {
+        const clientCost = Math.max(1, Number(req.body.cost ?? req.body.diamondCost ?? 1));
+        const rcoin = Math.floor(clientCost * 0.5); // host earns 50% as rcoins
+        const friendlyName = giftId
+          .replace('local_', '')
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+        gift = {
+          id: giftId,
+          name: friendlyName,
+          emoji: '🎁',
+          diamondCost: clientCost,
+          rcoinEarned: rcoin,
+          giftType: 'local',
+          svgaUrl: null,
+          animation: 'float',
+        };
+      } else {
+        const staticGift = getGiftById(giftId);
+        if (!staticGift) {
+          res.status(400).json({ success: false, message: `Invalid gift id: ${giftId}` });
+          return;
+        }
+        gift = { ...staticGift, giftType: 'emoji', svgaUrl: undefined };
       }
-      gift = { ...staticGift, giftType: 'emoji', svgaUrl: undefined };
     }
 
     const room = await LiveRoom.findOne({ channelName });
