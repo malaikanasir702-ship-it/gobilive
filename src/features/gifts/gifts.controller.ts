@@ -54,19 +54,23 @@ export const svgaUploadMiddleware = multer({
 // ─── Seed helper — called once on startup if DB is empty ────────────────────
 export async function seedGiftCatalogIfEmpty(): Promise<void> {
   try {
-    const count = await Gift.countDocuments();
-    if (count > 0) return;
-
-    const emojiDocs = GIFT_CATALOG.map((g, i) => ({
-      id: g.id, name: g.name, emoji: g.emoji,
-      diamondCost: g.diamondCost, rcoinEarned: g.rcoinEarned,
-      isVipOnly: g.isVipOnly, animation: g.animation,
-      giftType: 'emoji' as const, svgaUrl: undefined,
-      isActive: true, sortOrder: i,
-    }));
-
-    await Gift.insertMany(emojiDocs);
-    console.log('[Gifts] Seeded', emojiDocs.length, 'emoji gifts.');
+    const { TIKTOK_GIFTS_SEED } = await import('../../scripts/seed-tiktok-gifts');
+    for (const g of TIKTOK_GIFTS_SEED) {
+      await Gift.updateOne(
+        { id: g.id },
+        {
+          $set: {
+            ...g,
+            isVipOnly: false,
+            animation: 'float',
+            giftType: 'emoji',
+            isActive: true,
+          },
+        },
+        { upsert: true }
+      );
+    }
+    console.log('[Gifts] Seeded TikTok gifts catalog into MongoDB.');
   } catch (err) {
     console.warn('[Gifts] Seed skipped:', (err as Error).message);
   }
