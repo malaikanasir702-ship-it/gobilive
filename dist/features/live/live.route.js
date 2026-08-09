@@ -23,6 +23,8 @@ router.post('/rooms', auth_middleware_1.authenticateJWT, live_controller_1.creat
 router.get('/rooms/:channelName/agora', auth_middleware_1.authenticateJWT, live_controller_1.getAgoraCredentials);
 router.post('/rooms/:channelName/end', auth_middleware_1.authenticateJWT, live_controller_1.endRoom);
 router.post('/rooms/:channelName/pk/match', auth_middleware_1.authenticateJWT, live_controller_1.findPkOpponent);
+/** Host: get list of live hosts available for PK invite (searchable). */
+router.get('/rooms/pk/eligible', auth_middleware_1.authenticateJWT, live_controller_1.getPkEligibleHosts);
 router.post('/rooms/:channelName/kick', auth_middleware_1.authenticateJWT, live_controller_1.kickViewer);
 router.get('/rooms/:channelName/summary', live_controller_1.getSessionSummary);
 // Like, save, hide, report

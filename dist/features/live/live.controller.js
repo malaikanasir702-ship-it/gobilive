@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateThumbnail = exports.reportRoom = exports.hideCreator = exports.saveRoom = exports.likeRoom = exports.getSessionSummary = exports.getMySessions = exports.findPkOpponent = exports.kickViewer = exports.endRoom = exports.getAgoraCredentials = exports.createRoom = exports.getActiveRooms = void 0;
+exports.updateThumbnail = exports.reportRoom = exports.hideCreator = exports.saveRoom = exports.likeRoom = exports.getSessionSummary = exports.getMySessions = exports.getPkEligibleHosts = exports.findPkOpponent = exports.kickViewer = exports.endRoom = exports.getAgoraCredentials = exports.createRoom = exports.getActiveRooms = void 0;
 exports.injectLiveControllerIo = injectLiveControllerIo;
 const mongoose_1 = __importDefault(require("mongoose"));
 const live_model_1 = __importDefault(require("./live.model"));
@@ -259,6 +259,49 @@ const findPkOpponent = async (req, res) => {
     }
 };
 exports.findPkOpponent = findPkOpponent;
+/**
+ * GET /rooms/pk/eligible?search=&channelName=myRoom
+ *
+ * Returns active live rooms that are eligible for a PK battle invite.
+ * Excludes: the calling host's own room, rooms already in PK, inactive rooms.
+ * Supports optional ?search= filter on hostUsername (case-insensitive).
+ */
+const getPkEligibleHosts = async (req, res) => {
+    try {
+        const user = req.user;
+        const myChannelName = (req.query.channelName || '').trim();
+        const search = (req.query.search || '').trim();
+        const filter = {
+            isActive: true,
+            isPKActive: false,
+            hostId: { $ne: user.id },
+        };
+        if (myChannelName) {
+            filter.channelName = { $ne: myChannelName };
+        }
+        if (search) {
+            filter.hostUsername = { $regex: search, $options: 'i' };
+        }
+        const rooms = await live_model_1.default.find(filter)
+            .sort({ viewerCount: -1, createdAt: -1 })
+            .limit(30)
+            .populate('hostId', 'profilePic')
+            .lean();
+        const result = rooms.map((r) => ({
+            channelName: r.channelName,
+            hostUsername: r.hostUsername,
+            hostLevel: r.hostLevel ?? 1,
+            viewerCount: r.viewerCount ?? 0,
+            hostProfilePic: r.hostId?.profilePic ?? '',
+            title: r.title ?? '',
+        }));
+        res.status(200).json({ success: true, hosts: result });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+exports.getPkEligibleHosts = getPkEligibleHosts;
 const getMySessions = async (req, res) => {
     try {
         const user = req.user;

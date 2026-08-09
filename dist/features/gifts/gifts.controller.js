@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -56,18 +89,19 @@ exports.svgaUploadMiddleware = (0, multer_1.default)({
 // ─── Seed helper — called once on startup if DB is empty ────────────────────
 async function seedGiftCatalogIfEmpty() {
     try {
-        const count = await gift_model_1.Gift.countDocuments();
-        if (count > 0)
-            return;
-        const emojiDocs = gift_config_1.GIFT_CATALOG.map((g, i) => ({
-            id: g.id, name: g.name, emoji: g.emoji,
-            diamondCost: g.diamondCost, rcoinEarned: g.rcoinEarned,
-            isVipOnly: g.isVipOnly, animation: g.animation,
-            giftType: 'emoji', svgaUrl: undefined,
-            isActive: true, sortOrder: i,
-        }));
-        await gift_model_1.Gift.insertMany(emojiDocs);
-        console.log('[Gifts] Seeded', emojiDocs.length, 'emoji gifts.');
+        const { TIKTOK_GIFTS_SEED } = await Promise.resolve().then(() => __importStar(require('../../scripts/seed-tiktok-gifts')));
+        for (const g of TIKTOK_GIFTS_SEED) {
+            await gift_model_1.Gift.updateOne({ id: g.id }, {
+                $set: {
+                    ...g,
+                    isVipOnly: false,
+                    animation: 'float',
+                    giftType: 'emoji',
+                    isActive: true,
+                },
+            }, { upsert: true });
+        }
+        console.log('[Gifts] Seeded TikTok gifts catalog into MongoDB.');
     }
     catch (err) {
         console.warn('[Gifts] Seed skipped:', err.message);
@@ -338,12 +372,35 @@ const sendGiftToHost = async (req, res) => {
         // Look up gift from MongoDB first, fall back to static config
         let gift = await gift_model_1.Gift.findOne({ id: giftId, isActive: true }).lean();
         if (!gift) {
-            const staticGift = (0, gift_config_1.getGiftById)(giftId);
-            if (!staticGift) {
-                res.status(400).json({ success: false, message: `Invalid gift id: ${giftId}` });
-                return;
+            // ── Local TikTok-style assets (id starts with 'local_') ──────────────
+            // These gifts are bundled inside the app — no DB entry needed.
+            // The client sends the cost; we trust it because Beans are server-verified.
+            if (typeof giftId === 'string' && giftId.startsWith('local_')) {
+                const clientCost = Math.max(1, Number(req.body.cost ?? req.body.diamondCost ?? 1));
+                const rcoin = Math.floor(clientCost * 0.5); // host earns 50% as rcoins
+                const friendlyName = giftId
+                    .replace('local_', '')
+                    .replace(/_/g, ' ')
+                    .replace(/\b\w/g, (c) => c.toUpperCase());
+                gift = {
+                    id: giftId,
+                    name: friendlyName,
+                    emoji: '🎁',
+                    diamondCost: clientCost,
+                    rcoinEarned: rcoin,
+                    giftType: 'local',
+                    svgaUrl: null,
+                    animation: 'float',
+                };
             }
-            gift = { ...staticGift, giftType: 'emoji', svgaUrl: undefined };
+            else {
+                const staticGift = (0, gift_config_1.getGiftById)(giftId);
+                if (!staticGift) {
+                    res.status(400).json({ success: false, message: `Invalid gift id: ${giftId}` });
+                    return;
+                }
+                gift = { ...staticGift, giftType: 'emoji', svgaUrl: undefined };
+            }
         }
         const room = await live_model_1.default.findOne({ channelName });
         if (!room) {

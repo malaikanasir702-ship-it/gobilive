@@ -24,6 +24,7 @@ import {
   hideCreator,
   reportRoom,
   updateThumbnail,
+  getPkEligibleHosts,
 } from './live.controller';
 
 // ── NEW: Seat management controller ──
@@ -54,6 +55,8 @@ router.post('/rooms', authenticateJWT as any, createRoom as any);
 router.get('/rooms/:channelName/agora', authenticateJWT as any, getAgoraCredentials as any);
 router.post('/rooms/:channelName/end', authenticateJWT as any, endRoom as any);
 router.post('/rooms/:channelName/pk/match', authenticateJWT as any, findPkOpponent as any);
+/** Host: get list of live hosts available for PK invite (searchable). */
+router.get('/rooms/pk/eligible', authenticateJWT as any, getPkEligibleHosts as any);
 router.post('/rooms/:channelName/kick', authenticateJWT as any, kickViewer as any);
 router.get('/rooms/:channelName/summary', getSessionSummary as any);
 

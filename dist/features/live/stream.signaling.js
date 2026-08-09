@@ -32,6 +32,14 @@ const live_controller_1 = require("./live.controller");
 const roomViewers = {};
 const pkScores = {};
 const pkOpponents = {};
+const pkMvpTrackers = {};
+const pkStartTimes = {};
+const hostWinStreaks = {};
+// Active invites keyed by toRoomId
+const pkInvites = {};
+// 2v2: store team partner rooms
+// key: mainRoomId, value: partnerRoomId on same team
+const pkTeamPartners = {};
 // ─────────────────────────────────────────────
 // Existing helpers (untouched)
 // ─────────────────────────────────────────────
@@ -112,9 +120,16 @@ async function handleStartPk(io, data) {
     pkOpponents[data.opponentRoomId] = data.roomId;
     pkScores[data.roomId] = { left: 100, right: 100 };
     pkScores[data.opponentRoomId] = { left: 100, right: 100 };
+    pkStartTimes[data.roomId] = Date.now();
+    pkStartTimes[data.opponentRoomId] = Date.now();
+    pkMvpTrackers[data.roomId] = {};
+    pkMvpTrackers[data.opponentRoomId] = {};
     io.to(data.roomId).emit('pk_started', {
         opponentRoomId: data.opponentRoomId, opponentHost: opponentHostName,
         durationSeconds: data.durationSeconds, leftScore: 100, rightScore: 100,
+        pkMode: data.pkMode ?? '1v1',
+        leftTeamHosts: data.leftTeamHosts ?? [],
+        rightTeamHosts: data.rightTeamHosts ?? [],
     });
     io.to(data.roomId).emit('overlay_notification', {
         roomId: data.roomId, type: 'pk',
@@ -123,37 +138,203 @@ async function handleStartPk(io, data) {
     io.to(data.opponentRoomId).emit('pk_started', {
         opponentRoomId: data.roomId, opponentHost: myHostName,
         durationSeconds: data.durationSeconds, leftScore: 100, rightScore: 100,
+        pkMode: data.pkMode ?? '1v1',
+        leftTeamHosts: data.rightTeamHosts ?? [],
+        rightTeamHosts: data.leftTeamHosts ?? [],
     });
     io.to(data.opponentRoomId).emit('overlay_notification', {
         roomId: data.opponentRoomId, type: 'pk',
         title: 'PK Battle Started!', subtitle: `vs @${myHostName}`,
+    });
+    // For 2v2: also emit to team partner rooms
+    const myPartner = pkTeamPartners[data.roomId];
+    const oppPartner = pkTeamPartners[data.opponentRoomId];
+    if (myPartner) {
+        io.to(myPartner).emit('pk_started', {
+            opponentRoomId: data.opponentRoomId, opponentHost: opponentHostName,
+            durationSeconds: data.durationSeconds, leftScore: 100, rightScore: 100,
+            pkMode: '2v2',
+            leftTeamHosts: data.leftTeamHosts ?? [],
+            rightTeamHosts: data.rightTeamHosts ?? [],
+        });
+    }
+    if (oppPartner) {
+        io.to(oppPartner).emit('pk_started', {
+            opponentRoomId: data.roomId, opponentHost: myHostName,
+            durationSeconds: data.durationSeconds, leftScore: 100, rightScore: 100,
+            pkMode: '2v2',
+            leftTeamHosts: data.rightTeamHosts ?? [],
+            rightTeamHosts: data.leftTeamHosts ?? [],
+        });
+    }
+}
+// ── PK Invite Handlers (NEW TikTok-style) ────────────────────────────────────
+async function handlePkInviteSend(io, data) {
+    // Lookup sender room to get hostUsername if missing
+    let senderHostName = data.fromHost;
+    if (!senderHostName) {
+        const senderRoom = await live_model_1.default.findOne({ channelName: data.fromRoomId }).select('hostUsername').lean();
+        senderHostName = senderRoom ? senderRoom.hostUsername : 'Host';
+    }
+    data.fromHost = senderHostName;
+    // Cancel any existing invite to the same target room
+    if (pkInvites[data.toRoomId]) {
+        clearTimeout(pkInvites[data.toRoomId].timer);
+        delete pkInvites[data.toRoomId];
+    }
+    // 30-second auto-expiry timer
+    const timer = setTimeout(() => {
+        const invite = pkInvites[data.toRoomId];
+        if (invite) {
+            delete pkInvites[data.toRoomId];
+            // Notify both sides that invite expired
+            io.to(data.toRoomId).emit('pk_invite_cancelled', { reason: 'expired' });
+            io.to(data.fromRoomId).emit('pk_invite_cancelled', { toHost: data.toHost, reason: 'expired' });
+        }
+    }, 30000);
+    pkInvites[data.toRoomId] = { ...data, timer };
+    // Notify the invited room
+    io.to(data.toRoomId).emit('pk_invite_received', {
+        fromRoomId: data.fromRoomId,
+        fromHost: senderHostName,
+        fromViewerCount: data.fromViewerCount,
+        fromHostLevel: data.fromHostLevel,
+        mode: data.mode,
+    });
+    // Confirm to sender that invite was sent
+    io.to(data.fromRoomId).emit('pk_invite_sent_ack', {
+        toHost: data.toHost,
+        toRoomId: data.toRoomId,
+        mode: data.mode,
+    });
+}
+async function handlePkInviteAccept(io, data) {
+    const invite = pkInvites[data.myRoomId];
+    if (!invite) {
+        // Invite already expired or cancelled
+        io.to(data.myRoomId).emit('pk_invite_cancelled', { reason: 'expired' });
+        return;
+    }
+    clearTimeout(invite.timer);
+    delete pkInvites[data.myRoomId];
+    // Store 2v2 team partners if applicable
+    if (invite.mode === '2v2') {
+        // In 2v2, fromRoomId and myRoomId are the two main (anchor) hosts.
+        // Partner rooms are sent in leftTeamPartner / rightTeamPartner fields on the invite.
+        const leftPartner = invite.leftTeamPartnerRoomId;
+        const rightPartner = invite.rightTeamPartnerRoomId;
+        if (leftPartner)
+            pkTeamPartners[invite.fromRoomId] = leftPartner;
+        if (rightPartner)
+            pkTeamPartners[data.myRoomId] = rightPartner;
+    }
+    const leftTeamHosts = invite.mode === '2v2'
+        ? [invite.fromHost, invite.leftTeamPartnerHost ?? '']
+        : [invite.fromHost];
+    const rightTeamHosts = invite.mode === '2v2'
+        ? [invite.toHost, invite.rightTeamPartnerHost ?? '']
+        : [invite.toHost];
+    // Notify the inviter that opponent accepted
+    io.to(invite.fromRoomId).emit('pk_invite_accepted', {
+        byHost: invite.toHost,
+        byRoomId: data.myRoomId,
+        mode: invite.mode,
+    });
+    // Start the PK battle for both rooms
+    await handleStartPk(io, {
+        roomId: invite.fromRoomId,
+        opponentRoomId: data.myRoomId,
+        opponentHost: invite.toHost,
+        durationSeconds: 180,
+        pkMode: invite.mode,
+        leftTeamHosts,
+        rightTeamHosts,
+    });
+}
+function handlePkInviteDecline(io, data) {
+    const invite = pkInvites[data.myRoomId];
+    if (invite) {
+        clearTimeout(invite.timer);
+        delete pkInvites[data.myRoomId];
+    }
+    // Notify the inviter that opponent declined
+    io.to(data.fromRoomId).emit('pk_invite_declined', {
+        byHost: data.myRoomId ? (invite?.toHost ?? 'Host') : 'Host',
     });
 }
 function handlePkScore(io, data) {
     const opponentRoomId = pkOpponents[data.roomId];
     if (!pkScores[data.roomId])
         pkScores[data.roomId] = { left: 100, right: 100 };
+    // 1. Check if in last 10 seconds (2x Double Points Comeback)
+    const startTime = pkStartTimes[data.roomId] || Date.now();
+    const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+    const remainingSec = Math.max(0, 180 - elapsedSec);
+    const isDoublePoints = remainingSec <= 10 && remainingSec > 0;
+    // 2. Lucky Multiplier (Random 5x / 10x chance)
+    let luckyMultiplier = 1;
+    if (data.change >= 10) {
+        const rand = Math.random();
+        if (rand < 0.03)
+            luckyMultiplier = 10;
+        else if (rand < 0.10)
+            luckyMultiplier = 5;
+    }
+    const effectiveMultiplier = (isDoublePoints ? 2 : 1) * luckyMultiplier;
+    const finalChange = data.change * effectiveMultiplier;
+    // Track MVP supporters
+    if (data.senderUsername) {
+        if (!pkMvpTrackers[data.roomId])
+            pkMvpTrackers[data.roomId] = {};
+        const tracker = pkMvpTrackers[data.roomId];
+        if (!tracker[data.senderUsername]) {
+            tracker[data.senderUsername] = { username: data.senderUsername, amount: 0, profilePic: data.senderAvatar };
+        }
+        tracker[data.senderUsername].amount += finalChange;
+    }
     if (data.side === 'left')
-        pkScores[data.roomId].left += data.change;
+        pkScores[data.roomId].left += finalChange;
     else
-        pkScores[data.roomId].right += data.change;
+        pkScores[data.roomId].right += finalChange;
+    const topGiftersLeft = Object.values(pkMvpTrackers[data.roomId] || {})
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 3);
+    // Red Packet Drop check (for big gifts >= 500)
+    if (data.change >= 500) {
+        io.to(data.roomId).emit('red_packet_drop', {
+            sender: data.senderUsername || 'A Supporter',
+            giftAmount: data.change,
+            rewardCoins: Math.floor(Math.random() * 15) + 5,
+        });
+    }
+    if (luckyMultiplier > 1) {
+        io.to(data.roomId).emit('lucky_multiplier_active', {
+            sender: data.senderUsername || 'Supporter',
+            multiplier: luckyMultiplier,
+            addedPoints: finalChange,
+        });
+    }
     io.to(data.roomId).emit('pk_score_changed', {
-        roomId: data.roomId, side: data.side, change: data.change,
+        roomId: data.roomId, side: data.side, change: finalChange,
         leftScore: pkScores[data.roomId].left, rightScore: pkScores[data.roomId].right,
+        isDoublePoints, multiplier: effectiveMultiplier,
+        topGiftersLeft,
     });
     if (opponentRoomId) {
         if (!pkScores[opponentRoomId])
             pkScores[opponentRoomId] = { left: 100, right: 100 };
         if (data.side === 'left')
-            pkScores[opponentRoomId].right += data.change;
+            pkScores[opponentRoomId].right += finalChange;
         else
-            pkScores[opponentRoomId].left += data.change;
+            pkScores[opponentRoomId].left += finalChange;
         io.to(opponentRoomId).emit('pk_score_changed', {
             roomId: opponentRoomId,
             side: data.side === 'left' ? 'right' : 'left',
-            change: data.change,
+            change: finalChange,
             leftScore: pkScores[opponentRoomId].left,
             rightScore: pkScores[opponentRoomId].right,
+            isDoublePoints, multiplier: effectiveMultiplier,
+            topGiftersRight: topGiftersLeft,
         });
     }
 }
@@ -167,16 +348,45 @@ async function handleEndPk(io, data) {
     }
     const scoreA = pkScores[data.roomId] || { left: 100, right: 100 };
     const winnerA = scoreA.left > scoreA.right ? 'left' : scoreA.left < scoreA.right ? 'right' : 'draw';
+    // Update Win Streaks
+    if (winnerA === 'left') {
+        hostWinStreaks[data.roomId] = (hostWinStreaks[data.roomId] || 0) + 1;
+        if (opponentRoomId)
+            hostWinStreaks[opponentRoomId] = 0;
+    }
+    else if (winnerA === 'right') {
+        if (opponentRoomId)
+            hostWinStreaks[opponentRoomId] = (hostWinStreaks[opponentRoomId] || 0) + 1;
+        hostWinStreaks[data.roomId] = 0;
+    }
+    const topGiftersA = Object.values(pkMvpTrackers[data.roomId] || {})
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 3);
+    const topGiftersB = opponentRoomId
+        ? Object.values(pkMvpTrackers[opponentRoomId] || {})
+            .sort((a, b) => b.amount - a.amount)
+            .slice(0, 3)
+        : [];
+    const summaryData = {
+        winner: winnerA === 'left' ? 'You' : winnerA === 'right' ? data.winner : 'Draw',
+        leftScore: scoreA.left,
+        rightScore: scoreA.right,
+        topGiftersLeft: topGiftersA,
+        topGiftersRight: topGiftersB,
+        leftStreak: hostWinStreaks[data.roomId] || 0,
+        rightStreak: opponentRoomId ? (hostWinStreaks[opponentRoomId] || 0) : 0,
+    };
     delete pkScores[data.roomId];
     delete pkOpponents[data.roomId];
+    delete pkMvpTrackers[data.roomId];
+    delete pkStartTimes[data.roomId];
     if (opponentRoomId) {
         delete pkScores[opponentRoomId];
         delete pkOpponents[opponentRoomId];
+        delete pkMvpTrackers[opponentRoomId];
+        delete pkStartTimes[opponentRoomId];
     }
-    io.to(data.roomId).emit('pk_ended', {
-        roomId: data.roomId,
-        winner: winnerA === 'left' ? 'You' : winnerA === 'right' ? data.winner : 'Draw',
-    });
+    io.to(data.roomId).emit('pk_ended', summaryData);
     io.to(data.roomId).emit('overlay_notification', {
         roomId: data.roomId, type: 'pk_end', title: 'PK Battle Over!',
         subtitle: winnerA === 'left' ? 'You Won! 🎉' : winnerA === 'right' ? `${data.winner} Won!` : 'It is a Draw!',
@@ -184,8 +394,12 @@ async function handleEndPk(io, data) {
     if (opponentRoomId) {
         const winnerB = winnerA === 'left' ? 'right' : winnerA === 'right' ? 'left' : 'draw';
         io.to(opponentRoomId).emit('pk_ended', {
-            roomId: opponentRoomId,
+            ...summaryData,
             winner: winnerB === 'left' ? 'You' : winnerB === 'right' ? 'Opponent' : 'Draw',
+            leftScore: scoreA.right,
+            rightScore: scoreA.left,
+            topGiftersLeft: topGiftersB,
+            topGiftersRight: topGiftersA,
         });
         io.to(opponentRoomId).emit('overlay_notification', {
             roomId: opponentRoomId, type: 'pk_end', title: 'PK Battle Over!',
@@ -236,8 +450,32 @@ function registerStreamSignaling(io) {
         socket.on('end_pk', (data) => {
             handleEndPk(io, data);
         });
-        socket.on('change_filter', (data) => {
-            io.to(data.roomId).emit('filter_changed', data);
+        // ── PK Invite events (TikTok-style) ─────────────────────────────────────
+        socket.on('pk_invite_send', (data) => {
+            handlePkInviteSend(io, data).catch((err) => {
+                console.error('pk_invite_send error:', err);
+            });
+        });
+        socket.on('pk_invite_accept', (data) => {
+            handlePkInviteAccept(io, data).catch((err) => {
+                console.error('pk_invite_accept error:', err);
+            });
+        });
+        socket.on('pk_invite_decline', (data) => {
+            handlePkInviteDecline(io, data);
+        });
+        socket.on('pk_invite_cancel', (data) => {
+            // Inviter cancels before opponent responds
+            const invite = pkInvites[data.toRoomId];
+            if (invite && invite.fromRoomId === data.fromRoomId) {
+                clearTimeout(invite.timer);
+                delete pkInvites[data.toRoomId];
+                io.to(data.toRoomId).emit('pk_invite_cancelled', { reason: 'cancelled_by_host' });
+                io.to(data.fromRoomId).emit('pk_invite_cancelled', { reason: 'cancelled_by_host' });
+            }
+        });
+        socket.on('quick_reaction', (data) => {
+            io.to(data.roomId).emit('quick_reaction_received', data);
         });
         socket.on('mute_state_changed', (data) => {
             io.to(data.roomId).emit('mute_state_changed', {

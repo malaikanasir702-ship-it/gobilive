@@ -293,6 +293,54 @@ export const findPkOpponent = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * GET /rooms/pk/eligible?search=&channelName=myRoom
+ *
+ * Returns active live rooms that are eligible for a PK battle invite.
+ * Excludes: the calling host's own room, rooms already in PK, inactive rooms.
+ * Supports optional ?search= filter on hostUsername (case-insensitive).
+ */
+export const getPkEligibleHosts = async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    const myChannelName = (req.query.channelName as string || '').trim();
+    const search = (req.query.search as string || '').trim();
+
+    const filter: Record<string, unknown> = {
+      isActive: true,
+      isPKActive: false,
+      hostId: { $ne: user.id },
+    };
+
+    if (myChannelName) {
+      filter.channelName = { $ne: myChannelName };
+    }
+
+    if (search) {
+      filter.hostUsername = { $regex: search, $options: 'i' };
+    }
+
+    const rooms = await LiveRoom.find(filter)
+      .sort({ viewerCount: -1, createdAt: -1 })
+      .limit(30)
+      .populate('hostId', 'profilePic')
+      .lean() as any[];
+
+    const result = rooms.map((r) => ({
+      channelName: r.channelName,
+      hostUsername: r.hostUsername,
+      hostLevel: r.hostLevel ?? 1,
+      viewerCount: r.viewerCount ?? 0,
+      hostProfilePic: r.hostId?.profilePic ?? '',
+      title: r.title ?? '',
+    }));
+
+    res.status(200).json({ success: true, hosts: result });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 export const getMySessions = async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
