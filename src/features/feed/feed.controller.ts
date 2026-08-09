@@ -595,7 +595,7 @@ export const appealPost = async (req: AuthRequest, res: Response): Promise<void>
 
     await post.save();
 
-    res.status(200).json({ success: true, message: 'Appeal submitted to Company Admin successfully', post });
+    res.status(200).json({ success: true, message: 'Appeal submitted to our team successfully', post });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }

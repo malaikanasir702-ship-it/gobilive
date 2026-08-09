@@ -87,12 +87,12 @@ export const deleteReelByAdmin = async (req: AuthRequest, res: Response): Promis
     createAndSend({
       recipientId: ownerId,
       actorId: req.user?.id || ownerId,
-      actorUsername: 'Company Admin',
+      actorUsername: 'Our Team',
       actorProfilePic: '',
       type: 'system',
       payload: {
         title: '⚠️ Reel Removed',
-        body: `Your video was removed by Company Admin for violating guidelines: "${reasonText}". You may appeal this decision from your profile.`,
+        body: `Your video was removed by Our Team for violating guidelines: "${reasonText}". You may appeal this decision from your profile.`,
         data: { postId: String(post._id), action: 'reel_deleted', reasonCategory, reasonNote },
       },
       referenceId: String(post._id),
@@ -133,12 +133,12 @@ export const handleAppealDecision = async (req: AuthRequest, res: Response): Pro
       createAndSend({
         recipientId: ownerId,
         actorId: req.user?.id || ownerId,
-        actorUsername: 'Company Admin',
+        actorUsername: 'Our Team',
         actorProfilePic: '',
         type: 'system',
         payload: {
           title: '✅ Appeal Approved',
-          body: 'Your appeal was reviewed and approved by Company Admin! Your video has been restored to public view.',
+          body: 'Your appeal was reviewed and approved by Our Team! Your video has been restored to public view.',
           data: { postId: String(post._id), action: 'appeal_approved' },
         },
         referenceId: String(post._id),
@@ -152,7 +152,7 @@ export const handleAppealDecision = async (req: AuthRequest, res: Response): Pro
       createAndSend({
         recipientId: ownerId,
         actorId: req.user?.id || ownerId,
-        actorUsername: 'Company Admin',
+        actorUsername: 'Our Team',
         actorProfilePic: '',
         type: 'system',
         payload: {

@@ -572,7 +572,7 @@ const appealPost = async (req, res) => {
         post.appealReason = appealReason.trim();
         post.appealedAt = new Date();
         await post.save();
-        res.status(200).json({ success: true, message: 'Appeal submitted to Company Admin successfully', post });
+        res.status(200).json({ success: true, message: 'Appeal submitted to our team successfully', post });
     }
     catch (err) {
         res.status(500).json({ success: false, message: err.message });
