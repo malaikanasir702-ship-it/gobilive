@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const reels_admin_controller_1 = require("./reels-admin.controller");
+const rbac_middleware_1 = require("../../core/middlewares/rbac.middleware");
+const router = (0, express_1.Router)();
+router.use(rbac_middleware_1.authenticateAdminPanel);
+const GUARD = (0, rbac_middleware_1.requireRoles)('company_admin', 'super_admin', 'sub_admin');
+router.get('/', GUARD, reels_admin_controller_1.listReels);
+router.post('/:id/delete', GUARD, reels_admin_controller_1.deleteReelByAdmin);
+router.delete('/:id', GUARD, reels_admin_controller_1.deleteReelByAdmin);
+router.post('/:id/appeal-decision', GUARD, reels_admin_controller_1.handleAppealDecision);
+exports.default = router;

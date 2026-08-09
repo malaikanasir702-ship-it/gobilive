@@ -14,6 +14,8 @@ import {
   getArchivedPosts,
   savePost,
   getSavedPosts,
+  reportPost,
+  appealPost,
 } from './feed.controller';
 import { authenticateJWT } from '../../core/middlewares/auth.middleware';
 
@@ -38,5 +40,7 @@ router.post('/:id/share',    authenticateJWT as any, sharePost        as any);
 router.post('/:id/view',     authenticateJWT as any, viewPost         as any);
 router.get('/:id/comments',  authenticateJWT as any, getComments      as any);
 router.post('/:id/comments', authenticateJWT as any, addComment       as any);
+router.post('/:id/report',   authenticateJWT as any, reportPost       as any);
+router.post('/:id/appeal',   authenticateJWT as any, appealPost       as any);
 
 export default router;

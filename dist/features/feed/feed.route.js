@@ -21,4 +21,6 @@ router.post('/:id/share', auth_middleware_1.authenticateJWT, feed_controller_1.s
 router.post('/:id/view', auth_middleware_1.authenticateJWT, feed_controller_1.viewPost);
 router.get('/:id/comments', auth_middleware_1.authenticateJWT, feed_controller_1.getComments);
 router.post('/:id/comments', auth_middleware_1.authenticateJWT, feed_controller_1.addComment);
+router.post('/:id/report', auth_middleware_1.authenticateJWT, feed_controller_1.reportPost);
+router.post('/:id/appeal', auth_middleware_1.authenticateJWT, feed_controller_1.appealPost);
 exports.default = router;

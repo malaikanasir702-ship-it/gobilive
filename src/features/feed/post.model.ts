@@ -1,5 +1,12 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
+export interface IPostReport {
+  userId: Types.ObjectId;
+  category: string;
+  description?: string;
+  createdAt: Date;
+}
+
 export interface IPost extends Document {
   userId: Types.ObjectId;
   username: string;
@@ -21,6 +28,16 @@ export interface IPost extends Document {
   duration: number; // in seconds
   isPublic: boolean;
   isArchived: boolean;
+  // Moderation & Reporting & Appeals
+  isDeleted: boolean;
+  deletedAt?: Date;
+  deletionCategory?: string;
+  deletionReason?: string;
+  reportedCount: number;
+  reports: IPostReport[];
+  appealStatus: 'none' | 'pending' | 'accepted' | 'rejected';
+  appealReason?: string;
+  appealedAt?: Date;
   createdAt: Date;
 }
 
@@ -45,11 +62,29 @@ const PostSchema = new Schema<IPost>({
   duration:       { type: Number, default: 0 },
   isPublic:       { type: Boolean, default: true },
   isArchived:     { type: Boolean, default: false },
-  createdAt:      { type: Date, default: Date.now },
+  // Moderation & Reporting & Appeals
+  isDeleted:        { type: Boolean, default: false },
+  deletedAt:        { type: Date },
+  deletionCategory: { type: String, default: '' },
+  deletionReason:   { type: String, default: '' },
+  reportedCount:    { type: Number, default: 0 },
+  reports: [{
+    userId: { type: Schema.Types.ObjectId, ref: 'User' },
+    category: { type: String, required: true },
+    description: { type: String, default: '' },
+    createdAt: { type: Date, default: Date.now },
+  }],
+  appealStatus:     { type: String, enum: ['none', 'pending', 'accepted', 'rejected'], default: 'none' },
+  appealReason:     { type: String, default: '' },
+  appealedAt:       { type: Date },
+  createdAt:        { type: Date, default: Date.now },
 });
 
-// Index for fast chronological feed queries
+// Index for fast chronological feed queries & moderation queries
 PostSchema.index({ createdAt: -1 });
 PostSchema.index({ likesCount: -1 });
+PostSchema.index({ isDeleted: 1 });
+PostSchema.index({ reportedCount: -1 });
+PostSchema.index({ appealStatus: 1 });
 
 export const Post = model<IPost>('Post', PostSchema);

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getSavedPosts = exports.savePost = exports.getArchivedPosts = exports.editPost = exports.restorePost = exports.archivePost = exports.deletePost = exports.addComment = exports.viewPost = exports.sharePost = exports.getComments = exports.likePost = exports.createPost = exports.getFeed = void 0;
+exports.appealPost = exports.reportPost = exports.getSavedPosts = exports.savePost = exports.getArchivedPosts = exports.editPost = exports.restorePost = exports.archivePost = exports.deletePost = exports.addComment = exports.viewPost = exports.sharePost = exports.getComments = exports.likePost = exports.createPost = exports.getFeed = void 0;
 const mongoose_1 = require("mongoose");
 const post_model_1 = require("./post.model");
 const comment_model_1 = require("./comment.model");
@@ -15,7 +15,7 @@ const getFeed = async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
-        const filter = { isPublic: true, isArchived: { $ne: true } };
+        const filter = { isPublic: true, isArchived: { $ne: true }, isDeleted: { $ne: true } };
         if (req.query.userId) {
             filter.userId = new mongoose_1.Types.ObjectId(req.query.userId);
             filter.isArchived = { $ne: true };
@@ -503,3 +503,79 @@ const getSavedPosts = async (req, res) => {
     }
 };
 exports.getSavedPosts = getSavedPosts;
+// POST /feed/:id/report — User reports a video with category & optional description
+const reportPost = async (req, res) => {
+    try {
+        if (!req.user) {
+            res.status(401).json({ success: false, message: 'Unauthorized' });
+            return;
+        }
+        const { category, description } = req.body;
+        if (!category) {
+            res.status(400).json({ success: false, message: 'Category is required' });
+            return;
+        }
+        const postId = new mongoose_1.Types.ObjectId(req.params.id);
+        const userId = new mongoose_1.Types.ObjectId(req.user.id);
+        const post = await post_model_1.Post.findById(postId);
+        if (!post) {
+            res.status(404).json({ success: false, message: 'Post not found' });
+            return;
+        }
+        // Check if user already reported this post
+        const alreadyReported = post.reports.some(r => r.userId.toString() === req.user.id);
+        if (alreadyReported) {
+            res.status(400).json({ success: false, message: 'You have already reported this video.' });
+            return;
+        }
+        post.reports.push({
+            userId,
+            category,
+            description: description || '',
+            createdAt: new Date(),
+        });
+        post.reportedCount = post.reports.length;
+        await post.save();
+        res.status(200).json({ success: true, message: 'Report submitted successfully. Thank you for keeping Gobilive safe.' });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+exports.reportPost = reportPost;
+// POST /feed/:id/appeal — Creator appeals video deletion
+const appealPost = async (req, res) => {
+    try {
+        if (!req.user) {
+            res.status(401).json({ success: false, message: 'Unauthorized' });
+            return;
+        }
+        const { appealReason } = req.body;
+        if (!appealReason || !appealReason.trim()) {
+            res.status(400).json({ success: false, message: 'Appeal reason is required' });
+            return;
+        }
+        const post = await post_model_1.Post.findById(req.params.id);
+        if (!post) {
+            res.status(404).json({ success: false, message: 'Post not found' });
+            return;
+        }
+        if (post.userId.toString() !== req.user.id) {
+            res.status(403).json({ success: false, message: 'Forbidden: only creator can appeal' });
+            return;
+        }
+        if (!post.isDeleted) {
+            res.status(400).json({ success: false, message: 'This video is not deleted' });
+            return;
+        }
+        post.appealStatus = 'pending';
+        post.appealReason = appealReason.trim();
+        post.appealedAt = new Date();
+        await post.save();
+        res.status(200).json({ success: true, message: 'Appeal submitted to Company Admin successfully', post });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+exports.appealPost = appealPost;

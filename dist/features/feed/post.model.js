@@ -23,9 +23,27 @@ const PostSchema = new mongoose_1.Schema({
     duration: { type: Number, default: 0 },
     isPublic: { type: Boolean, default: true },
     isArchived: { type: Boolean, default: false },
+    // Moderation & Reporting & Appeals
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date },
+    deletionCategory: { type: String, default: '' },
+    deletionReason: { type: String, default: '' },
+    reportedCount: { type: Number, default: 0 },
+    reports: [{
+            userId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User' },
+            category: { type: String, required: true },
+            description: { type: String, default: '' },
+            createdAt: { type: Date, default: Date.now },
+        }],
+    appealStatus: { type: String, enum: ['none', 'pending', 'accepted', 'rejected'], default: 'none' },
+    appealReason: { type: String, default: '' },
+    appealedAt: { type: Date },
     createdAt: { type: Date, default: Date.now },
 });
-// Index for fast chronological feed queries
+// Index for fast chronological feed queries & moderation queries
 PostSchema.index({ createdAt: -1 });
 PostSchema.index({ likesCount: -1 });
+PostSchema.index({ isDeleted: 1 });
+PostSchema.index({ reportedCount: -1 });
+PostSchema.index({ appealStatus: 1 });
 exports.Post = (0, mongoose_1.model)('Post', PostSchema);
