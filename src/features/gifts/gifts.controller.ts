@@ -287,41 +287,27 @@ async function processGiftPayment(
   hostId: string,
   diamondCost: number,
   rcoinEarned: number,
-  giftName: string
+  _giftName: string
 ): Promise<void> {
-  try {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    try {
-      const sender = await User.findById(senderId).session(session);
-      if (!sender) throw new Error('Sender not found.');
-      if (sender.diamonds < diamondCost) throw new Error('Insufficient diamonds.');
-      sender.diamonds -= diamondCost;
-      await sender.save({ session });
+  // Deduct diamonds atomically without triggering full-document schema validation
+  const updatedSender = await User.findOneAndUpdate(
+    { _id: senderId, diamonds: { $gte: diamondCost } },
+    { $inc: { diamonds: -diamondCost } },
+    { new: true }
+  ).select('diamonds').lean();
 
-      const host = await User.findById(hostId).session(session);
-      if (host && rcoinEarned > 0) {
-        host.rcoins += rcoinEarned;
-        await host.save({ session });
-      }
-
-      await session.commitTransaction();
-      session.endSession();
-    } catch (err) {
-      await session.abortTransaction();
-      session.endSession();
-      throw err;
-    }
-  } catch (_txErr) {
-    // Fallback: non-transactional for standalone MongoDB
-    const sender = await User.findById(senderId);
+  if (!updatedSender) {
+    const sender = await User.findById(senderId).select('diamonds').lean();
     if (!sender) throw new Error('Sender not found.');
-    if (sender.diamonds < diamondCost) throw new Error('Insufficient diamonds.');
-    sender.diamonds -= diamondCost;
-    await sender.save();
-    if (rcoinEarned > 0) {
-      await User.findByIdAndUpdate(hostId, { $inc: { rcoins: rcoinEarned } });
-    }
+    throw new Error('Insufficient diamonds.');
+  }
+
+  // Credit rcoins to recipient
+  if (rcoinEarned > 0) {
+    await User.updateOne(
+      { _id: hostId },
+      { $inc: { rcoins: rcoinEarned } }
+    );
   }
 }
 
