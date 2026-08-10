@@ -10,6 +10,7 @@ export interface INotificationPrefs {
 
 export type UserRole =
   | 'user'
+  | 'host'
   | 'agency'
   | 'coin_seller'
   | 'admin'
@@ -154,7 +155,7 @@ const UserSchema = new Schema<IUser>({
   tokenVersion: { type: Number, default: 0 },
   role: {
     type: String,
-    enum: ['user', 'agency', 'coin_seller', 'admin', 'company_admin', 'super_admin', 'sub_admin', 'sub_agency', 'top_up_agent', 'reseller'],
+    enum: ['user', 'host', 'agency', 'coin_seller', 'admin', 'company_admin', 'super_admin', 'sub_admin', 'sub_agency', 'top_up_agent', 'reseller'],
     default: 'user',
   },
   agencyId: { type: String },
