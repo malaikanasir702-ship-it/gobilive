@@ -10,6 +10,8 @@ router.post('/login', auth_controller_1.login);
 router.post('/google', auth_controller_1.googleLogin);
 router.get('/profile', auth_middleware_1.authenticateJWT, auth_controller_1.getProfile);
 router.patch('/profile', auth_middleware_1.authenticateJWT, social_controller_1.updateProfile);
+router.get('/check-username', auth_middleware_1.authenticateJWT, social_controller_1.checkUsernameAvailability);
+router.patch('/change-username', auth_middleware_1.authenticateJWT, social_controller_1.changeUsername);
 router.get('/users/:userId', auth_middleware_1.authenticateJWT, social_controller_1.getUserById);
 router.get('/users/:userId/followers', auth_middleware_1.authenticateJWT, social_controller_1.getFollowers);
 router.get('/users/:userId/following', auth_middleware_1.authenticateJWT, social_controller_1.getFollowing);

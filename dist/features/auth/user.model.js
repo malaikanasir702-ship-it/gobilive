@@ -90,6 +90,8 @@ const UserSchema = new mongoose_1.Schema({
     // Privacy
     isPrivate: { type: Boolean, default: false },
     storyPrivacy: { type: String, enum: ['everyone', 'followers', 'following'], default: 'everyone' },
+    // Username change tracking
+    usernameChangedAt: { type: Date },
 });
 UserSchema.pre('save', function () {
     if (!this.referralCode) {

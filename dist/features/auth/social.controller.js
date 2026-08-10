@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getFanClub = exports.togglePrivateAccount = exports.getPendingFollowRequests = exports.cancelFollowRequest = exports.rejectFollowRequest = exports.acceptFollowRequest = exports.getBlockedUsers = exports.unblockUser = exports.blockUser = exports.updateNotificationPrefs = exports.unfollowUser = exports.followUser = exports.getFollowing = exports.getFollowers = exports.getUserById = exports.updateProfile = void 0;
+exports.getFanClub = exports.togglePrivateAccount = exports.getPendingFollowRequests = exports.cancelFollowRequest = exports.rejectFollowRequest = exports.acceptFollowRequest = exports.getBlockedUsers = exports.unblockUser = exports.blockUser = exports.updateNotificationPrefs = exports.unfollowUser = exports.followUser = exports.getFollowing = exports.getFollowers = exports.getUserById = exports.changeUsername = exports.checkUsernameAvailability = exports.updateProfile = void 0;
 const user_model_1 = require("./user.model");
 const follow_model_1 = require("./follow.model");
 const follow_request_model_1 = require("./follow-request.model");
@@ -51,6 +51,83 @@ const updateProfile = async (req, res) => {
     }
 };
 exports.updateProfile = updateProfile;
+// ─── Check Username Availability ──────────────────────────────────────────────
+const checkUsernameAvailability = async (req, res) => {
+    try {
+        if (!req.user) {
+            res.status(401).json({ success: false, message: 'Unauthorized.' });
+            return;
+        }
+        const { username } = req.query;
+        if (!username || username.trim().length < 3) {
+            res.status(400).json({ success: false, message: 'Username must be at least 3 characters.' });
+            return;
+        }
+        const clean = username.trim().toLowerCase();
+        // Only allow alphanumeric + underscores
+        if (!/^[a-zA-Z0-9_]{3,20}$/.test(clean)) {
+            res.status(400).json({ success: false, available: false, message: 'Username can only contain letters, numbers and underscores (3–20 chars).' });
+            return;
+        }
+        const existing = await user_model_1.User.findOne({ username: new RegExp(`^${clean}$`, 'i'), _id: { $ne: req.user.id } }).select('_id').lean();
+        res.status(200).json({ success: true, available: !existing });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.checkUsernameAvailability = checkUsernameAvailability;
+// ─── Change Username (60-day cooldown) ────────────────────────────────────────
+const changeUsername = async (req, res) => {
+    try {
+        if (!req.user) {
+            res.status(401).json({ success: false, message: 'Unauthorized.' });
+            return;
+        }
+        const { username } = req.body;
+        if (!username || username.trim().length < 3) {
+            res.status(400).json({ success: false, message: 'Username must be at least 3 characters.' });
+            return;
+        }
+        const clean = username.trim().toLowerCase();
+        if (!/^[a-zA-Z0-9_]{3,20}$/.test(clean)) {
+            res.status(400).json({ success: false, message: 'Username can only contain letters, numbers and underscores (3–20 chars).' });
+            return;
+        }
+        const user = await user_model_1.User.findById(req.user.id);
+        if (!user) {
+            res.status(404).json({ success: false, message: 'User not found.' });
+            return;
+        }
+        // 60-day cooldown check
+        if (user.usernameChangedAt) {
+            const daysSinceChange = (Date.now() - user.usernameChangedAt.getTime()) / (1000 * 60 * 60 * 24);
+            if (daysSinceChange < 60) {
+                const daysRemaining = Math.ceil(60 - daysSinceChange);
+                res.status(429).json({
+                    success: false,
+                    message: `You can change your username again in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}.`,
+                    daysRemaining,
+                });
+                return;
+            }
+        }
+        // Uniqueness check (case-insensitive, exclude self)
+        const existing = await user_model_1.User.findOne({ username: new RegExp(`^${clean}$`, 'i'), _id: { $ne: req.user.id } }).select('_id').lean();
+        if (existing) {
+            res.status(409).json({ success: false, message: 'This username is already taken. Try a different one.' });
+            return;
+        }
+        user.username = clean;
+        user.usernameChangedAt = new Date();
+        await user.save();
+        res.status(200).json({ success: true, user: await user_model_1.User.findById(user.id).select('-passwordHash') });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.changeUsername = changeUsername;
 const getUserById = async (req, res) => {
     try {
         const user = await user_model_1.User.findById(req.params.userId).select('-passwordHash -fcmTokens');
