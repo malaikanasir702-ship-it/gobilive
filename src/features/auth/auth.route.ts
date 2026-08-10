@@ -33,6 +33,8 @@ import {
   getPendingFollowRequests,
   togglePrivateAccount,
   getFanClub,
+  checkUsernameAvailability,
+  changeUsername,
 } from './social.controller';
 import { authenticateJWT } from '../../core/middlewares/auth.middleware';
 
@@ -44,6 +46,8 @@ router.post('/google', googleLogin as any);
 
 router.get('/profile', authenticateJWT as any, getProfile as any);
 router.patch('/profile', authenticateJWT as any, updateProfile as any);
+router.get('/check-username', authenticateJWT as any, checkUsernameAvailability as any);
+router.patch('/change-username', authenticateJWT as any, changeUsername as any);
 router.get('/users/:userId', authenticateJWT as any, getUserById as any);
 router.get('/users/:userId/followers', authenticateJWT as any, getFollowers as any);
 router.get('/users/:userId/following', authenticateJWT as any, getFollowing as any);

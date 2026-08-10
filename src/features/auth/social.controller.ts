@@ -42,6 +42,93 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
   }
 };
 
+// ─── Check Username Availability ──────────────────────────────────────────────
+export const checkUsernameAvailability = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Unauthorized.' });
+      return;
+    }
+
+    const { username } = req.query as { username: string };
+    if (!username || username.trim().length < 3) {
+      res.status(400).json({ success: false, message: 'Username must be at least 3 characters.' });
+      return;
+    }
+
+    const clean = username.trim().toLowerCase();
+    // Only allow alphanumeric + underscores
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(clean)) {
+      res.status(400).json({ success: false, available: false, message: 'Username can only contain letters, numbers and underscores (3–20 chars).' });
+      return;
+    }
+
+    const existing = await User.findOne({ username: new RegExp(`^${clean}$`, 'i'), _id: { $ne: req.user.id } }).select('_id').lean();
+    res.status(200).json({ success: true, available: !existing });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ─── Change Username (60-day cooldown) ────────────────────────────────────────
+export const changeUsername = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Unauthorized.' });
+      return;
+    }
+
+    const { username } = req.body as { username: string };
+    if (!username || username.trim().length < 3) {
+      res.status(400).json({ success: false, message: 'Username must be at least 3 characters.' });
+      return;
+    }
+
+    const clean = username.trim().toLowerCase();
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(clean)) {
+      res.status(400).json({ success: false, message: 'Username can only contain letters, numbers and underscores (3–20 chars).' });
+      return;
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found.' });
+      return;
+    }
+
+    // 60-day cooldown check
+    if (user.usernameChangedAt) {
+      const daysSinceChange = (Date.now() - user.usernameChangedAt.getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSinceChange < 60) {
+        const daysRemaining = Math.ceil(60 - daysSinceChange);
+        res.status(429).json({
+          success: false,
+          message: `You can change your username again in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}.`,
+          daysRemaining,
+        });
+        return;
+      }
+    }
+
+    // Uniqueness check (case-insensitive, exclude self)
+    const existing = await User.findOne({ username: new RegExp(`^${clean}$`, 'i'), _id: { $ne: req.user.id } }).select('_id').lean();
+    if (existing) {
+      res.status(409).json({ success: false, message: 'This username is already taken. Try a different one.' });
+      return;
+    }
+
+    user.username = clean;
+    user.usernameChangedAt = new Date();
+    await user.save();
+
+    res.status(200).json({ success: true, user: await User.findById(user.id).select('-passwordHash') });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+
 export const getUserById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const user = await User.findById(req.params.userId).select('-passwordHash -fcmTokens');

@@ -89,6 +89,8 @@ export interface IUser extends Document {
   // Privacy
   isPrivate: boolean;
   storyPrivacy: 'everyone' | 'followers' | 'following';
+  // Username change tracking
+  usernameChangedAt?: Date;
 }
 
 const UserSchema = new Schema<IUser>({
@@ -179,6 +181,8 @@ const UserSchema = new Schema<IUser>({
   // Privacy
   isPrivate: { type: Boolean, default: false },
   storyPrivacy: { type: String, enum: ['everyone', 'followers', 'following'], default: 'everyone' },
+  // Username change tracking
+  usernameChangedAt: { type: Date },
 });
 
 UserSchema.pre('save', function () {
