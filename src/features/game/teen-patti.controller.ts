@@ -129,7 +129,7 @@ export const playTeenPatti = async (req: AuthRequest, res: Response): Promise<vo
     // Update balance
     user.diamonds -= bet;
     user.diamonds += payout;
-    await user.save();
+    await user.save({ validateModifiedOnly: true } as any);
 
     // Persist history
     await GameHistory.create({

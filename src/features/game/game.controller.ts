@@ -60,7 +60,7 @@ export const spinWheel = async (req: AuthRequest, res: Response): Promise<void> 
     const prize = pickPrize();
     user.diamonds += prize.diamonds;
     if (freeSpinAvailable) user.lastFreeSpinAt = now;
-    await user.save();
+    await user.save({ validateModifiedOnly: true } as any);
 
     res.status(200).json({
       success: true,

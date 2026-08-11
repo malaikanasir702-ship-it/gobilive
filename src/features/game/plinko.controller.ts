@@ -47,7 +47,7 @@ export const dropPlinko = async (req: AuthRequest, res: Response): Promise<void>
 
     user.diamonds -= bet;
     user.diamonds += payout;
-    await user.save();
+    await user.save({ validateModifiedOnly: true } as any);
 
     await GameHistory.create({
       userId:        user._id,
