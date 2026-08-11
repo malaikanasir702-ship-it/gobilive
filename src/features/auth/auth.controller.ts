@@ -7,6 +7,8 @@ import { AuthRequest } from '../../core/middlewares/auth.middleware';
 import { loginWithFirebaseToken, loginWithGoogleToken, verifyFirebaseIdToken } from './google-auth.service';
 import { RegistrationRequest } from '../registration/registration-request.model';
 
+import { Agency } from '../agency/agency.model';
+
 // Helpers to generate tokens
 const generateToken = (userId: string, username: string, tokenVersion = 0): string => {
   return jwt.sign(
@@ -16,9 +18,48 @@ const generateToken = (userId: string, username: string, tokenVersion = 0): stri
   );
 };
 
-const getSafeUser = async (userId: string) => {
-  // Keep app responses consistent and always exclude password hash.
-  return User.findById(userId).select('-passwordHash');
+export const getSafeUser = async (userId: string) => {
+  const user = await User.findById(userId).select('-passwordHash').lean({ virtuals: true }) as any;
+  if (!user) return null;
+
+  const rolesSet = new Set<string>();
+
+  // Primary role
+  if (user.role && user.role !== 'user') {
+    rolesSet.add(user.role);
+  }
+
+  // Check if user owns an agency
+  const isAgencyOwner = await Agency.exists({ ownerId: user._id.toString() });
+  if (isAgencyOwner) {
+    rolesSet.add('agency');
+  }
+
+  // Check host status
+  if (user.role === 'host' || user.agencyId) {
+    rolesSet.add('host');
+  }
+
+  // Combine existing badges and roles array
+  if (Array.isArray(user.badges)) {
+    user.badges.forEach((b: string) => {
+      if (b && b !== 'user') rolesSet.add(b.toLowerCase());
+    });
+  }
+  if (Array.isArray(user.roles)) {
+    user.roles.forEach((r: string) => {
+      if (r && r !== 'user') rolesSet.add(r.toLowerCase());
+    });
+  }
+
+  user.roles = Array.from(rolesSet);
+
+  // Sync badges to include all active roles as well
+  const badgeSet = new Set<string>((user.badges || []).map((b: any) => b.toString().toLowerCase()));
+  rolesSet.forEach((r) => badgeSet.add(r));
+  user.badges = Array.from(badgeSet);
+
+  return user;
 };
 
 export const register = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -187,7 +228,7 @@ export const getProfile = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
-    const user = await User.findById(req.user.id).select('-passwordHash');
+    const user = await getSafeUser(req.user.id);
 
     if (!user) {
       res.status(404).json({ success: false, message: 'User profile not found.' });

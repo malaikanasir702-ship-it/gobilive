@@ -129,9 +129,11 @@ export const changeUsername = async (req: AuthRequest, res: Response): Promise<v
 
 
 
+import { getSafeUser } from './auth.controller';
+
 export const getUserById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const user = await User.findById(req.params.userId).select('-passwordHash -fcmTokens');
+    const user = await getSafeUser(String(req.params.userId));
     if (!user) {
       res.status(404).json({ success: false, message: 'User not found.' });
       return;

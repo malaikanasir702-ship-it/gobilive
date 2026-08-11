@@ -80,7 +80,7 @@ export async function approveRegistration(req: Request, res: Response) {
 
       const existingUser = await User.findByIdAndUpdate(
         request.formData.parentId,
-        { role: 'host', agencyId: resolvedAgencyRef },
+        { role: 'host', agencyId: resolvedAgencyRef, $addToSet: { badges: 'host' } },
         { new: true }
       ).select('_id username');
 
