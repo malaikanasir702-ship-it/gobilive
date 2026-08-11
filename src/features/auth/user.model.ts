@@ -184,6 +184,11 @@ const UserSchema = new Schema<IUser>({
   storyPrivacy: { type: String, enum: ['everyone', 'followers', 'following'], default: 'everyone' },
   // Username change tracking
   usernameChangedAt: { type: Date },
+}, {
+  // Only validate fields that were actually modified — prevents full-document
+  // validation errors on old documents that have role='host' or other
+  // values that were added to the enum later.
+  validateModifiedOnly: true,
 });
 
 UserSchema.pre('save', function () {
