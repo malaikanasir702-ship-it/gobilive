@@ -748,3 +748,27 @@ export const getMyHostApplication = async (req: AuthRequest, res: Response): Pro
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+export const forgotPassword = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { email } = req.body;
+    if (!email || !email.trim()) {
+      res.status(400).json({ success: false, message: 'Email address is required' });
+      return;
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: cleanEmail });
+    if (!user) {
+      res.status(404).json({ success: false, message: 'No account found with this email address' });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset instructions have been sent to your email address.',
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Failed to process forgot password request' });
+  }
+};
