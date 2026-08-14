@@ -6,8 +6,8 @@ import { User } from './user.model';
 import { AuthRequest } from '../../core/middlewares/auth.middleware';
 import { loginWithFirebaseToken, loginWithGoogleToken, verifyFirebaseIdToken } from './google-auth.service';
 import { RegistrationRequest } from '../registration/registration-request.model';
-
 import { Agency } from '../agency/agency.model';
+import { sendPasswordResetEmail } from '../../core/services/email.service';
 
 // Helpers to generate tokens
 const generateToken = (userId: string, username: string, tokenVersion = 0): string => {
@@ -779,7 +779,6 @@ export const forgotPassword = async (req: AuthRequest, res: Response): Promise<v
     // Send reset email if user has an email address and RESEND_API_KEY is set
     if (user.email && process.env.RESEND_API_KEY) {
       try {
-        const { sendPasswordResetEmail } = await import('../../../core/services/email.service');
         await sendPasswordResetEmail({ to: user.email, resetCode });
         console.log(`[Auth] Password reset email sent to ${user.email}`);
       } catch (emailErr: any) {
@@ -798,6 +797,198 @@ export const forgotPassword = async (req: AuthRequest, res: Response): Promise<v
     });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message || 'Failed to process forgot password request' });
+  }
+};
+
+// ─── Find My Account ───────────────────────────────────────────────────────
+// Searches by email, phone, or username and returns masked account details
+export const findMyAccount = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { query } = req.body;
+    const target = (query || '').toString().trim();
+
+    if (!target) {
+      res.status(400).json({ success: false, message: 'Please enter your email, phone, or username.' });
+      return;
+    }
+
+    const lowerTarget = target.toLowerCase();
+
+    const user = await User.findOne({
+      $or: [
+        { email: lowerTarget },
+        { phone: target },
+        { username: lowerTarget },
+      ],
+    }).lean();
+
+    if (!user) {
+      res.status(404).json({ success: false, message: 'No account found. Check your input and try again.' });
+      return;
+    }
+
+    // Mask email: jo***@gmail.com
+    const maskEmail = (email: string): string => {
+      const [local, domain] = email.split('@');
+      if (!domain) return email;
+      const visible = local.slice(0, Math.min(2, local.length));
+      return `${visible}***@${domain}`;
+    };
+
+    // Mask phone: +92***1234
+    const maskPhone = (phone: string): string => {
+      if (phone.length <= 4) return '***';
+      return `${phone.slice(0, 3)}***${phone.slice(-4)}`;
+    };
+
+    res.status(200).json({
+      success: true,
+      account: {
+        username: user.username,
+        profilePic: (user as any).profilePic || (user as any).avatar || '',
+        maskedEmail: user.email ? maskEmail(user.email) : null,
+        maskedPhone: (user as any).phone ? maskPhone((user as any).phone) : null,
+        hasEmail: !!user.email,
+        hasPhone: !!(user as any).phone,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Failed to find account.' });
+  }
+};
+
+// ─── Send OTP for Account Recovery ────────────────────────────────────────
+// Sends a 6-digit OTP to the chosen delivery method (email or phone)
+export const sendAccountRecoveryOtp = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { query, method } = req.body; // method: 'email' | 'phone'
+    const target = (query || '').toString().trim();
+
+    if (!target || !method) {
+      res.status(400).json({ success: false, message: 'query and method are required.' });
+      return;
+    }
+
+    if (!['email', 'phone'].includes(method)) {
+      res.status(400).json({ success: false, message: 'method must be "email" or "phone".' });
+      return;
+    }
+
+    const lowerTarget = target.toLowerCase();
+
+    const user = await User.findOne({
+      $or: [
+        { email: lowerTarget },
+        { phone: target },
+        { username: lowerTarget },
+      ],
+    });
+
+    if (!user) {
+      res.status(404).json({ success: false, message: 'No account found.' });
+      return;
+    }
+
+    // Validate chosen delivery method exists on account
+    if (method === 'email' && !user.email) {
+      res.status(400).json({ success: false, message: 'This account does not have an email address.' });
+      return;
+    }
+    if (method === 'phone' && !(user as any).phone) {
+      res.status(400).json({ success: false, message: 'This account does not have a phone number.' });
+      return;
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.resetPasswordToken = otp;
+    user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+    await user.save({ validateModifiedOnly: true });
+
+    if (method === 'email' && user.email && process.env.RESEND_API_KEY) {
+      try {
+        await sendPasswordResetEmail({ to: user.email, resetCode: otp });
+        console.log(`[Auth] Recovery OTP sent to ${user.email}`);
+      } catch (emailErr: any) {
+        console.error('[Auth] Failed to send recovery OTP email:', emailErr?.message);
+      }
+    }
+
+    // Phone OTP — log for now (integrate Twilio/Firebase when SMS service ready)
+    if (method === 'phone') {
+      console.log(`[Auth] Phone OTP for ${(user as any).phone}: ${otp}`);
+      // TODO: integrate SMS service here (Twilio, Firebase, etc.)
+    }
+
+    res.status(200).json({
+      success: true,
+      message: method === 'email'
+        ? 'OTP sent to your email address.'
+        : 'OTP sent to your phone number.',
+      ...(process.env.NODE_ENV !== 'production' && { otp }),
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Failed to send OTP.' });
+  }
+};
+
+// ─── Verify OTP & Reset Password ──────────────────────────────────────────
+// Verifies OTP and sets a new password for account recovery
+export const verifyOtpAndResetPassword = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { query, otp, newPassword } = req.body;
+    const target = (query || '').toString().trim();
+
+    if (!target || !otp || !newPassword) {
+      res.status(400).json({ success: false, message: 'query, otp, and newPassword are required.' });
+      return;
+    }
+
+    if (String(newPassword).length < 6) {
+      res.status(400).json({ success: false, message: 'New password must be at least 6 characters.' });
+      return;
+    }
+
+    const lowerTarget = target.toLowerCase();
+
+    const user = await User.findOne({
+      $or: [
+        { email: lowerTarget },
+        { phone: target },
+        { username: lowerTarget },
+      ],
+    });
+
+    if (!user) {
+      res.status(404).json({ success: false, message: 'No account found.' });
+      return;
+    }
+
+    // Validate OTP
+    if (!user.resetPasswordToken || user.resetPasswordToken !== String(otp).trim()) {
+      res.status(400).json({ success: false, message: 'Invalid OTP. Please check and try again.' });
+      return;
+    }
+
+    if (user.resetPasswordExpires && user.resetPasswordExpires < new Date()) {
+      res.status(400).json({ success: false, message: 'OTP has expired. Please request a new one.' });
+      return;
+    }
+
+    // Update password
+    const salt = await bcrypt.genSalt(10);
+    user.passwordHash = await bcrypt.hash(newPassword, salt);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset successfully. You can now log in.',
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Failed to reset password.' });
   }
 };
 

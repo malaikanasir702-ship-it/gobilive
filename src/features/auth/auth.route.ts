@@ -17,6 +17,9 @@ import {
   getMyHostApplication,
   forgotPassword,
   resetPassword,
+  findMyAccount,
+  sendAccountRecoveryOtp,
+  verifyOtpAndResetPassword,
 } from './auth.controller';
 import {
   updateProfile,
@@ -49,6 +52,11 @@ router.post('/forgot-password', forgotPassword as any);
 router.post('/forgot_password', forgotPassword as any);
 router.post('/reset-password', resetPassword as any);
 router.post('/reset_password', resetPassword as any);
+
+// Account recovery — Find My Account flow
+router.post('/find-account', findMyAccount as any);
+router.post('/send-recovery-otp', sendAccountRecoveryOtp as any);
+router.post('/verify-otp-reset', verifyOtpAndResetPassword as any);
 
 router.get('/profile', authenticateJWT as any, getProfile as any);
 router.patch('/profile', authenticateJWT as any, updateProfile as any);
