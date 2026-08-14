@@ -664,10 +664,23 @@ const forgotPassword = async (req, res) => {
         user.resetPasswordToken = resetCode;
         user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
         await user.save({ validateModifiedOnly: true });
+        // Send reset email if user has an email and RESEND_API_KEY is configured
+        if (user.email && process.env.RESEND_API_KEY) {
+            try {
+                const { sendPasswordResetEmail } = require('../../core/services/email.service');
+                await sendPasswordResetEmail({ to: user.email, resetCode });
+                console.log(`[Auth] Password reset email sent to ${user.email}`);
+            }
+            catch (emailErr) {
+                console.error('[Auth] Failed to send password reset email:', emailErr?.message);
+            }
+        }
         res.status(200).json({
             success: true,
-            message: 'Password reset instructions have been sent to your email address.',
-            resetCode,
+            message: user.email
+                ? 'Password reset code sent to your email address.'
+                : 'Password reset instructions have been sent.',
+            ...(process.env.NODE_ENV !== 'production' && { resetCode }),
         });
     }
     catch (err) {
