@@ -70,6 +70,8 @@ export interface IUser extends Document {
   thought?: string;
   thoughtUpdatedAt?: Date;
   createdAt: Date;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
   // Admin panel extensions
   beanWallet: number;
   isBlocked: boolean;
@@ -162,6 +164,8 @@ const UserSchema = new Schema<IUser>({
   thought: { type: String, default: '' },
   thoughtUpdatedAt: { type: Date },
   createdAt: { type: Date, default: Date.now },
+  resetPasswordToken: { type: String },
+  resetPasswordExpires: { type: Date },
   // Admin panel extensions
   beanWallet: { type: Number, default: 0 },
   isBlocked: { type: Boolean, default: false },

@@ -751,24 +751,85 @@ export const getMyHostApplication = async (req: AuthRequest, res: Response): Pro
 
 export const forgotPassword = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { email } = req.body;
-    if (!email || !email.trim()) {
-      res.status(400).json({ success: false, message: 'Email address is required' });
+    const { email, identity } = req.body;
+    const target = (email || identity || '').toString().trim().toLowerCase();
+    if (!target) {
+      res.status(400).json({ success: false, message: 'Email address or username is required.' });
       return;
     }
 
-    const cleanEmail = email.trim().toLowerCase();
-    const user = await User.findOne({ email: cleanEmail });
+    const user = await User.findOne({
+      $or: [
+        { email: target },
+        { username: target },
+      ],
+    });
+
     if (!user) {
-      res.status(404).json({ success: false, message: 'No account found with this email address' });
+      res.status(404).json({ success: false, message: 'No account found with this email or username.' });
       return;
     }
+
+    // Generate a 6-digit OTP code for password reset
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    user.resetPasswordToken = resetCode;
+    user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    await user.save();
 
     res.status(200).json({
       success: true,
       message: 'Password reset instructions have been sent to your email address.',
+      resetCode,
     });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message || 'Failed to process forgot password request' });
+  }
+};
+
+export const resetPassword = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { email, identity, code, newPassword } = req.body;
+    const target = (email || identity || '').toString().trim().toLowerCase();
+
+    if (!target || !newPassword) {
+      res.status(400).json({ success: false, message: 'Email and new password are required.' });
+      return;
+    }
+
+    if (String(newPassword).length < 6) {
+      res.status(400).json({ success: false, message: 'New password must be at least 6 characters long.' });
+      return;
+    }
+
+    const user = await User.findOne({
+      $or: [
+        { email: target },
+        { username: target },
+      ],
+    });
+
+    if (!user) {
+      res.status(404).json({ success: false, message: 'No account found with this email address.' });
+      return;
+    }
+
+    if (code && user.resetPasswordToken && user.resetPasswordToken !== String(code).trim()) {
+      res.status(400).json({ success: false, message: 'Invalid or expired password reset code.' });
+      return;
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.passwordHash = await bcrypt.hash(newPassword, salt);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    user.tokenVersion = (user.tokenVersion || 0) + 1; // Revoke existing tokens
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset successfully. You can now log in with your new password.',
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Failed to reset password.' });
   }
 };

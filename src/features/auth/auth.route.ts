@@ -16,6 +16,7 @@ import {
   applyAsHost,
   getMyHostApplication,
   forgotPassword,
+  resetPassword,
 } from './auth.controller';
 import {
   updateProfile,
@@ -45,6 +46,9 @@ router.post('/register', register as any);
 router.post('/login', login as any);
 router.post('/google', googleLogin as any);
 router.post('/forgot-password', forgotPassword as any);
+router.post('/forgot_password', forgotPassword as any);
+router.post('/reset-password', resetPassword as any);
+router.post('/reset_password', resetPassword as any);
 
 router.get('/profile', authenticateJWT as any, getProfile as any);
 router.patch('/profile', authenticateJWT as any, updateProfile as any);
