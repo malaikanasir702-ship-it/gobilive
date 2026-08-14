@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getMyHostApplication = exports.applyAsHost = exports.getMedals = exports.claimDailyReward = exports.adminLogout = exports.adminLogin = exports.unlinkGoogleAccount = exports.linkGoogleAccount = exports.disableTwoFactor = exports.verifyTwoFactor = exports.setupTwoFactor = exports.changePassword = exports.logoutAllSessions = exports.getProfile = exports.googleLogin = exports.login = exports.register = void 0;
+exports.resetPassword = exports.forgotPassword = exports.getMyHostApplication = exports.applyAsHost = exports.getMedals = exports.claimDailyReward = exports.adminLogout = exports.adminLogin = exports.unlinkGoogleAccount = exports.linkGoogleAccount = exports.disableTwoFactor = exports.verifyTwoFactor = exports.setupTwoFactor = exports.changePassword = exports.logoutAllSessions = exports.getProfile = exports.googleLogin = exports.login = exports.register = void 0;
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const speakeasy_1 = __importDefault(require("speakeasy"));
@@ -643,3 +643,75 @@ const getMyHostApplication = async (req, res) => {
     }
 };
 exports.getMyHostApplication = getMyHostApplication;
+
+// ─── Forgot Password ──────────────────────────────────────────────────────────
+const forgotPassword = async (req, res) => {
+    try {
+        const { email, identity } = req.body;
+        const target = (email || identity || '').toString().trim().toLowerCase();
+        if (!target) {
+            res.status(400).json({ success: false, message: 'Email address or username is required.' });
+            return;
+        }
+        const user = await user_model_1.User.findOne({
+            $or: [{ email: target }, { username: target }],
+        });
+        if (!user) {
+            res.status(404).json({ success: false, message: 'No account found with this email or username.' });
+            return;
+        }
+        const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+        user.resetPasswordToken = resetCode;
+        user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
+        await user.save({ validateModifiedOnly: true });
+        res.status(200).json({
+            success: true,
+            message: 'Password reset instructions have been sent to your email address.',
+            resetCode,
+        });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, message: err.message || 'Failed to process forgot password request' });
+    }
+};
+exports.forgotPassword = forgotPassword;
+// ─── Reset Password ───────────────────────────────────────────────────────────
+const resetPassword = async (req, res) => {
+    try {
+        const { email, identity, code, newPassword } = req.body;
+        const target = (email || identity || '').toString().trim().toLowerCase();
+        if (!target || !newPassword) {
+            res.status(400).json({ success: false, message: 'Email and new password are required.' });
+            return;
+        }
+        if (String(newPassword).length < 6) {
+            res.status(400).json({ success: false, message: 'New password must be at least 6 characters long.' });
+            return;
+        }
+        const user = await user_model_1.User.findOne({
+            $or: [{ email: target }, { username: target }],
+        });
+        if (!user) {
+            res.status(404).json({ success: false, message: 'No account found with this email address.' });
+            return;
+        }
+        if (code && user.resetPasswordToken && user.resetPasswordToken !== String(code).trim()) {
+            res.status(400).json({ success: false, message: 'Invalid or expired password reset code.' });
+            return;
+        }
+        const salt = await bcryptjs_1.default.genSalt(10);
+        user.passwordHash = await bcryptjs_1.default.hash(newPassword, salt);
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpires = undefined;
+        user.tokenVersion = (user.tokenVersion || 0) + 1;
+        await user.save({ validateModifiedOnly: true });
+        res.status(200).json({
+            success: true,
+            message: 'Password reset successfully. You can now log in with your new password.',
+        });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, message: err.message || 'Failed to reset password.' });
+    }
+};
+exports.resetPassword = resetPassword;
