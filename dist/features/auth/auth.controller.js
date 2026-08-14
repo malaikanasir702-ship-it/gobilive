@@ -3,22 +3,59 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resetPassword = exports.forgotPassword = exports.getMyHostApplication = exports.applyAsHost = exports.getMedals = exports.claimDailyReward = exports.adminLogout = exports.adminLogin = exports.unlinkGoogleAccount = exports.linkGoogleAccount = exports.disableTwoFactor = exports.verifyTwoFactor = exports.setupTwoFactor = exports.changePassword = exports.logoutAllSessions = exports.getProfile = exports.googleLogin = exports.login = exports.register = void 0;
+exports.resetPassword = exports.verifyOtpAndResetPassword = exports.sendAccountRecoveryOtp = exports.findMyAccount = exports.forgotPassword = exports.getMyHostApplication = exports.applyAsHost = exports.getMedals = exports.claimDailyReward = exports.adminLogout = exports.adminLogin = exports.unlinkGoogleAccount = exports.linkGoogleAccount = exports.disableTwoFactor = exports.verifyTwoFactor = exports.setupTwoFactor = exports.changePassword = exports.logoutAllSessions = exports.getProfile = exports.googleLogin = exports.login = exports.register = exports.getSafeUser = void 0;
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const speakeasy_1 = __importDefault(require("speakeasy"));
 const user_model_1 = require("./user.model");
 const google_auth_service_1 = require("./google-auth.service");
 const registration_request_model_1 = require("../registration/registration-request.model");
+const agency_model_1 = require("../agency/agency.model");
+const email_service_1 = require("../../core/services/email.service");
 // Helpers to generate tokens
 const generateToken = (userId, username, tokenVersion = 0) => {
     return jsonwebtoken_1.default.sign({ id: userId, username, tokenVersion }, process.env.JWT_SECRET || 'super_secret_gobilive_token_key_123!', { expiresIn: '30d' } // Extended expiration for mobile devices
     );
 };
 const getSafeUser = async (userId) => {
-    // Keep app responses consistent and always exclude password hash.
-    return user_model_1.User.findById(userId).select('-passwordHash');
+    const user = await user_model_1.User.findById(userId).select('-passwordHash').lean({ virtuals: true });
+    if (!user)
+        return null;
+    const rolesSet = new Set();
+    // Primary role
+    if (user.role && user.role !== 'user') {
+        rolesSet.add(user.role);
+    }
+    // Check if user owns an agency
+    const isAgencyOwner = await agency_model_1.Agency.exists({ ownerId: user._id.toString() });
+    if (isAgencyOwner) {
+        rolesSet.add('agency');
+    }
+    // Check host status
+    if (user.role === 'host' || user.agencyId) {
+        rolesSet.add('host');
+    }
+    // Combine existing badges and roles array
+    if (Array.isArray(user.badges)) {
+        user.badges.forEach((b) => {
+            if (b && b !== 'user')
+                rolesSet.add(b.toLowerCase());
+        });
+    }
+    if (Array.isArray(user.roles)) {
+        user.roles.forEach((r) => {
+            if (r && r !== 'user')
+                rolesSet.add(r.toLowerCase());
+        });
+    }
+    user.roles = Array.from(rolesSet);
+    // Sync badges to include all active roles as well
+    const badgeSet = new Set((user.badges || []).map((b) => b.toString().toLowerCase()));
+    rolesSet.forEach((r) => badgeSet.add(r));
+    user.badges = Array.from(badgeSet);
+    return user;
 };
+exports.getSafeUser = getSafeUser;
 const register = async (req, res) => {
     try {
         const { username, email, phone, password } = req.body;
@@ -63,7 +100,7 @@ const register = async (req, res) => {
         await newUser.save();
         // Sign Token
         const token = generateToken(newUser.id, newUser.username, newUser.tokenVersion ?? 0);
-        const safeUser = await getSafeUser(newUser.id);
+        const safeUser = await (0, exports.getSafeUser)(newUser.id);
         res.status(201).json({
             success: true,
             message: 'Account created successfully.',
@@ -166,7 +203,7 @@ const getProfile = async (req, res) => {
             res.status(401).json({ success: false, message: 'Unauthorized.' });
             return;
         }
-        const user = await user_model_1.User.findById(req.user.id).select('-passwordHash');
+        const user = await (0, exports.getSafeUser)(req.user.id);
         if (!user) {
             res.status(404).json({ success: false, message: 'User profile not found.' });
             return;
@@ -242,7 +279,7 @@ const changePassword = async (req, res) => {
         user.tokenVersion = (user.tokenVersion || 0) + 1; // revoke other sessions
         await user.save();
         const newToken = generateToken(user.id, user.username, user.tokenVersion ?? 0);
-        const safeUser = await getSafeUser(user.id);
+        const safeUser = await (0, exports.getSafeUser)(user.id);
         res.status(200).json({
             success: true,
             message: 'Password updated successfully.',
@@ -318,7 +355,7 @@ const verifyTwoFactor = async (req, res) => {
         user.twoFactorPendingSecret = undefined;
         user.twoFactorEnabled = true;
         await user.save();
-        const safeUser = await getSafeUser(user.id);
+        const safeUser = await (0, exports.getSafeUser)(user.id);
         res.status(200).json({ success: true, message: 'Two-factor authentication enabled.', user: safeUser });
     }
     catch (error) {
@@ -360,7 +397,7 @@ const disableTwoFactor = async (req, res) => {
         user.twoFactorSecret = undefined;
         user.twoFactorPendingSecret = undefined;
         await user.save();
-        const safeUser = await getSafeUser(user.id);
+        const safeUser = await (0, exports.getSafeUser)(user.id);
         res.status(200).json({ success: true, message: 'Two-factor authentication disabled.', user: safeUser });
     }
     catch (error) {
@@ -395,7 +432,7 @@ const linkGoogleAccount = async (req, res) => {
         if (!user.email && decoded.email)
             user.email = decoded.email.toLowerCase();
         await user.save();
-        const safeUser = await getSafeUser(user.id);
+        const safeUser = await (0, exports.getSafeUser)(user.id);
         res.status(200).json({ success: true, message: 'Google account linked.', user: safeUser });
     }
     catch (error) {
@@ -423,7 +460,7 @@ const unlinkGoogleAccount = async (req, res) => {
         }
         user.googleId = undefined;
         await user.save();
-        const safeUser = await getSafeUser(user.id);
+        const safeUser = await (0, exports.getSafeUser)(user.id);
         res.status(200).json({ success: true, message: 'Google account unlinked.', user: safeUser });
     }
     catch (error) {
@@ -485,7 +522,7 @@ const adminLogin = async (req, res) => {
             return;
         }
         const token = generateToken(user.id, user.username, user.tokenVersion ?? 0);
-        const safeUser = await getSafeUser(user.id);
+        const safeUser = await (0, exports.getSafeUser)(user.id);
         res.status(200).json({ success: true, message: 'Admin signed in.', token, user: safeUser });
     }
     catch (err) {
@@ -643,8 +680,6 @@ const getMyHostApplication = async (req, res) => {
     }
 };
 exports.getMyHostApplication = getMyHostApplication;
-
-// ─── Forgot Password ──────────────────────────────────────────────────────────
 const forgotPassword = async (req, res) => {
     try {
         const { email, identity } = req.body;
@@ -654,24 +689,28 @@ const forgotPassword = async (req, res) => {
             return;
         }
         const user = await user_model_1.User.findOne({
-            $or: [{ email: target }, { username: target }],
+            $or: [
+                { email: target },
+                { username: target },
+            ],
         });
         if (!user) {
             res.status(404).json({ success: false, message: 'No account found with this email or username.' });
             return;
         }
+        // Generate a 6-digit OTP code for password reset
         const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
         user.resetPasswordToken = resetCode;
-        user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
+        user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
         await user.save({ validateModifiedOnly: true });
-        // Send reset email if user has an email and RESEND_API_KEY is configured
+        // Send reset email if user has an email address and RESEND_API_KEY is set
         if (user.email && process.env.RESEND_API_KEY) {
             try {
-                const { sendPasswordResetEmail } = require('../../core/services/email.service');
-                await sendPasswordResetEmail({ to: user.email, resetCode });
+                await (0, email_service_1.sendPasswordResetEmail)({ to: user.email, resetCode });
                 console.log(`[Auth] Password reset email sent to ${user.email}`);
             }
             catch (emailErr) {
+                // Email failure is non-fatal — user still gets the code in the response
                 console.error('[Auth] Failed to send password reset email:', emailErr?.message);
             }
         }
@@ -680,6 +719,7 @@ const forgotPassword = async (req, res) => {
             message: user.email
                 ? 'Password reset code sent to your email address.'
                 : 'Password reset instructions have been sent.',
+            // Only expose resetCode in dev/staging — in production remove this line
             ...(process.env.NODE_ENV !== 'production' && { resetCode }),
         });
     }
@@ -688,7 +728,178 @@ const forgotPassword = async (req, res) => {
     }
 };
 exports.forgotPassword = forgotPassword;
-// ─── Reset Password ───────────────────────────────────────────────────────────
+// ─── Find My Account ───────────────────────────────────────────────────────
+// Searches by email, phone, or username and returns masked account details
+const findMyAccount = async (req, res) => {
+    try {
+        const { query } = req.body;
+        const target = (query || '').toString().trim();
+        if (!target) {
+            res.status(400).json({ success: false, message: 'Please enter your email, phone, or username.' });
+            return;
+        }
+        const lowerTarget = target.toLowerCase();
+        const user = await user_model_1.User.findOne({
+            $or: [
+                { email: lowerTarget },
+                { phone: target },
+                { username: lowerTarget },
+            ],
+        }).lean();
+        if (!user) {
+            res.status(404).json({ success: false, message: 'No account found. Check your input and try again.' });
+            return;
+        }
+        // Mask email: jo***@gmail.com
+        const maskEmail = (email) => {
+            const [local, domain] = email.split('@');
+            if (!domain)
+                return email;
+            const visible = local.slice(0, Math.min(2, local.length));
+            return `${visible}***@${domain}`;
+        };
+        // Mask phone: +92***1234
+        const maskPhone = (phone) => {
+            if (phone.length <= 4)
+                return '***';
+            return `${phone.slice(0, 3)}***${phone.slice(-4)}`;
+        };
+        res.status(200).json({
+            success: true,
+            account: {
+                username: user.username,
+                profilePic: user.profilePic || user.avatar || '',
+                maskedEmail: user.email ? maskEmail(user.email) : null,
+                maskedPhone: user.phone ? maskPhone(user.phone) : null,
+                hasEmail: !!user.email,
+                hasPhone: !!user.phone,
+            },
+        });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, message: err.message || 'Failed to find account.' });
+    }
+};
+exports.findMyAccount = findMyAccount;
+// ─── Send OTP for Account Recovery ────────────────────────────────────────
+// Sends a 6-digit OTP to the chosen delivery method (email or phone)
+const sendAccountRecoveryOtp = async (req, res) => {
+    try {
+        const { query, method } = req.body; // method: 'email' | 'phone'
+        const target = (query || '').toString().trim();
+        if (!target || !method) {
+            res.status(400).json({ success: false, message: 'query and method are required.' });
+            return;
+        }
+        if (!['email', 'phone'].includes(method)) {
+            res.status(400).json({ success: false, message: 'method must be "email" or "phone".' });
+            return;
+        }
+        const lowerTarget = target.toLowerCase();
+        const user = await user_model_1.User.findOne({
+            $or: [
+                { email: lowerTarget },
+                { phone: target },
+                { username: lowerTarget },
+            ],
+        });
+        if (!user) {
+            res.status(404).json({ success: false, message: 'No account found.' });
+            return;
+        }
+        // Validate chosen delivery method exists on account
+        if (method === 'email' && !user.email) {
+            res.status(400).json({ success: false, message: 'This account does not have an email address.' });
+            return;
+        }
+        if (method === 'phone' && !user.phone) {
+            res.status(400).json({ success: false, message: 'This account does not have a phone number.' });
+            return;
+        }
+        // Generate 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        user.resetPasswordToken = otp;
+        user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+        await user.save({ validateModifiedOnly: true });
+        if (method === 'email' && user.email && process.env.RESEND_API_KEY) {
+            try {
+                await (0, email_service_1.sendPasswordResetEmail)({ to: user.email, resetCode: otp });
+                console.log(`[Auth] Recovery OTP sent to ${user.email}`);
+            }
+            catch (emailErr) {
+                console.error('[Auth] Failed to send recovery OTP email:', emailErr?.message);
+            }
+        }
+        // Phone OTP — log for now (integrate Twilio/Firebase when SMS service ready)
+        if (method === 'phone') {
+            console.log(`[Auth] Phone OTP for ${user.phone}: ${otp}`);
+            // TODO: integrate SMS service here (Twilio, Firebase, etc.)
+        }
+        res.status(200).json({
+            success: true,
+            message: method === 'email'
+                ? 'OTP sent to your email address.'
+                : 'OTP sent to your phone number.',
+            ...(process.env.NODE_ENV !== 'production' && { otp }),
+        });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, message: err.message || 'Failed to send OTP.' });
+    }
+};
+exports.sendAccountRecoveryOtp = sendAccountRecoveryOtp;
+// ─── Verify OTP & Reset Password ──────────────────────────────────────────
+// Verifies OTP and sets a new password for account recovery
+const verifyOtpAndResetPassword = async (req, res) => {
+    try {
+        const { query, otp, newPassword } = req.body;
+        const target = (query || '').toString().trim();
+        if (!target || !otp || !newPassword) {
+            res.status(400).json({ success: false, message: 'query, otp, and newPassword are required.' });
+            return;
+        }
+        if (String(newPassword).length < 6) {
+            res.status(400).json({ success: false, message: 'New password must be at least 6 characters.' });
+            return;
+        }
+        const lowerTarget = target.toLowerCase();
+        const user = await user_model_1.User.findOne({
+            $or: [
+                { email: lowerTarget },
+                { phone: target },
+                { username: lowerTarget },
+            ],
+        });
+        if (!user) {
+            res.status(404).json({ success: false, message: 'No account found.' });
+            return;
+        }
+        // Validate OTP
+        if (!user.resetPasswordToken || user.resetPasswordToken !== String(otp).trim()) {
+            res.status(400).json({ success: false, message: 'Invalid OTP. Please check and try again.' });
+            return;
+        }
+        if (user.resetPasswordExpires && user.resetPasswordExpires < new Date()) {
+            res.status(400).json({ success: false, message: 'OTP has expired. Please request a new one.' });
+            return;
+        }
+        // Update password
+        const salt = await bcryptjs_1.default.genSalt(10);
+        user.passwordHash = await bcryptjs_1.default.hash(newPassword, salt);
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpires = undefined;
+        user.tokenVersion = (user.tokenVersion || 0) + 1;
+        await user.save();
+        res.status(200).json({
+            success: true,
+            message: 'Password reset successfully. You can now log in.',
+        });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, message: err.message || 'Failed to reset password.' });
+    }
+};
+exports.verifyOtpAndResetPassword = verifyOtpAndResetPassword;
 const resetPassword = async (req, res) => {
     try {
         const { email, identity, code, newPassword } = req.body;
@@ -702,7 +913,10 @@ const resetPassword = async (req, res) => {
             return;
         }
         const user = await user_model_1.User.findOne({
-            $or: [{ email: target }, { username: target }],
+            $or: [
+                { email: target },
+                { username: target },
+            ],
         });
         if (!user) {
             res.status(404).json({ success: false, message: 'No account found with this email address.' });
@@ -716,8 +930,8 @@ const resetPassword = async (req, res) => {
         user.passwordHash = await bcryptjs_1.default.hash(newPassword, salt);
         user.resetPasswordToken = undefined;
         user.resetPasswordExpires = undefined;
-        user.tokenVersion = (user.tokenVersion || 0) + 1;
-        await user.save({ validateModifiedOnly: true });
+        user.tokenVersion = (user.tokenVersion || 0) + 1; // Revoke existing tokens
+        await user.save();
         res.status(200).json({
             success: true,
             message: 'Password reset successfully. You can now log in with your new password.',

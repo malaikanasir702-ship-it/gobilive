@@ -120,7 +120,7 @@ async function approveRegistration(req, res) {
                 if (agencyDoc)
                     resolvedAgencyRef = agencyDoc._id;
             }
-            const existingUser = await user_model_1.User.findByIdAndUpdate(request.formData.parentId, { role: 'host', agencyId: resolvedAgencyRef }, { new: true }).select('_id username');
+            const existingUser = await user_model_1.User.findByIdAndUpdate(request.formData.parentId, { role: 'host', agencyId: resolvedAgencyRef, $addToSet: { badges: 'host' } }, { new: true }).select('_id username');
             if (existingUser) {
                 request.status = 'approved';
                 request.reviewedBy = adminId;

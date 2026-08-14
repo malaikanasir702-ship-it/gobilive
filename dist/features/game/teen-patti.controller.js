@@ -119,7 +119,7 @@ const playTeenPatti = async (req, res) => {
         // Update balance
         user.diamonds -= bet;
         user.diamonds += payout;
-        await user.save();
+        await user.save({ validateModifiedOnly: true });
         // Persist history
         await game_history_model_1.GameHistory.create({
             userId: user._id,

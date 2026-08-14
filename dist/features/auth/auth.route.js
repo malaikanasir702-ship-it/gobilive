@@ -12,6 +12,10 @@ router.post('/forgot-password', auth_controller_1.forgotPassword);
 router.post('/forgot_password', auth_controller_1.forgotPassword);
 router.post('/reset-password', auth_controller_1.resetPassword);
 router.post('/reset_password', auth_controller_1.resetPassword);
+// Account recovery — Find My Account flow
+router.post('/find-account', auth_controller_1.findMyAccount);
+router.post('/send-recovery-otp', auth_controller_1.sendAccountRecoveryOtp);
+router.post('/verify-otp-reset', auth_controller_1.verifyOtpAndResetPassword);
 router.get('/profile', auth_middleware_1.authenticateJWT, auth_controller_1.getProfile);
 router.patch('/profile', auth_middleware_1.authenticateJWT, social_controller_1.updateProfile);
 router.get('/check-username', auth_middleware_1.authenticateJWT, social_controller_1.checkUsernameAvailability);

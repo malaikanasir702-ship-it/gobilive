@@ -50,7 +50,7 @@ const dropPlinko = async (req, res) => {
         const outcome = payout >= bet ? 'win' : 'loss';
         user.diamonds -= bet;
         user.diamonds += payout;
-        await user.save();
+        await user.save({ validateModifiedOnly: true });
         await game_history_model_1.GameHistory.create({
             userId: user._id,
             gameType: 'plinko',

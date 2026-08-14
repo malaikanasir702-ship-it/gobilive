@@ -39,7 +39,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendGiftToHost = exports.purchaseGiftItem = exports.deleteGift = exports.updateGift = exports.uploadSvgaGift = exports.createEmojiGift = exports.getGiftCatalog = exports.svgaUploadMiddleware = exports.requireAdminJwt = void 0;
 exports.injectGiftIo = injectGiftIo;
 exports.seedGiftCatalogIfEmpty = seedGiftCatalogIfEmpty;
-const mongoose_1 = __importDefault(require("mongoose"));
 const multer_1 = __importDefault(require("multer"));
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
@@ -308,44 +307,18 @@ const purchaseGiftItem = async (req, res) => {
 };
 exports.purchaseGiftItem = purchaseGiftItem;
 // ─── POST /api/gifts/send ────────────────────────────────────────────────────
-async function processGiftPayment(senderId, hostId, diamondCost, rcoinEarned, giftName) {
-    try {
-        const session = await mongoose_1.default.startSession();
-        session.startTransaction();
-        try {
-            const sender = await user_model_1.User.findById(senderId).session(session);
-            if (!sender)
-                throw new Error('Sender not found.');
-            if (sender.diamonds < diamondCost)
-                throw new Error('Insufficient diamonds.');
-            sender.diamonds -= diamondCost;
-            await sender.save({ session });
-            const host = await user_model_1.User.findById(hostId).session(session);
-            if (host && rcoinEarned > 0) {
-                host.rcoins += rcoinEarned;
-                await host.save({ session });
-            }
-            await session.commitTransaction();
-            session.endSession();
-        }
-        catch (err) {
-            await session.abortTransaction();
-            session.endSession();
-            throw err;
-        }
-    }
-    catch (_txErr) {
-        // Fallback: non-transactional for standalone MongoDB
-        const sender = await user_model_1.User.findById(senderId);
+async function processGiftPayment(senderId, hostId, diamondCost, rcoinEarned, _giftName) {
+    // Deduct diamonds atomically without triggering full-document schema validation
+    const updatedSender = await user_model_1.User.findOneAndUpdate({ _id: senderId, diamonds: { $gte: diamondCost } }, { $inc: { diamonds: -diamondCost } }, { new: true }).select('diamonds').lean();
+    if (!updatedSender) {
+        const sender = await user_model_1.User.findById(senderId).select('diamonds').lean();
         if (!sender)
             throw new Error('Sender not found.');
-        if (sender.diamonds < diamondCost)
-            throw new Error('Insufficient diamonds.');
-        sender.diamonds -= diamondCost;
-        await sender.save();
-        if (rcoinEarned > 0) {
-            await user_model_1.User.findByIdAndUpdate(hostId, { $inc: { rcoins: rcoinEarned } });
-        }
+        throw new Error('Insufficient diamonds.');
+    }
+    // Credit rcoins to recipient
+    if (rcoinEarned > 0) {
+        await user_model_1.User.updateOne({ _id: hostId }, { $inc: { rcoins: rcoinEarned } });
     }
 }
 const sendGiftToHost = async (req, res) => {

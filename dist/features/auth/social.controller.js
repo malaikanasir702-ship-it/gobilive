@@ -128,9 +128,10 @@ const changeUsername = async (req, res) => {
     }
 };
 exports.changeUsername = changeUsername;
+const auth_controller_1 = require("./auth.controller");
 const getUserById = async (req, res) => {
     try {
-        const user = await user_model_1.User.findById(req.params.userId).select('-passwordHash -fcmTokens');
+        const user = await (0, auth_controller_1.getSafeUser)(String(req.params.userId));
         if (!user) {
             res.status(404).json({ success: false, message: 'User not found.' });
             return;

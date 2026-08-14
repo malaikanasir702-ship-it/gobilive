@@ -157,52 +157,59 @@ async function sendRejectionEmail(opts) {
     }
     console.log(`[Email] Rejection email sent to ${opts.to} — id: ${data?.id}`);
 }
-
 async function sendPasswordResetEmail(opts) {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
         console.warn('[Email] RESEND_API_KEY not set — skipping password reset email');
         return;
     }
-    const resend = new resend_1.Resend(apiKey);
-    const fromAddress = process.env.RESEND_FROM || process.env.SMTP_FROM || 'GobiLive <noreply@globilive.com>';
-    const html = `<!DOCTYPE html>
+    const resend = getResend();
+    const html = `
+<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <style>
-    body{margin:0;padding:0;background:#f8f9fa;font-family:'Segoe UI',sans-serif;}
-    .wrap{max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;}
-    .header{background:linear-gradient(135deg,#5701FF,#9C4BD4);padding:32px 40px;text-align:center;}
-    .header h1{color:#fff;margin:0;font-size:22px;font-weight:600;}
-    .header p{color:#e9d5ff;margin:6px 0 0;font-size:13px;}
-    .body{padding:36px 40px;}
-    .body p{color:#374151;font-size:14px;line-height:1.7;margin:0 0 16px;}
-    .code-box{background:#f5f3ff;border:2px dashed #7c3aed;border-radius:12px;padding:24px;text-align:center;margin:24px 0;}
-    .code{font-size:36px;font-weight:800;letter-spacing:8px;color:#5701FF;font-family:monospace;}
-    .expires{font-size:12px;color:#9ca3af;margin-top:8px;}
-    .warning{background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 16px;font-size:12px;color:#92400e;}
-    .footer{padding:20px 40px;text-align:center;border-top:1px solid #f3f4f6;}
-    .footer p{font-size:12px;color:#d1d5db;margin:0;}
+    body { margin:0; padding:0; background:#f8f9fa; font-family:'Segoe UI',sans-serif; }
+    .wrap { max-width:520px; margin:40px auto; background:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e5e7eb; }
+    .header { background:linear-gradient(135deg,#5701FF,#9C4BD4); padding:32px 40px; text-align:center; }
+    .header h1 { color:#ffffff; margin:0; font-size:22px; font-weight:600; }
+    .header p { color:#e9d5ff; margin:6px 0 0; font-size:13px; }
+    .body { padding:36px 40px; }
+    .body p { color:#374151; font-size:14px; line-height:1.7; margin:0 0 16px; }
+    .code-box { background:#f5f3ff; border:2px dashed #7c3aed; border-radius:12px; padding:24px; text-align:center; margin:24px 0; }
+    .code { font-size:36px; font-weight:800; letter-spacing:8px; color:#5701FF; font-family:monospace; }
+    .expires { font-size:12px; color:#9ca3af; margin-top:8px; }
+    .warning { background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:12px 16px; font-size:12px; color:#92400e; }
+    .footer { padding:20px 40px; text-align:center; border-top:1px solid #f3f4f6; }
+    .footer p { font-size:12px; color:#d1d5db; margin:0; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="header"><h1>GobiLive</h1><p>Password Reset Request</p></div>
+    <div class="header">
+      <h1>Globilive</h1>
+      <p>Password Reset Request</p>
+    </div>
     <div class="body">
-      <p>We received a request to reset your password. Use the code below in the app:</p>
+      <p>We received a request to reset your password. Use the code below in the app to set a new password:</p>
       <div class="code-box">
         <div class="code">${opts.resetCode}</div>
         <div class="expires">This code expires in 15 minutes</div>
       </div>
-      <div class="warning">If you did not request a password reset, please ignore this email.</div>
+      <div class="warning">
+        ⚠️ If you did not request a password reset, please ignore this email. Your account is safe.
+      </div>
     </div>
-    <div class="footer"><p>&copy; ${new Date().getFullYear()} GobiLive &middot; Do not reply.</p></div>
+    <div class="footer">
+      <p>© ${new Date().getFullYear()} GobiLive · Do not reply to this email.</p>
+    </div>
   </div>
 </body>
-</html>`;
+</html>`.trim();
     const { data, error } = await resend.emails.send({
-        from: fromAddress,
+        from: FROM_ADDRESS(),
         to: [opts.to],
         subject: '🔐 Your GobiLive Password Reset Code',
         html,

@@ -69,7 +69,7 @@ const rollDice = async (req, res) => {
         const outcome = won ? 'win' : 'loss';
         user.diamonds -= bet;
         user.diamonds += payout;
-        await user.save();
+        await user.save({ validateModifiedOnly: true });
         await game_history_model_1.GameHistory.create({
             userId: user._id,
             gameType: 'dice',

@@ -63,13 +63,15 @@ const UserSchema = new mongoose_1.Schema({
     tokenVersion: { type: Number, default: 0 },
     role: {
         type: String,
-        enum: ['user', 'agency', 'coin_seller', 'admin', 'company_admin', 'super_admin', 'sub_admin', 'sub_agency', 'top_up_agent', 'reseller'],
+        enum: ['user', 'host', 'agency', 'coin_seller', 'admin', 'company_admin', 'super_admin', 'sub_admin', 'sub_agency', 'top_up_agent', 'reseller'],
         default: 'user',
     },
     agencyId: { type: String },
     thought: { type: String, default: '' },
     thoughtUpdatedAt: { type: Date },
     createdAt: { type: Date, default: Date.now },
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
     // Admin panel extensions
     beanWallet: { type: Number, default: 0 },
     isBlocked: { type: Boolean, default: false },
@@ -92,6 +94,11 @@ const UserSchema = new mongoose_1.Schema({
     storyPrivacy: { type: String, enum: ['everyone', 'followers', 'following'], default: 'everyone' },
     // Username change tracking
     usernameChangedAt: { type: Date },
+}, {
+    // Only validate fields that were actually modified — prevents full-document
+    // validation errors on old documents that have role='host' or other
+    // values that were added to the enum later.
+    validateModifiedOnly: true,
 });
 UserSchema.pre('save', function () {
     if (!this.referralCode) {
