@@ -1,9 +1,22 @@
 /**
- * GlobiLive Main Web App Core
+ * GlobiLive Main App — Tailwind CSS mobile-first edition
+ * Slot-based view switching: never destroys DOM elements
  */
 
 import { ApiService } from './api.js';
 import { Components } from './components.js';
+
+// ── Slot IDs ──
+const SLOTS = ['shortsFeedSlot', 'gridSlot', 'profileSlot', 'settingsSlot'];
+
+function showSlot(id) {
+  SLOTS.forEach(s => {
+    const el = document.getElementById(s);
+    if (!el) return;
+    el.classList.toggle('hidden', s !== id);
+    if (s === 'gridSlot') el.classList.toggle('flex', s === id);
+  });
+}
 
 class GlobiLiveApp {
   constructor() {
@@ -11,16 +24,15 @@ class GlobiLiveApp {
     this.pkBattles = [];
     this.shorts    = [];
     this.activeCategory = 'all';
-    this.isShortsMode   = false;
   }
 
   async init() {
-    await this.loadRealData();
-    this.setupEventListeners();
+    await this.loadData();
+    this.setupListeners();
     this.renderUserPill();
   }
 
-  async loadRealData() {
+  async loadData() {
     const [rooms, pk, shortsList] = await Promise.all([
       ApiService.getLiveRooms(),
       ApiService.getPKBattles(),
@@ -30,357 +42,215 @@ class GlobiLiveApp {
     this.pkBattles = pk;
     this.shorts    = shortsList;
 
-    // Default: Shorts tab active
-    this._showShortsView();
-
-    // Sidebar continue watching
-    const continueContainer = document.getElementById('continueWatchingList');
-    if (continueContainer) Components.renderContinueWatching(continueContainer, this.shorts);
-  }
-
-  // ── CLEAR main content (remove shorts feed / profile / settings views) ──
-  _clearMainSlot() {
-    const mainContent = document.getElementById('mainContentArea');
-    if (!mainContent) return;
-    // Remove any dynamically injected views (shorts feed, profile view, settings view)
-    const toRemove = mainContent.querySelectorAll(
-      '.shorts-feed-container, .shorts-empty-state, .dynamic-view'
+    // Render sidebar continue-watching
+    Components.renderContinueWatching(
+      document.getElementById('continueWatchingList'), this.shorts
     );
-    toRemove.forEach(el => el.remove());
+
+    // Default view: Shorts
+    this.gotoShorts();
   }
 
-  // ── SHOW SHORTS VIEW ──
-  _showShortsView() {
-    this.isShortsMode = true;
-    this._clearMainSlot();
-
-    const heroSection      = document.getElementById('heroSpotlight');
-    const youMightSection  = document.getElementById('youMightLikeSection');
-    const mainContent      = document.getElementById('mainContentArea');
-
-    if (heroSection)     heroSection.style.display     = 'none';
-    if (youMightSection) youMightSection.style.display  = 'none';
-
-    if (mainContent) Components.renderShortsView(mainContent, this.shorts);
+  // ──────────────────────────────────────────────────
+  //  VIEW SWITCHERS
+  // ──────────────────────────────────────────────────
+  gotoShorts() {
+    this.activeCategory = 'all';
+    showSlot('shortsFeedSlot');
+    Components.renderShortsView(
+      document.getElementById('shortsFeedSlot'), this.shorts
+    );
   }
 
-  // ── SHOW LIVE / GRID VIEW ──
-  _showLiveView(cat) {
-    this.isShortsMode = false;
-    this._clearMainSlot();
+  gotoGrid(cat) {
+    this.activeCategory = cat;
+    showSlot('gridSlot');
 
-    const heroSection     = document.getElementById('heroSpotlight');
-    const youMightSection = document.getElementById('youMightLikeSection');
+    const hero = document.getElementById('heroSpotlight');
+    const grid = document.getElementById('youMightLikeGrid');
 
-    // Restore hero & grid
-    if (heroSection)     heroSection.style.display     = '';
-    if (youMightSection) youMightSection.style.display  = '';
-
-    // Render Hero
-    const topRoom = this.liveRooms.length > 0 ? this.liveRooms[0] : null;
-    const heroContainer = document.getElementById('heroSpotlight');
-    if (heroContainer) Components.renderHeroSpotlight(heroContainer, topRoom);
-
-    // Render Grid
-    const gridContainer = document.getElementById('youMightLikeGrid');
-    if (!gridContainer) return;
+    Components.renderHeroSpotlight(
+      hero, this.liveRooms.length ? this.liveRooms[0] : null
+    );
 
     if (cat === 'pk') {
-      Components.renderYouMightLike(gridContainer, this.pkBattles, 'pk');
-    } else if (cat === 'teenpatti' || cat === 'plinko' || cat === 'more') {
-      Components.renderYouMightLike(gridContainer, [], 'games');
+      Components.renderGrid(grid, this.pkBattles, 'pk');
+    } else if (['teenpatti','plinko','more'].includes(cat)) {
+      Components.renderGamesGrid(grid);
     } else {
-      // 'live' and default
-      Components.renderYouMightLike(gridContainer, this.liveRooms, 'live');
+      Components.renderGrid(grid, this.liveRooms, 'live');
     }
   }
 
-  // ── SHOW PROFILE VIEW ──
-  _showProfileView() {
-    this.isShortsMode = false;
-    this._clearMainSlot();
-
-    const heroSection     = document.getElementById('heroSpotlight');
-    const youMightSection = document.getElementById('youMightLikeSection');
-    if (heroSection)     heroSection.style.display     = 'none';
-    if (youMightSection) youMightSection.style.display  = 'none';
-
-    const user        = ApiService.getUserProfile();
-    const mainContent = document.getElementById('mainContentArea');
-    if (!mainContent) return;
-
-    const profileEl = document.createElement('div');
-    profileEl.className = 'dynamic-view';
-    profileEl.innerHTML = `
-      <div class="profile-view-card">
-
-        <!-- Cover banner -->
-        <div class="profile-cover-banner">
-          <img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1400&auto=format&fit=crop"
-               style="width:100%;height:100%;object-fit:cover;" alt="Cover" />
-          <div style="position:absolute;inset:0;background:linear-gradient(180deg,transparent 40%,rgba(15,23,42,0.7) 100%);"></div>
-        </div>
-
-        <!-- Avatar + name row -->
-        <div class="profile-avatar-row">
-          <div class="profile-avatar-ring">
-            <img src="${user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop'}"
-                 class="profile-avatar-img" alt="${user.name}" />
-          </div>
-          <div class="profile-name-block">
-            <h2 class="profile-display-name">${user.name || 'GlobiLive User'}</h2>
-            <span class="profile-username">@${(user.name || 'user').toLowerCase().replace(' ','_')}</span>
-          </div>
-          <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app"
-             target="_blank" class="profile-edit-btn">
-            <i class="fa-solid fa-mobile-screen"></i> Edit on App
-          </a>
-        </div>
-
-        <!-- Stats row -->
-        <div class="profile-stats-row">
-          <div class="profile-stat-item">
-            <span class="stat-num">0</span>
-            <span class="stat-label">Posts</span>
-          </div>
-          <div class="profile-stat-item">
-            <span class="stat-num">0</span>
-            <span class="stat-label">Followers</span>
-          </div>
-          <div class="profile-stat-item">
-            <span class="stat-num">0</span>
-            <span class="stat-label">Following</span>
-          </div>
-          <div class="profile-stat-item">
-            <span class="stat-num">0</span>
-            <span class="stat-label">💎 Diamonds</span>
-          </div>
-        </div>
-
-        <!-- App CTA -->
-        <div class="profile-app-cta">
-          <div class="profile-cta-icon"><i class="fa-solid fa-user-circle"></i></div>
-          <div>
-            <h3 style="font-size:1rem;font-weight:800;color:#0F172A;margin-bottom:0.25rem;">Full Profile on Mobile App</h3>
-            <p style="font-size:0.85rem;color:#64748B;">View your posts, followers, diamonds, and live session history on the GlobiLive mobile app.</p>
-          </div>
-          <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank"
-             class="btn-watch-main" style="white-space:nowrap;flex-shrink:0;">
-            <i class="fa-brands fa-google-play"></i> Open App
-          </a>
-        </div>
-
-      </div>`;
-    mainContent.appendChild(profileEl);
+  gotoProfile() {
+    showSlot('profileSlot');
+    Components.renderProfile(
+      document.getElementById('profileSlot'),
+      ApiService.getUserProfile()
+    );
   }
 
-  // ── SHOW SETTINGS VIEW ──
-  _showSettingsView() {
-    this.isShortsMode = false;
-    this._clearMainSlot();
-
-    const heroSection     = document.getElementById('heroSpotlight');
-    const youMightSection = document.getElementById('youMightLikeSection');
-    if (heroSection)     heroSection.style.display     = 'none';
-    if (youMightSection) youMightSection.style.display  = 'none';
-
-    const mainContent = document.getElementById('mainContentArea');
-    if (!mainContent) return;
-
-    const settingsEl = document.createElement('div');
-    settingsEl.className = 'dynamic-view';
-    settingsEl.innerHTML = `
-      <div class="settings-view-card">
-        <div class="settings-header-row">
-          <i class="fa-solid fa-gear" style="font-size:1.5rem;color:#E11D48;"></i>
-          <h2 style="font-size:1.3rem;font-weight:800;color:#0F172A;">Settings</h2>
-        </div>
-
-        <div class="settings-section">
-          <div class="settings-section-title">Account</div>
-          ${this._settingItem('fa-user', 'Edit Profile', 'Update your name, bio, and profile picture', '#E11D48')}
-          ${this._settingItem('fa-lock', 'Privacy Settings', 'Control who sees your content and activity', '#7C3AED')}
-          ${this._settingItem('fa-bell', 'Notifications', 'Manage push notification preferences', '#F59E0B')}
-        </div>
-
-        <div class="settings-section">
-          <div class="settings-section-title">Content & Discovery</div>
-          ${this._settingItem('fa-eye-slash', 'Hidden Creators', 'Manage creators you have hidden from discover', '#64748B')}
-          ${this._settingItem('fa-heart', 'Story Privacy', 'Control who sees your stories (Everyone / Followers)', '#EC4899')}
-          ${this._settingItem('fa-globe', 'Language', 'Select your preferred language', '#0284C7')}
-        </div>
-
-        <div class="settings-section">
-          <div class="settings-section-title">Support & Legal</div>
-          ${this._settingItem('fa-circle-question', 'Help & Support', 'Get help with your account or report an issue', '#10B981')}
-          ${this._settingItem('fa-shield-halved', 'Privacy Policy', 'Read our privacy policy', '#64748B')}
-          ${this._settingItem('fa-file-contract', 'Terms of Service', 'Read our terms and conditions', '#64748B')}
-        </div>
-
-        <div class="settings-app-note">
-          <i class="fa-solid fa-mobile-screen-button" style="color:#E11D48;font-size:1.2rem;"></i>
-          <span>Full settings are available in the <strong>GlobiLive Mobile App</strong></span>
-          <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank"
-             class="btn-watch-main" style="font-size:0.8rem;padding:0.4rem 1rem;">
-            <i class="fa-brands fa-google-play"></i> Open App
-          </a>
-        </div>
-      </div>`;
-    mainContent.appendChild(settingsEl);
+  gotoSettings() {
+    showSlot('settingsSlot');
+    Components.renderSettings(
+      document.getElementById('settingsSlot')
+    );
   }
 
-  _settingItem(icon, title, desc, color) {
-    return `
-      <div class="settings-item">
-        <div class="settings-item-icon" style="background:${color}20;color:${color};">
-          <i class="fa-solid ${icon}"></i>
-        </div>
-        <div class="settings-item-text">
-          <div class="settings-item-title">${title}</div>
-          <div class="settings-item-desc">${desc}</div>
-        </div>
-        <i class="fa-solid fa-chevron-right settings-item-arrow"></i>
-      </div>`;
-  }
-
-  setupEventListeners() {
+  // ──────────────────────────────────────────────────
+  //  EVENT LISTENERS
+  // ──────────────────────────────────────────────────
+  setupListeners() {
+    // Search
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
-      searchInput.addEventListener('input', e => this.handleSearch(e.target.value));
+      searchInput.addEventListener('input', e => {
+        const q = e.target.value.toLowerCase().trim();
+        if (!q || this.activeCategory === 'all') return;
+        const grid = document.getElementById('youMightLikeGrid');
+        if (!grid) return;
+        const filtered = this.liveRooms.filter(r =>
+          (r.title||'').toLowerCase().includes(q) ||
+          (r.hostUsername||'').toLowerCase().includes(q)
+        );
+        Components.renderGrid(grid, filtered, 'live');
+      });
     }
 
-    // Top category pills
-    const categoryPills = document.querySelectorAll('.category-pill');
-    categoryPills.forEach(pill => {
+    // Desktop category pills
+    document.querySelectorAll('.category-pill').forEach(pill => {
       pill.addEventListener('click', e => {
-        categoryPills.forEach(p => p.classList.remove('active'));
-        e.currentTarget.classList.add('active');
-        // Clear sidebar active
-        document.querySelectorAll('.sidebar-nav-item').forEach(i => i.classList.remove('active'));
-
-        const cat = e.currentTarget.getAttribute('data-cat');
-        this.activeCategory = cat;
-        if (cat === 'all') {
-          this._showShortsView();
-        } else {
-          this._showLiveView(cat);
-        }
+        document.querySelectorAll('.category-pill').forEach(p => {
+          p.classList.remove('bg-primary','text-white','active-pill');
+          p.classList.add('text-slate-600');
+        });
+        e.currentTarget.classList.add('bg-primary','text-white','active-pill');
+        e.currentTarget.classList.remove('text-slate-600');
+        this.handleCat(e.currentTarget.getAttribute('data-cat'), null);
       });
     });
 
-    // Sidebar nav items
-    const sidebarItems = document.querySelectorAll('.sidebar-nav-item[data-view]');
-    sidebarItems.forEach(item => {
+    // Mobile bottom nav
+    document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        document.querySelectorAll('.mobile-nav-btn').forEach(b => {
+          b.classList.remove('text-primary');
+          b.classList.add('text-slate-500');
+        });
+        e.currentTarget.classList.add('text-primary');
+        e.currentTarget.classList.remove('text-slate-500');
+        const cat  = e.currentTarget.getAttribute('data-cat');
+        const view = e.currentTarget.getAttribute('data-view');
+        this.handleCat(cat, view);
+      });
+    });
+
+    // Sidebar nav
+    document.querySelectorAll('.sidebar-nav-item').forEach(item => {
       item.addEventListener('click', e => {
-        sidebarItems.forEach(i => i.classList.remove('active'));
-        e.currentTarget.classList.add('active');
-        // Clear category pill active
-        categoryPills.forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.sidebar-nav-item').forEach(i => {
+          i.classList.remove('active','bg-red-50');
+          i.querySelector('a')?.classList.remove('text-primary','font-700');
+          i.querySelector('a')?.classList.add('text-slate-600','font-600');
+        });
+        e.currentTarget.classList.add('active','bg-red-50');
+        e.currentTarget.querySelector('a')?.classList.add('text-primary','font-700');
+        e.currentTarget.querySelector('a')?.classList.remove('text-slate-600','font-600');
 
         const view = e.currentTarget.getAttribute('data-view');
-        if (view === 'home' || view === 'explore' || view === 'favorite') {
-          // Activate Shorts pill + show shorts
-          const shortsPill = document.querySelector('.category-pill[data-cat="all"]');
-          if (shortsPill) shortsPill.classList.add('active');
-          this._showShortsView();
-        } else if (view === 'profile') {
-          this._showProfileView();
-        } else if (view === 'settings') {
-          this._showSettingsView();
-        }
+        if (view === 'profile')   this.gotoProfile();
+        else if (view === 'settings') this.gotoSettings();
+        else this.gotoShorts();
       });
     });
 
-    // Global handlers
+    // Global window helpers
     window.openLiveModal    = (ch, host, title) => this.openLiveModal(ch, host, title);
-    window.openShortsViewer = (id) => { const idx = this.shorts.findIndex(s => String(s.id) === String(id)); if (idx >= 0 && window.scrollToShort) window.scrollToShort(idx); };
     window.openGameModal    = (type) => this.openGameModal(type);
+    window.openShortsViewer = (id) => {
+      const idx = this.shorts.findIndex(s => String(s.id) === String(id));
+      if (idx >= 0 && window.scrollToShort) window.scrollToShort(idx);
+    };
   }
 
-  async handleSearch(query) {
-    const q = query.toLowerCase().trim();
-    if (!q) {
-      if (this.activeCategory === 'all') this._showShortsView();
-      else this._showLiveView(this.activeCategory);
-      return;
-    }
-    if (this.isShortsMode) return;
-    const filtered = this.liveRooms.filter(r =>
-      (r.title || '').toLowerCase().includes(q) || (r.hostUsername || '').toLowerCase().includes(q));
-    const gridContainer = document.getElementById('youMightLikeGrid');
-    if (gridContainer) Components.renderYouMightLike(gridContainer, filtered, 'live');
+  handleCat(cat, view) {
+    if (view === 'profile')   { this.gotoProfile();  return; }
+    if (view === 'settings')  { this.gotoSettings(); return; }
+    if (!cat || cat === 'all') { this.gotoShorts();  return; }
+    this.gotoGrid(cat);
   }
 
+  // ──────────────────────────────────────────────────
+  //  MODALS
+  // ──────────────────────────────────────────────────
   openLiveModal(channelName, hostName, title) {
-    const modal     = document.getElementById('mediaModal');
-    const modalBody = document.getElementById('mediaModalBody');
-    if (!modal || !modalBody) return;
-    modalBody.innerHTML = `
-      <div style="padding:2rem;color:#FFF;text-align:center;">
-        <div style="font-size:3rem;color:#E11D48;margin-bottom:0.75rem;"><i class="fa-solid fa-headset"></i></div>
-        <h3 style="font-size:1.4rem;font-weight:800;margin-bottom:0.35rem;">${title || `${hostName}'s Live`}</h3>
-        <p style="color:#94A3B8;font-size:0.9rem;margin-bottom:1.25rem;">Host: @${hostName || 'user'} • Live Broadcast</p>
-        <div style="background:rgba(255,255,255,0.05);border-radius:1rem;padding:1.25rem;margin-bottom:1.5rem;border:1px solid rgba(255,255,255,0.1);">
-          <div style="font-size:0.9rem;font-weight:700;color:#10B981;margin-bottom:0.35rem;">
-            <i class="fa-solid fa-circle"></i> Streamer is LIVE on App!
+    const modal = document.getElementById('mediaModal');
+    const body  = document.getElementById('mediaModalBody');
+    if (!modal || !body) return;
+    body.innerHTML = `
+      <div class="p-6 text-center text-white">
+        <div class="text-5xl text-primary mb-3"><i class="fa-solid fa-headset"></i></div>
+        <h3 class="text-xl font-800 mb-1">${title || hostName + "'s Live"}</h3>
+        <p class="text-slate-400 text-sm mb-4">Host: @${hostName || 'user'} • Live Broadcast</p>
+        <div class="bg-white/5 border border-white/10 rounded-2xl p-4 mb-4">
+          <div class="text-emerald-400 font-700 text-sm mb-1">
+            <i class="fa-solid fa-circle text-xs animate-pulse"></i> LIVE on App right now!
           </div>
-          <p style="font-size:0.85rem;color:rgba(255,255,255,0.7);">
-            To join, send 3D gifts &amp; voice-chat with seats, open the GlobiLive Mobile App!
-          </p>
+          <p class="text-white/70 text-sm">Open the GlobiLive app to join, send 3D gifts &amp; chat in real-time.</p>
         </div>
         <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank"
-           class="btn-watch-main" style="display:inline-flex;width:100%;justify-content:center;">
-          <i class="fa-brands fa-google-play"></i> Join Broadcast in GlobiLive App
+           class="flex items-center justify-center gap-2 bg-primary text-white px-6 py-3 rounded-full font-700 hover:opacity-90 w-full">
+          <i class="fa-brands fa-google-play"></i> Join in GlobiLive App
         </a>
       </div>`;
     modal.classList.add('active');
   }
 
-  openGameModal(gameType) {
-    const modal     = document.getElementById('mediaModal');
-    const modalBody = document.getElementById('mediaModalBody');
-    if (!modal || !modalBody) return;
+  openGameModal(type) {
+    const modal = document.getElementById('mediaModal');
+    const body  = document.getElementById('mediaModalBody');
+    if (!modal || !body) return;
+
     const games = {
       teenpatti: {
         color: '#7C3AED', icon: 'fa-gamepad', title: 'Teen Patti Royale',
-        body: `<div style="display:flex;justify-content:center;gap:1rem;margin-bottom:1.5rem;">
-          <div style="background:#1E293B;border:2px solid #7C3AED;border-radius:1rem;padding:1.25rem;font-size:1.5rem;font-weight:900;color:#F43F5E;">♠ K</div>
-          <div style="background:#1E293B;border:2px solid #7C3AED;border-radius:1rem;padding:1.25rem;font-size:1.5rem;font-weight:900;color:#F43F5E;">♥ A</div>
-          <div style="background:#1E293B;border:2px solid #7C3AED;border-radius:1rem;padding:1.25rem;font-size:1.5rem;font-weight:900;color:#F43F5E;">♦ J</div>
+        body: `<div class="flex justify-center gap-4 mb-6">
+          ${['♠ K','♥ A','♦ J'].map(c=>`<div class="bg-slate-800 border-2 border-violet-500 rounded-2xl p-4 text-2xl font-900 text-rose-400 min-w-[72px] text-center">${c}</div>`).join('')}
         </div>
-        <button onclick="alert('You won 500 Diamonds 💎!')" style="background:#7C3AED;color:#FFF;border:none;padding:0.75rem 1.5rem;border-radius:100px;font-weight:800;cursor:pointer;">Deal &amp; Bet (100 💎)</button>`
+        <button onclick="alert('You won 500 Diamonds 💎!')" class="bg-violet-600 text-white px-8 py-3 rounded-full font-800 hover:opacity-90">Deal &amp; Bet (100 💎)</button>`
       },
       plinko: {
         color: '#0284C7', icon: 'fa-circle-dot', title: 'Plinko Multiplier Drop',
-        body: `<div style="display:flex;justify-content:center;gap:0.5rem;margin-bottom:1.5rem;">
-          ${['10x','2x','5x','0.5x','10x'].map(m=>`<div style="background:#0284C7;padding:0.5rem 1rem;border-radius:0.5rem;font-weight:800;">${m}</div>`).join('')}
+        body: `<div class="flex justify-center gap-2 mb-6">
+          ${['10x','2x','5x','0.5x','10x'].map(m=>`<div class="bg-sky-600 px-3 py-2 rounded-lg font-800 text-sm">${m}</div>`).join('')}
         </div>
-        <button onclick="alert('You hit 5x! Won 500 Beans! 🎉')" style="background:#0284C7;color:#FFF;border:none;padding:0.75rem 1.5rem;border-radius:100px;font-weight:800;cursor:pointer;">Drop Ball ⚽</button>`
+        <button onclick="alert('You hit 5x! Won 500 Beans! 🎉')" class="bg-sky-600 text-white px-8 py-3 rounded-full font-800 hover:opacity-90">Drop Ball ⚽</button>`
       },
       wheel: {
         color: '#10B981', icon: 'fa-arrows-spin', title: 'Lucky Fortune Wheel',
-        body: `<div style="font-size:5rem;margin-bottom:1rem;">🎡</div>
-        <button onclick="alert('You won 1,000 Free Beans! 🎊')" style="background:#10B981;color:#FFF;border:none;padding:0.75rem 1.5rem;border-radius:100px;font-weight:800;cursor:pointer;">Spin Wheel</button>`
+        body: `<div class="text-7xl mb-4">🎡</div>
+        <button onclick="alert('You won 1,000 Free Beans! 🎊')" class="bg-emerald-500 text-white px-8 py-3 rounded-full font-800 hover:opacity-90">Spin Wheel</button>`
       }
     };
-    const g = games[gameType] || games.wheel;
-    modalBody.innerHTML = `
-      <div style="padding:2rem;color:#FFF;text-align:center;background:#0F172A;">
-        <div style="font-size:3rem;color:${g.color};margin-bottom:0.75rem;"><i class="fa-solid ${g.icon}"></i></div>
-        <h3 style="font-size:1.5rem;font-weight:800;margin-bottom:0.5rem;">${g.title}</h3>
-        <p style="color:#94A3B8;font-size:0.875rem;margin-bottom:1.5rem;">Playable Mini-Game</p>
+
+    const g = games[type] || games.wheel;
+    body.innerHTML = `
+      <div class="p-6 text-center text-white bg-slate-900">
+        <div class="text-5xl mb-3" style="color:${g.color}"><i class="fa-solid ${g.icon}"></i></div>
+        <h3 class="text-xl font-800 mb-1">${g.title}</h3>
+        <p class="text-slate-400 text-sm mb-4">Playable Mini-Game</p>
         ${g.body}
       </div>`;
     modal.classList.add('active');
   }
 
   renderUserPill() {
-    const user     = ApiService.getUserProfile();
+    const user = ApiService.getUserProfile();
     const nameEl   = document.getElementById('userPillName');
     const avatarEl = document.getElementById('userPillAvatar');
-    if (nameEl)  nameEl.innerText = user.name || 'Alex Morgan';
+    if (nameEl)   nameEl.innerText = user.name || 'Alex Morgan';
     if (avatarEl && user.avatar) avatarEl.src = user.avatar;
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => { new GlobiLiveApp().init(); });
+document.addEventListener('DOMContentLoaded', () => new GlobiLiveApp().init());
