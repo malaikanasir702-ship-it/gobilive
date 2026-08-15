@@ -799,6 +799,294 @@
         grid-template-columns: 1fr;
       }
     }
+
+    /* ═══════════════════════════════════════════════
+       TIKTOK-STYLE SHORTS SCROLLABLE FEED
+    ═══════════════════════════════════════════════ */
+    @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+
+    /* Shorts full-height feed container (snap-scroll) */
+    .shorts-feed-container {
+      width: 100%;
+      height: calc(100vh - 200px);
+      overflow-y: scroll;
+      scroll-snap-type: y mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      border-radius: var(--radius-card);
+      background: #000;
+    }
+    .shorts-feed-container::-webkit-scrollbar { display: none; }
+
+    /* Individual short card */
+    .short-card {
+      position: relative;
+      width: 100%;
+      height: calc(100vh - 200px);
+      scroll-snap-align: start;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0F172A;
+      overflow: hidden;
+    }
+
+    /* Media wrapper */
+    .short-media-wrapper {
+      position: absolute;
+      inset: 0;
+    }
+    .short-video, .short-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* Tap overlay */
+    .short-tap-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      cursor: pointer;
+    }
+
+    /* Play/pause indicator */
+    .short-play-indicator {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      color: #FFF;
+      z-index: 10;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: none;
+    }
+    .short-play-indicator.visible { opacity: 1; }
+
+    /* Right action buttons column */
+    .short-actions-col {
+      position: absolute;
+      right: 1rem;
+      bottom: 6rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.25rem;
+      z-index: 20;
+    }
+
+    .short-action-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.3rem;
+      cursor: pointer;
+    }
+
+    .short-action-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      color: #FFF;
+      transition: transform 0.2s, color 0.2s;
+    }
+    .short-action-btn:hover .short-action-icon { transform: scale(1.15); }
+
+    .short-action-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #FFF;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    }
+
+    /* Bottom overlay */
+    .short-bottom-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 4.5rem;
+      padding: 1.25rem 1.25rem 1.5rem;
+      background: linear-gradient(0deg, rgba(0,0,0,0.7) 0%, transparent 100%);
+      z-index: 20;
+      color: #FFF;
+    }
+
+    .short-host-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.5rem;
+    }
+    .short-host-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 2px solid #FFF;
+      object-fit: cover;
+    }
+    .short-host-name {
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+    .short-follow-btn {
+      margin-left: auto;
+      background: rgba(225,29,72,0.9);
+      color: #FFF;
+      border: none;
+      padding: 0.25rem 0.75rem;
+      border-radius: 100px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .short-caption {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: rgba(255,255,255,0.9);
+      margin-bottom: 0.65rem;
+      max-width: 340px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Progress bar */
+    .short-progress-bar {
+      height: 3px;
+      background: rgba(255,255,255,0.3);
+      border-radius: 100px;
+      overflow: hidden;
+    }
+    .short-progress-fill {
+      height: 100%;
+      background: #E11D48;
+      border-radius: 100px;
+      width: 0%;
+      transition: width 0.3s linear;
+    }
+
+    /* Scroll hint arrows */
+    .short-scroll-hint {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      color: #FFF;
+      z-index: 20;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .short-scroll-hint:hover { background: rgba(255,255,255,0.35); }
+    .short-scroll-hint.top    { top: 0.75rem; }
+    .short-scroll-hint.bottom { bottom: 5.5rem; }
+
+    /* Empty state for Shorts */
+    .shorts-empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      min-height: 400px;
+      padding: 3rem 2rem;
+      background: var(--card-white);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Comments drawer */
+    .shorts-comments-drawer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      max-height: 60vh;
+      background: #1E293B;
+      border-radius: 1.5rem 1.5rem 0 0;
+      z-index: 200;
+      transform: translateY(100%);
+      transition: transform 0.35s cubic-bezier(0.16,1,0.3,1);
+      display: flex;
+      flex-direction: column;
+    }
+    .shorts-comments-drawer.open { transform: translateY(0); }
+
+    .shorts-drawer-handle { cursor: pointer; padding-top: 0.75rem; }
+
+    .shorts-comments-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .shorts-comments-list::-webkit-scrollbar { width: 3px; }
+    .shorts-comments-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+
+    .shorts-comment-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+    .sc-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #E11D48;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: #FFF;
+      flex-shrink: 0;
+    }
+    .sc-username { font-size: 0.8rem; font-weight: 700; color: rgba(255,255,255,0.6); }
+    .sc-text     { font-size: 0.875rem; color: #FFF; margin-top: 0.15rem; }
+
+    .shorts-comment-input-row {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.75rem 1.25rem 1.25rem;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .shorts-comment-input-row input {
+      flex: 1;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #FFF;
+      padding: 0.55rem 1rem;
+      border-radius: 100px;
+      font-size: 0.875rem;
+      outline: none;
+      font-family: inherit;
+    }
+    .shorts-comment-input-row input::placeholder { color: rgba(255,255,255,0.4); }
   </style>
 </head>
 
@@ -860,7 +1148,7 @@
 
         <!-- Admin Portal Login Button -->
         <a href="/admin" class="admin-login-header-btn">
-          <i class="fa-solid fa-user-shield"></i> Admin
+          <i class="fa-solid fa-right-to-bracket"></i> Login
         </a>
       </div>
     </header>
@@ -914,21 +1202,19 @@
       </aside>
 
       <!-- ── MAIN CONTENT AREA ── -->
-      <main class="main-content">
+      <main class="main-content" id="mainContentArea">
 
         <!-- ── HERO SPOTLIGHT BANNER CARD ── -->
-        <section class="hero-spotlight-card" id="heroSpotlight">
+        <section class="hero-spotlight-card" id="heroSpotlight" style="display:none;">
           <!-- Rendered by components.js -->
         </section>
 
         <!-- ── "YOU MIGHT LIKE" SECTION ── -->
-        <section class="you-might-like-section">
+        <section class="you-might-like-section" id="youMightLikeSection" style="display:none;">
           <div class="section-header-bar">
             <h2 class="section-header-title">You Might Like</h2>
             <a href="javascript:void(0)" class="see-all-text-link">See all</a>
           </div>
-
-          <!-- 3-Card Grid matching reference mockup -->
           <div class="you-might-like-grid" id="youMightLikeGrid">
             <!-- Rendered by components.js -->
           </div>
