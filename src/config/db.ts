@@ -72,7 +72,39 @@ async function syncMultiRoleIndexes() {
       });
       console.log('✅ Auto-created super_admin account for haniijaz896@gmail.com');
     }
+
+    // Migrate & sync legacy rcoins into beanWallet for existing users
+    await syncLegacyRcoinsToBeans(User);
   } catch (err: any) {
     console.warn('⚠️ Index / account sync warning:', err.message);
+  }
+}
+
+async function syncLegacyRcoinsToBeans(User: any) {
+  try {
+    const usersToSync = await User.find({
+      $or: [
+        { rcoins: { $gt: 0 } },
+        { beanWallet: { $gt: 0 } }
+      ]
+    }).select('_id rcoins beanWallet').lean();
+
+    for (const u of usersToSync) {
+      const oldRcoins = u.rcoins ?? 0;
+      const currentBeans = u.beanWallet ?? 0;
+
+      // If rcoins was positive and different from beanWallet, add old rcoins to beanWallet
+      if (oldRcoins > 0 && currentBeans > 0 && oldRcoins !== currentBeans) {
+        const total = currentBeans + oldRcoins;
+        await User.findByIdAndUpdate(u._id, { beanWallet: total, rcoins: total });
+        console.log(`✅ Synced user ${u._id}: combined ${currentBeans} + ${oldRcoins} = ${total} Beans`);
+      } else if (oldRcoins > 0 && currentBeans === 0) {
+        await User.findByIdAndUpdate(u._id, { beanWallet: oldRcoins });
+      } else if (currentBeans > 0 && oldRcoins === 0) {
+        await User.findByIdAndUpdate(u._id, { rcoins: currentBeans });
+      }
+    }
+  } catch (e: any) {
+    console.warn('⚠️ syncLegacyRcoinsToBeans warning:', e.message);
   }
 }
