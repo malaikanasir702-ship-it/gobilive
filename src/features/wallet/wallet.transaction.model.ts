@@ -1,9 +1,10 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export type WalletCurrency = 'diamonds' | 'rcoins' | 'usd';
+export type WalletCurrency = 'diamonds' | 'rcoins' | 'beans' | 'usd';
 export type WalletTxType =
   | 'purchase_diamonds'
   | 'convert_diamonds_to_rcoins'
+  | 'convert_beans_to_diamonds'
   | 'withdraw_rcoins'
   | 'vip_purchase'
   | 'gift_spend'
@@ -47,6 +48,7 @@ const WalletTransactionSchema = new Schema<IWalletTransaction>(
       enum: [
         'purchase_diamonds',
         'convert_diamonds_to_rcoins',
+        'convert_beans_to_diamonds',
         'withdraw_rcoins',
         'vip_purchase',
         'gift_spend',
@@ -64,7 +66,7 @@ const WalletTransactionSchema = new Schema<IWalletTransaction>(
       ],
       required: true,
     },
-    currency: { type: String, enum: ['diamonds', 'rcoins', 'usd'], required: true },
+    currency: { type: String, enum: ['diamonds', 'rcoins', 'beans', 'usd'], required: true },
     amount: { type: Number, required: true },
     diamondsDelta: { type: Number, default: 0 },
     rcoinsDelta: { type: Number, default: 0 },

@@ -11,6 +11,7 @@ router.get('/transactions', auth_middleware_1.authenticateJWT, wallet_controller
 router.post('/stripe/create-payment-intent', auth_middleware_1.authenticateJWT, wallet_controller_1.createPaymentIntent);
 router.post('/stripe/confirm-payment', auth_middleware_1.authenticateJWT, wallet_controller_1.confirmPayment);
 router.post('/convert', auth_middleware_1.authenticateJWT, wallet_controller_1.convertDiamonds);
+router.post('/convert-beans', auth_middleware_1.authenticateJWT, wallet_controller_1.convertBeansToDiamondsHandler);
 router.post('/withdraw', auth_middleware_1.authenticateJWT, wallet_controller_1.withdrawRcoinsHandler);
 router.post('/vip/purchase-diamonds', auth_middleware_1.authenticateJWT, wallet_controller_1.purchaseVipWithDiamonds);
 router.post('/iap/google/verify', auth_middleware_1.authenticateJWT, iap_controller_1.verifyGooglePlayPurchase);

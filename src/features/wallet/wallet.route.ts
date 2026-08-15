@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticateJWT } from '../../core/middlewares/auth.middleware';
 import {
   confirmPayment,
+  convertBeansToDiamondsHandler,
   convertDiamonds,
   createPaymentIntent,
   getBalance,
@@ -20,6 +21,7 @@ router.get('/transactions', authenticateJWT as any, getTransactions as any);
 router.post('/stripe/create-payment-intent', authenticateJWT as any, createPaymentIntent as any);
 router.post('/stripe/confirm-payment', authenticateJWT as any, confirmPayment as any);
 router.post('/convert', authenticateJWT as any, convertDiamonds as any);
+router.post('/convert-beans', authenticateJWT as any, convertBeansToDiamondsHandler as any);
 router.post('/withdraw', authenticateJWT as any, withdrawRcoinsHandler as any);
 router.post('/vip/purchase-diamonds', authenticateJWT as any, purchaseVipWithDiamonds as any);
 router.post('/iap/google/verify', authenticateJWT as any, verifyGooglePlayPurchase as any);

@@ -41,6 +41,7 @@ const WalletTransactionSchema = new mongoose_1.Schema({
         enum: [
             'purchase_diamonds',
             'convert_diamonds_to_rcoins',
+            'convert_beans_to_diamonds',
             'withdraw_rcoins',
             'vip_purchase',
             'gift_spend',
@@ -58,7 +59,7 @@ const WalletTransactionSchema = new mongoose_1.Schema({
         ],
         required: true,
     },
-    currency: { type: String, enum: ['diamonds', 'rcoins', 'usd'], required: true },
+    currency: { type: String, enum: ['diamonds', 'rcoins', 'beans', 'usd'], required: true },
     amount: { type: Number, required: true },
     diamondsDelta: { type: Number, default: 0 },
     rcoinsDelta: { type: Number, default: 0 },

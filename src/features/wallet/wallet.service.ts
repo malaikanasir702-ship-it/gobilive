@@ -270,6 +270,50 @@ export async function convertDiamondsToRcoins(userId: string, diamondAmount: num
   }
 }
 
+export async function convertBeansToDiamonds(userId: string, beansAmount: number) {
+  if (beansAmount <= 0) {
+    throw new WalletServiceError('Amount of Beans must be positive.');
+  }
+
+  // Get conversion rate from PlatformSettings or default 10 Beans = 1 Diamond
+  const { getPlatformSettings } = await import('../settings/platform-settings.model');
+  const settings = await getPlatformSettings();
+  const rate = settings.diamondToBeanRate || 10; // 10 Beans per Diamond
+
+  if (beansAmount < rate) {
+    throw new WalletServiceError(`Minimum ${rate} Beans required to convert.`);
+  }
+
+  const diamondsGained = Math.floor(beansAmount / rate);
+  const actualBeansUsed = diamondsGained * rate;
+
+  const user = await User.findOneAndUpdate(
+    { _id: userId, beanWallet: { $gte: actualBeansUsed } },
+    { $inc: { beanWallet: -actualBeansUsed, diamonds: diamondsGained } },
+    { new: true }
+  );
+
+  if (!user) {
+    throw new WalletServiceError('Insufficient Beans balance.');
+  }
+
+  const ledger = await WalletTransaction.create({
+    userId: user._id,
+    type: 'convert_beans_to_diamonds',
+    currency: 'beans',
+    amount: actualBeansUsed,
+    diamondsDelta: diamondsGained,
+    rcoinsDelta: -actualBeansUsed,
+    diamondsBalance: user.diamonds,
+    rcoinsBalance: user.beanWallet ?? user.rcoins,
+    status: 'completed',
+    description: `Converted ${actualBeansUsed} Beans → ${diamondsGained} 💎`,
+    metadata: { rate, diamondsGained, beansUsed: actualBeansUsed },
+  });
+
+  return ledger;
+}
+
 export async function withdrawRcoins(
   userId: string,
   rcoinAmount: number,
@@ -314,6 +358,60 @@ export async function withdrawRcoins(
   } finally {
     session.endSession();
   }
+}
+
+export async function requestDiamondWithdrawal(
+  userId: string,
+  diamondsAmount: number,
+  payoutMethod: string,
+  payoutDetails: string
+) {
+  if (diamondsAmount < 10) {
+    throw new WalletServiceError('Minimum withdrawal is 10 Diamonds.');
+  }
+
+  const { getPlatformSettings } = await import('../settings/platform-settings.model');
+  const settings = await getPlatformSettings();
+  const beanDollarUsd = settings.beanDollarRateUsd || 1;
+  const beanDollarBeans = settings.beanDollarRateBeans || 100;
+  const amountInUsd = (diamondsAmount / beanDollarBeans) * beanDollarUsd;
+
+  const user = await User.findOneAndUpdate(
+    { _id: userId, diamonds: { $gte: diamondsAmount } },
+    { $inc: { diamonds: -diamondsAmount } },
+    { new: true }
+  );
+
+  if (!user) {
+    throw new WalletServiceError('Insufficient Diamonds balance.');
+  }
+
+  const { WithdrawalRequest } = await import('../withdrawal/withdrawal-request.model');
+  const withdrawal = await WithdrawalRequest.create({
+    hostId: user._id,
+    hostName: user.username,
+    diamondsRequested: diamondsAmount,
+    amountInLocalCurrency: Number(amountInUsd.toFixed(2)),
+    currencyCode: 'USD',
+    status: 'pending',
+    requestedAt: new Date(),
+  });
+
+  const ledger = await WalletTransaction.create({
+    userId: user._id,
+    type: 'withdraw_rcoins',
+    currency: 'diamonds',
+    amount: diamondsAmount,
+    diamondsDelta: -diamondsAmount,
+    rcoinsDelta: 0,
+    diamondsBalance: user.diamonds,
+    rcoinsBalance: user.beanWallet ?? user.rcoins,
+    status: 'pending',
+    description: `Withdrawal request: ${diamondsAmount} 💎 ($${amountInUsd.toFixed(2)} USD via ${payoutMethod || 'Bank'})`,
+    metadata: { withdrawalRequestId: withdrawal._id, payoutMethod, payoutDetails },
+  });
+
+  return { withdrawal, ledger };
 }
 
 export async function activateVipWithDiamonds(userId: string, planId: string) {

@@ -285,28 +285,28 @@ export const purchaseGiftItem = async (req: AuthRequest, res: Response): Promise
 async function processGiftPayment(
   senderId: string,
   hostId: string,
-  diamondCost: number,
-  rcoinEarned: number,
+  beansCost: number,
+  beansEarned: number,
   _giftName: string
 ): Promise<void> {
-  // Deduct diamonds atomically without triggering full-document schema validation
+  // Deduct beans atomically without triggering full-document schema validation
   const updatedSender = await User.findOneAndUpdate(
-    { _id: senderId, diamonds: { $gte: diamondCost } },
-    { $inc: { diamonds: -diamondCost } },
+    { _id: senderId, beanWallet: { $gte: beansCost } },
+    { $inc: { beanWallet: -beansCost } },
     { new: true }
-  ).select('diamonds').lean();
+  ).select('beanWallet').lean();
 
   if (!updatedSender) {
-    const sender = await User.findById(senderId).select('diamonds').lean();
+    const sender = await User.findById(senderId).select('beanWallet').lean();
     if (!sender) throw new Error('Sender not found.');
-    throw new Error('Insufficient diamonds.');
+    throw new Error('Insufficient beans.');
   }
 
-  // Credit rcoins to recipient
-  if (rcoinEarned > 0) {
+  // Credit beans to recipient
+  if (beansEarned > 0) {
     await User.updateOne(
       { _id: hostId },
-      { $inc: { rcoins: rcoinEarned } }
+      { $inc: { beanWallet: beansEarned } }
     );
   }
 }
@@ -345,7 +345,7 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
       // The client sends the cost; we trust it because Beans are server-verified.
       if (typeof giftId === 'string' && giftId.startsWith('local_')) {
         const clientCost = Math.max(1, Number(req.body.cost ?? req.body.diamondCost ?? 1));
-        const rcoin = Math.floor(clientCost * 0.5); // host earns 50% as rcoins
+        const rcoin = Math.floor(clientCost * 0.5); // host earns 50% as beans
         const friendlyName = giftId
           .replace('local_', '')
           .replace(/_/g, ' ')
@@ -377,8 +377,8 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
     }
 
     const safeCount = Math.max(1, Number(count));
-    const totalCost = gift.diamondCost * safeCount;
-    const totalRcoins = gift.rcoinEarned * safeCount;
+    const totalCost = gift.diamondCost * safeCount; // total Beans cost
+    const totalBeansEarned = (gift.rcoinEarned || gift.diamondCost) * safeCount;
 
     // Determine the actual recipient: targetUserId if provided & valid, else room host
     let recipientId = room.hostId.toString();
@@ -395,7 +395,7 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
       }
     }
 
-    await processGiftPayment(req.user.id, recipientId, totalCost, totalRcoins, gift.name);
+    await processGiftPayment(req.user.id, recipientId, totalCost, totalBeansEarned, gift.name);
 
     room.totalGifts += safeCount;
     room.totalDiamondsEarned += totalCost;
@@ -405,11 +405,11 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
 
     // Fetch updated balances so the live UI can show them in real-time
     const [senderUpdated, recipientUpdated] = await Promise.all([
-      User.findById(req.user.id).select('diamonds username').lean(),
-      User.findById(recipientId).select('diamonds rcoins username').lean(),
+      User.findById(req.user.id).select('beanWallet diamonds username').lean(),
+      User.findById(recipientId).select('beanWallet diamonds rcoins username').lean(),
     ]);
 
-    // Broadcast diamond balance updates to the live room via Socket.IO
+    // Broadcast balance updates to the live room via Socket.IO
     const io = getIo();
     if (io) {
       // Broadcast gift animation to everyone in the room
@@ -425,21 +425,26 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
         cost: totalCost,
       });
 
-      // Broadcast diamond balance updates
-      io.to(channelName).emit('diamond_balance_update', {
+      // Broadcast bean & diamond balance updates
+      const balanceUpdatePayload = {
         roomId: channelName,
         sender: {
           userId: req.user.id,
           username: req.user.username,
+          beans: senderUpdated?.beanWallet ?? 0,
           diamonds: senderUpdated?.diamonds ?? 0,
         },
         recipient: {
           userId: recipientId,
           username: recipientUsername,
+          beans: recipientUpdated?.beanWallet ?? 0,
           diamonds: recipientUpdated?.diamonds ?? 0,
           rcoins: recipientUpdated?.rcoins ?? 0,
         },
-      });
+      };
+
+      io.to(channelName).emit('bean_balance_update', balanceUpdatePayload);
+      io.to(channelName).emit('diamond_balance_update', balanceUpdatePayload);
     }
 
     res.status(200).json({
@@ -453,17 +458,18 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
         animation: gift.animation ?? 'float',
         count: safeCount,
         totalCost,
-        totalRcoins,
+        totalBeansEarned,
       },
       recipientId,
       recipientUsername,
       hostId: room.hostId,
       senderUsername: req.user.username,
+      senderBeans: senderUpdated?.beanWallet ?? 0,
       senderDiamonds: senderUpdated?.diamonds ?? 0,
     });
   } catch (error: any) {
     console.error('[sendGiftToHost]', error);
-    const knownClientErrors = ['Insufficient diamonds.', 'Sender not found.', 'Live room not found.'];
+    const knownClientErrors = ['Insufficient beans.', 'Sender not found.', 'Live room not found.'];
     const statusCode = knownClientErrors.includes(error.message) ? 400 : (error.status || 500);
     res.status(statusCode).json({ success: false, message: error.message || 'Failed to send gift.' });
   }

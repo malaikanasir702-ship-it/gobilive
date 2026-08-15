@@ -18,12 +18,14 @@ import {
 import {
   activateVipFromStripe,
   activateVipWithDiamonds,
+  convertBeansToDiamonds,
   convertDiamondsToRcoins,
   creditDiamondsPurchase,
   getPackageById,
   getTransactionHistory,
   getWalletBalance,
   isStripeMockMode,
+  requestDiamondWithdrawal,
   WalletServiceError,
   withdrawRcoins,
 } from './wallet.service';
@@ -241,24 +243,50 @@ export const convertDiamonds = async (req: AuthRequest, res: Response): Promise<
   }
 };
 
-export const withdrawRcoinsHandler = async (req: AuthRequest, res: Response): Promise<void> => {
+export const convertBeansToDiamondsHandler = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { rcoinAmount, payoutMethod, payoutDetails } = req.body;
-    const ledger = await withdrawRcoins(
-      req.user!.id,
-      rcoinAmount,
-      payoutMethod || 'bank',
-      payoutDetails || ''
-    );
-    await pushWalletNotification(
-      req.user!.id,
-      NotificationTriggers.withdrawalSubmitted(rcoinAmount)
-    );
+    const { beansAmount } = req.body;
+    if (!beansAmount || Number(beansAmount) <= 0) {
+      res.status(400).json({ success: false, message: 'Valid beansAmount is required.' });
+      return;
+    }
+    const ledger = await convertBeansToDiamonds(req.user!.id, Number(beansAmount));
     const user = await User.findById(req.user!.id).select('-passwordHash');
     res.status(200).json({
       success: true,
-      message: 'Withdrawal submitted for processing.',
+      message: 'Successfully converted Beans to Diamonds!',
       transaction: ledger,
+      user,
+    });
+  } catch (e: any) {
+    const status = e instanceof WalletServiceError ? e.status : 500;
+    res.status(status).json({ success: false, message: e.message });
+  }
+};
+
+export const withdrawRcoinsHandler = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { rcoinAmount, diamondsAmount, amount, payoutMethod, payoutDetails } = req.body;
+    const withdrawQty = Number(diamondsAmount ?? amount ?? rcoinAmount ?? 0);
+
+    const result = await requestDiamondWithdrawal(
+      req.user!.id,
+      withdrawQty,
+      payoutMethod || 'bank',
+      payoutDetails || ''
+    );
+
+    await pushWalletNotification(
+      req.user!.id,
+      NotificationTriggers.withdrawalSubmitted(withdrawQty)
+    );
+
+    const user = await User.findById(req.user!.id).select('-passwordHash');
+    res.status(200).json({
+      success: true,
+      message: 'Withdrawal request submitted successfully! Pending admin approval.',
+      withdrawal: result.withdrawal,
+      transaction: result.ledger,
       user,
     });
   } catch (e: any) {

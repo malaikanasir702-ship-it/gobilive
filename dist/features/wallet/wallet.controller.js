@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.stripeWebhook = exports.purchaseVipWithDiamonds = exports.withdrawRcoinsHandler = exports.convertDiamonds = exports.confirmPayment = exports.createPaymentIntent = exports.getCatalog = exports.getTransactions = exports.getBalance = void 0;
+exports.stripeWebhook = exports.purchaseVipWithDiamonds = exports.withdrawRcoinsHandler = exports.convertBeansToDiamondsHandler = exports.convertDiamonds = exports.confirmPayment = exports.createPaymentIntent = exports.getCatalog = exports.getTransactions = exports.getBalance = void 0;
 const stripe_1 = __importDefault(require("stripe"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
@@ -201,16 +201,40 @@ const convertDiamonds = async (req, res) => {
     }
 };
 exports.convertDiamonds = convertDiamonds;
-const withdrawRcoinsHandler = async (req, res) => {
+const convertBeansToDiamondsHandler = async (req, res) => {
     try {
-        const { rcoinAmount, payoutMethod, payoutDetails } = req.body;
-        const ledger = await (0, wallet_service_1.withdrawRcoins)(req.user.id, rcoinAmount, payoutMethod || 'bank', payoutDetails || '');
-        await pushWalletNotification(req.user.id, notification_service_1.NotificationTriggers.withdrawalSubmitted(rcoinAmount));
+        const { beansAmount } = req.body;
+        if (!beansAmount || Number(beansAmount) <= 0) {
+            res.status(400).json({ success: false, message: 'Valid beansAmount is required.' });
+            return;
+        }
+        const ledger = await (0, wallet_service_1.convertBeansToDiamonds)(req.user.id, Number(beansAmount));
         const user = await user_model_1.User.findById(req.user.id).select('-passwordHash');
         res.status(200).json({
             success: true,
-            message: 'Withdrawal submitted for processing.',
+            message: 'Successfully converted Beans to Diamonds!',
             transaction: ledger,
+            user,
+        });
+    }
+    catch (e) {
+        const status = e instanceof wallet_service_1.WalletServiceError ? e.status : 500;
+        res.status(status).json({ success: false, message: e.message });
+    }
+};
+exports.convertBeansToDiamondsHandler = convertBeansToDiamondsHandler;
+const withdrawRcoinsHandler = async (req, res) => {
+    try {
+        const { rcoinAmount, diamondsAmount, amount, payoutMethod, payoutDetails } = req.body;
+        const withdrawQty = Number(diamondsAmount ?? amount ?? rcoinAmount ?? 0);
+        const result = await (0, wallet_service_1.requestDiamondWithdrawal)(req.user.id, withdrawQty, payoutMethod || 'bank', payoutDetails || '');
+        await pushWalletNotification(req.user.id, notification_service_1.NotificationTriggers.withdrawalSubmitted(withdrawQty));
+        const user = await user_model_1.User.findById(req.user.id).select('-passwordHash');
+        res.status(200).json({
+            success: true,
+            message: 'Withdrawal request submitted successfully! Pending admin approval.',
+            withdrawal: result.withdrawal,
+            transaction: result.ledger,
             user,
         });
     }

@@ -75,6 +75,13 @@ export async function rejectWithdrawal(req: Request, res: Response) {
     );
     if (!doc) return res.status(404).json({ success: false, message: 'Not found' });
 
+    if (doc.diamondsRequested > 0) {
+      await User.updateOne(
+        { _id: doc.hostId },
+        { $inc: { diamonds: doc.diamondsRequested } }
+      );
+    }
+
     await logActivity({
       actorId: adminId, actorRole: adminRole,
       actionType: 'reject_withdrawal', targetEntityType: 'WithdrawalRequest', targetEntityId: id,

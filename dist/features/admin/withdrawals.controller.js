@@ -84,6 +84,9 @@ async function rejectWithdrawal(req, res) {
         const doc = await withdrawal_request_model_1.WithdrawalRequest.findByIdAndUpdate(id, { status: 'rejected', rejectionReason: reason }, { new: true });
         if (!doc)
             return res.status(404).json({ success: false, message: 'Not found' });
+        if (doc.diamondsRequested > 0) {
+            await user_model_1.User.updateOne({ _id: doc.hostId }, { $inc: { diamonds: doc.diamondsRequested } });
+        }
         await (0, activity_log_service_1.logActivity)({
             actorId: adminId, actorRole: adminRole,
             actionType: 'reject_withdrawal', targetEntityType: 'WithdrawalRequest', targetEntityId: id,

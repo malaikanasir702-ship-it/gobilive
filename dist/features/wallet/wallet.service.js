@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -8,7 +41,9 @@ exports.getWalletBalance = getWalletBalance;
 exports.getTransactionHistory = getTransactionHistory;
 exports.creditDiamondsPurchase = creditDiamondsPurchase;
 exports.convertDiamondsToRcoins = convertDiamondsToRcoins;
+exports.convertBeansToDiamonds = convertBeansToDiamonds;
 exports.withdrawRcoins = withdrawRcoins;
+exports.requestDiamondWithdrawal = requestDiamondWithdrawal;
 exports.activateVipWithDiamonds = activateVipWithDiamonds;
 exports.activateVipFromStripe = activateVipFromStripe;
 exports.getPackageById = getPackageById;
@@ -213,6 +248,38 @@ async function convertDiamondsToRcoins(userId, diamondAmount) {
         session.endSession();
     }
 }
+async function convertBeansToDiamonds(userId, beansAmount) {
+    if (beansAmount <= 0) {
+        throw new WalletServiceError('Amount of Beans must be positive.');
+    }
+    // Get conversion rate from PlatformSettings or default 10 Beans = 1 Diamond
+    const { getPlatformSettings } = await Promise.resolve().then(() => __importStar(require('../settings/platform-settings.model')));
+    const settings = await getPlatformSettings();
+    const rate = settings.diamondToBeanRate || 10; // 10 Beans per Diamond
+    if (beansAmount < rate) {
+        throw new WalletServiceError(`Minimum ${rate} Beans required to convert.`);
+    }
+    const diamondsGained = Math.floor(beansAmount / rate);
+    const actualBeansUsed = diamondsGained * rate;
+    const user = await user_model_1.User.findOneAndUpdate({ _id: userId, beanWallet: { $gte: actualBeansUsed } }, { $inc: { beanWallet: -actualBeansUsed, diamonds: diamondsGained } }, { new: true });
+    if (!user) {
+        throw new WalletServiceError('Insufficient Beans balance.');
+    }
+    const ledger = await wallet_transaction_model_1.default.create({
+        userId: user._id,
+        type: 'convert_beans_to_diamonds',
+        currency: 'beans',
+        amount: actualBeansUsed,
+        diamondsDelta: diamondsGained,
+        rcoinsDelta: -actualBeansUsed,
+        diamondsBalance: user.diamonds,
+        rcoinsBalance: user.beanWallet ?? user.rcoins,
+        status: 'completed',
+        description: `Converted ${actualBeansUsed} Beans → ${diamondsGained} 💎`,
+        metadata: { rate, diamondsGained, beansUsed: actualBeansUsed },
+    });
+    return ledger;
+}
 async function withdrawRcoins(userId, rcoinAmount, payoutMethod, payoutDetails) {
     if (rcoinAmount < wallet_config_1.MIN_WITHDRAW_RCOINS) {
         throw new WalletServiceError(`Minimum withdrawal is ${wallet_config_1.MIN_WITHDRAW_RCOINS} Beans.`);
@@ -248,6 +315,44 @@ async function withdrawRcoins(userId, rcoinAmount, payoutMethod, payoutDetails) 
     finally {
         session.endSession();
     }
+}
+async function requestDiamondWithdrawal(userId, diamondsAmount, payoutMethod, payoutDetails) {
+    if (diamondsAmount < 10) {
+        throw new WalletServiceError('Minimum withdrawal is 10 Diamonds.');
+    }
+    const { getPlatformSettings } = await Promise.resolve().then(() => __importStar(require('../settings/platform-settings.model')));
+    const settings = await getPlatformSettings();
+    const beanDollarUsd = settings.beanDollarRateUsd || 1;
+    const beanDollarBeans = settings.beanDollarRateBeans || 100;
+    const amountInUsd = (diamondsAmount / beanDollarBeans) * beanDollarUsd;
+    const user = await user_model_1.User.findOneAndUpdate({ _id: userId, diamonds: { $gte: diamondsAmount } }, { $inc: { diamonds: -diamondsAmount } }, { new: true });
+    if (!user) {
+        throw new WalletServiceError('Insufficient Diamonds balance.');
+    }
+    const { WithdrawalRequest } = await Promise.resolve().then(() => __importStar(require('../withdrawal/withdrawal-request.model')));
+    const withdrawal = await WithdrawalRequest.create({
+        hostId: user._id,
+        hostName: user.username,
+        diamondsRequested: diamondsAmount,
+        amountInLocalCurrency: Number(amountInUsd.toFixed(2)),
+        currencyCode: 'USD',
+        status: 'pending',
+        requestedAt: new Date(),
+    });
+    const ledger = await wallet_transaction_model_1.default.create({
+        userId: user._id,
+        type: 'withdraw_rcoins',
+        currency: 'diamonds',
+        amount: diamondsAmount,
+        diamondsDelta: -diamondsAmount,
+        rcoinsDelta: 0,
+        diamondsBalance: user.diamonds,
+        rcoinsBalance: user.beanWallet ?? user.rcoins,
+        status: 'pending',
+        description: `Withdrawal request: ${diamondsAmount} 💎 ($${amountInUsd.toFixed(2)} USD via ${payoutMethod || 'Bank'})`,
+        metadata: { withdrawalRequestId: withdrawal._id, payoutMethod, payoutDetails },
+    });
+    return { withdrawal, ledger };
 }
 async function activateVipWithDiamonds(userId, planId) {
     const plan = wallet_config_1.VIP_PLANS.find((p) => p.id === planId);
