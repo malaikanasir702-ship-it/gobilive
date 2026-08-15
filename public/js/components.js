@@ -117,8 +117,10 @@ export const Components = {
     }
 
     container.innerHTML = `
-      <div id="shortsFeed" class="shorts-feed h-[calc(100vh-140px)] rounded-2xl bg-black overflow-y-auto">
-        ${shorts.map((s, idx) => this._buildShortCard(s, idx, shorts.length)).join('')}
+      <div class="p-3 lg:p-4 flex justify-center items-center h-full">
+        <div id="shortsFeed" class="shorts-feed w-full max-w-sm sm:max-w-md lg:max-w-[420px] h-[calc(100vh-165px)] rounded-3xl bg-black overflow-y-auto shadow-2xl relative border border-slate-800">
+          ${shorts.map((s, idx) => this._buildShortCard(s, idx, shorts.length)).join('')}
+        </div>
       </div>
     `;
 
@@ -130,7 +132,7 @@ export const Components = {
     const thumb = s.avatar || 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=800&auto=format&fit=crop';
 
     return `
-      <div class="short-card relative w-full h-[calc(100vh-140px)] flex items-center justify-center bg-slate-950 overflow-hidden"
+      <div class="short-card relative w-full h-[calc(100vh-165px)] flex items-center justify-center bg-slate-950 overflow-hidden"
            id="short-${idx}" data-idx="${idx}" data-id="${s.id}">
 
         <!-- Media -->
