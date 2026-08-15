@@ -299,10 +299,10 @@ const approveBeanRequest = async (req, res) => {
                 res.status(400).json({ success: false, message: 'Insufficient bean wallet balance to approve this request.' });
                 return;
             }
-            await user_model_1.User.findByIdAndUpdate(actor.id, { $inc: { beanWallet: -tx.amount } }, { session });
+            await user_model_1.User.findByIdAndUpdate(actor.id, { $inc: { beanWallet: -tx.amount, rcoins: -tx.amount } }, { session });
         }
         // Credit beans to requester's wallet and auto-lift gifting suspension if balance >= 0
-        const updatedRequester = await user_model_1.User.findByIdAndUpdate(tx.fromId, { $inc: { beanWallet: tx.amount } }, { new: true, session }).select('beanWallet isGiftingSuspended');
+        const updatedRequester = await user_model_1.User.findByIdAndUpdate(tx.fromId, { $inc: { beanWallet: tx.amount, rcoins: tx.amount } }, { new: true, session }).select('beanWallet rcoins isGiftingSuspended');
         if (updatedRequester && (updatedRequester.beanWallet ?? 0) >= 0 && updatedRequester.isGiftingSuspended) {
             await user_model_1.User.findByIdAndUpdate(tx.fromId, { isGiftingSuspended: false }, { session });
         }
@@ -434,8 +434,8 @@ const submitBeanTransfer = async (req, res) => {
             session.endSession();
             return;
         }
-        await user_model_1.User.findByIdAndUpdate(sender._id, { $inc: { beanWallet: -amount } }, { session });
-        await user_model_1.User.findByIdAndUpdate(recipient._id, { $inc: { beanWallet: amount } }, { session });
+        await user_model_1.User.findByIdAndUpdate(sender._id, { $inc: { beanWallet: -amount, rcoins: -amount } }, { session });
+        await user_model_1.User.findByIdAndUpdate(recipient._id, { $inc: { beanWallet: amount, rcoins: amount } }, { session });
         const tx = await bean_transaction_model_1.BeanTransaction.create([{
                 type: 'transfer',
                 fromId: sender._id,

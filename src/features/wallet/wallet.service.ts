@@ -149,7 +149,8 @@ export async function getWalletBalance(userId: string) {
 
   return {
     diamonds: user.diamonds,
-    rcoins: user.rcoins,
+    rcoins: user.beanWallet ?? user.rcoins,
+    beanWallet: user.beanWallet ?? user.rcoins,
     isVIP: isVipActive,
     vipFrame: user.vipFrame,
     badges: user.badges ?? [],

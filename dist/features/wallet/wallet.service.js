@@ -148,7 +148,8 @@ async function getWalletBalance(userId) {
     const isVipActive = user.isVIP && (!user.vipExpiresAt || user.vipExpiresAt > new Date());
     return {
         diamonds: user.diamonds,
-        rcoins: user.rcoins,
+        rcoins: user.beanWallet ?? user.rcoins,
+        beanWallet: user.beanWallet ?? user.rcoins,
         isVIP: isVipActive,
         vipFrame: user.vipFrame,
         badges: user.badges ?? [],
