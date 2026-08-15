@@ -8,6 +8,7 @@ import {
   getBalance,
   getCatalog,
   getTransactions,
+  getMyWithdrawals,
   purchaseVipWithDiamonds,
   withdrawRcoinsHandler,
 } from './wallet.controller';
@@ -18,6 +19,7 @@ const router = Router();
 router.get('/catalog', authenticateJWT as any, getCatalog as any);
 router.get('/balance', authenticateJWT as any, getBalance as any);
 router.get('/transactions', authenticateJWT as any, getTransactions as any);
+router.get('/my-withdrawals', authenticateJWT as any, getMyWithdrawals as any);
 router.post('/stripe/create-payment-intent', authenticateJWT as any, createPaymentIntent as any);
 router.post('/stripe/confirm-payment', authenticateJWT as any, confirmPayment as any);
 router.post('/convert', authenticateJWT as any, convertDiamonds as any);

@@ -276,11 +276,6 @@ export const withdrawRcoinsHandler = async (req: AuthRequest, res: Response): Pr
       payoutDetails || ''
     );
 
-    await pushWalletNotification(
-      req.user!.id,
-      NotificationTriggers.withdrawalSubmitted(withdrawQty)
-    );
-
     const user = await User.findById(req.user!.id).select('-passwordHash');
     res.status(200).json({
       success: true,
@@ -292,6 +287,16 @@ export const withdrawRcoinsHandler = async (req: AuthRequest, res: Response): Pr
   } catch (e: any) {
     const status = e instanceof WalletServiceError ? e.status : 500;
     res.status(status).json({ success: false, message: e.message });
+  }
+};
+
+export const getMyWithdrawals = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { WithdrawalRequest } = await import('../withdrawal/withdrawal-request.model');
+    const docs = await WithdrawalRequest.find({ hostId: req.user!.id }).sort({ requestedAt: -1 }).lean();
+    res.status(200).json({ success: true, withdrawals: docs });
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e.message });
   }
 };
 

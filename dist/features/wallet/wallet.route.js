@@ -8,6 +8,7 @@ const router = (0, express_1.Router)();
 router.get('/catalog', auth_middleware_1.authenticateJWT, wallet_controller_1.getCatalog);
 router.get('/balance', auth_middleware_1.authenticateJWT, wallet_controller_1.getBalance);
 router.get('/transactions', auth_middleware_1.authenticateJWT, wallet_controller_1.getTransactions);
+router.get('/my-withdrawals', auth_middleware_1.authenticateJWT, wallet_controller_1.getMyWithdrawals);
 router.post('/stripe/create-payment-intent', auth_middleware_1.authenticateJWT, wallet_controller_1.createPaymentIntent);
 router.post('/stripe/confirm-payment', auth_middleware_1.authenticateJWT, wallet_controller_1.confirmPayment);
 router.post('/convert', auth_middleware_1.authenticateJWT, wallet_controller_1.convertDiamonds);
