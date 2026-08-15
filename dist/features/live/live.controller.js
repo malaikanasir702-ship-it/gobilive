@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateThumbnail = exports.reportRoom = exports.hideCreator = exports.saveRoom = exports.likeRoom = exports.getSessionSummary = exports.getMySessions = exports.getPkEligibleHosts = exports.findPkOpponent = exports.kickViewer = exports.endRoom = exports.getAgoraCredentials = exports.createRoom = exports.getActiveRooms = void 0;
+exports.updateThumbnail = exports.reportRoom = exports.hideCreator = exports.saveRoom = exports.likeRoom = exports.getSessionSummary = exports.getMySessions = exports.getPkEligibleHosts = exports.findPkOpponent = exports.kickViewer = exports.endRoom = exports.getAgoraCredentials = exports.createRoom = exports.getPublicRooms = exports.getActiveRooms = void 0;
 exports.injectLiveControllerIo = injectLiveControllerIo;
 const mongoose_1 = __importDefault(require("mongoose"));
 const live_model_1 = __importDefault(require("./live.model"));
@@ -70,6 +70,39 @@ const getActiveRooms = async (req, res) => {
     }
 };
 exports.getActiveRooms = getActiveRooms;
+const getPublicRooms = async (req, res) => {
+    try {
+        const category = (req.query.category || '').trim().toLowerCase();
+        const isPk = req.query.pk === 'true';
+        const filter = {
+            isActive: true,
+            privacyMode: { $ne: 'private' },
+        };
+        if (isPk) {
+            filter.isPKActive = true;
+        }
+        let rooms = await live_model_1.default.find(filter)
+            .sort({ viewerCount: -1, createdAt: -1 })
+            .limit(50)
+            .populate('hostId', 'profilePic')
+            .lean();
+        if (category) {
+            rooms = rooms.filter((r) => (r.category || '').toLowerCase() === category);
+        }
+        const enriched = rooms.map((r) => ({
+            ...r,
+            hostProfilePic: r.hostId?.profilePic ?? '',
+            likesCount: r.likedBy?.length ?? 0,
+            roomType: r.roomType ?? 'live',
+            thumbnailUrl: r.thumbnailUrl ?? '',
+        }));
+        res.status(200).json({ success: true, rooms: enriched });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+exports.getPublicRooms = getPublicRooms;
 const createRoom = async (req, res) => {
     try {
         const user = req.user;

@@ -600,3 +600,40 @@ export const appealPost = async (req: AuthRequest, res: Response): Promise<void>
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+// GET /feed/public — Public feed of uploaded user shorts/videos for web portal
+export const getPublicFeed = async (req: any, res: Response): Promise<void> => {
+  try {
+    const page  = parseInt(req.query.page  as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 30;
+    const skip  = (page - 1) * limit;
+
+    const filter: any = { isPublic: true, isArchived: { $ne: true }, isDeleted: { $ne: true } };
+
+    const posts = await Post.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('userId', 'profilePic')
+      .lean() as any[];
+
+    const enrichedPosts = posts.map(post => {
+      const p = { ...post };
+      if (post.userId && typeof post.userId === 'object') {
+        p.userProfilePic = post.userId.profilePic || post.userProfilePic;
+        p.userId = post.userId._id;
+      }
+      return p;
+    });
+
+    const total = await Post.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      posts: enrichedPosts,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

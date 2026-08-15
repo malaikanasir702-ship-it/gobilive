@@ -717,11 +717,24 @@
       transform: scale(1.1);
     }
 
+    /* Empty State Card Styling */
+    .empty-state-card {
+      background-color: var(--card-white);
+      border-radius: var(--radius-card);
+      padding: 3rem 2rem;
+      text-align: center;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
     /* ── INTERACTIVE MEDIA MODAL ── */
     .media-modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.8);
+      background: rgba(15, 23, 42, 0.85);
       backdrop-filter: blur(8px);
       z-index: 100;
       display: flex;
@@ -740,7 +753,7 @@
     .media-modal-box {
       background-color: #0F172A;
       border-radius: var(--radius-card);
-      max-width: 650px;
+      max-width: 580px;
       width: 90%;
       overflow: hidden;
       position: relative;
@@ -760,7 +773,9 @@
       align-items: center;
       justify-content: center;
       font-size: 1rem;
-      z-index: 20;
+      z-index: 30;
+      cursor: pointer;
+      border: none;
     }
 
     /* Responsive adjustments */
@@ -931,12 +946,8 @@
       <button class="modal-close-x" onclick="document.getElementById('mediaModal').classList.remove('active')">
         <i class="fa-solid fa-xmark"></i>
       </button>
-      <div style="padding: 2.5rem; color:#FFF; text-align:center;">
-        <h3 style="font-size:1.5rem; font-weight:800; margin-bottom:0.75rem;">GlobiLive Broadcast Stream</h3>
-        <p style="color:#94A3B8; font-size:0.95rem; margin-bottom:1.5rem;">Connecting to real-time live stream room...</p>
-        <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank" class="btn-watch-main" style="display:inline-flex; text-align:center; justify-content:center;">
-          Open in GlobiLive App
-        </a>
+      <div id="mediaModalBody">
+        <!-- Dynamically injected by app.js -->
       </div>
     </div>
   </div>

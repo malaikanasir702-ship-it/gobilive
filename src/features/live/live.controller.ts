@@ -78,6 +78,44 @@ export const getActiveRooms = async (req: Request, res: Response) => {
   }
 };
 
+export const getPublicRooms = async (req: Request, res: Response) => {
+  try {
+    const category = (req.query.category as string || '').trim().toLowerCase();
+    const isPk = req.query.pk === 'true';
+
+    const filter: Record<string, unknown> = {
+      isActive: true,
+      privacyMode: { $ne: 'private' },
+    };
+
+    if (isPk) {
+      filter.isPKActive = true;
+    }
+
+    let rooms = await LiveRoom.find(filter)
+      .sort({ viewerCount: -1, createdAt: -1 })
+      .limit(50)
+      .populate('hostId', 'profilePic')
+      .lean() as any[];
+
+    if (category) {
+      rooms = rooms.filter((r) => (r.category || '').toLowerCase() === category);
+    }
+
+    const enriched = rooms.map((r) => ({
+      ...r,
+      hostProfilePic: r.hostId?.profilePic ?? '',
+      likesCount: r.likedBy?.length ?? 0,
+      roomType: r.roomType ?? 'live',
+      thumbnailUrl: r.thumbnailUrl ?? '',
+    }));
+
+    res.status(200).json({ success: true, rooms: enriched });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 export const createRoom = async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;

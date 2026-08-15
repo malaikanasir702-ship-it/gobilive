@@ -18,6 +18,7 @@ const router = (0, express_1.Router)();
 // EXISTING ROUTES (untouched)
 // ─────────────────────────────────────────────
 router.get('/rooms', auth_middleware_1.authenticateJWT, live_controller_1.getActiveRooms);
+router.get('/public/rooms', live_controller_1.getPublicRooms);
 router.get('/my-sessions', auth_middleware_1.authenticateJWT, live_controller_1.getMySessions);
 router.post('/rooms', auth_middleware_1.authenticateJWT, live_controller_1.createRoom);
 router.get('/rooms/:channelName/agora', auth_middleware_1.authenticateJWT, live_controller_1.getAgoraCredentials);

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateStoryPrivacy = exports.getStoryPrivacy = exports.deleteStory = exports.getStoryViewers = exports.viewStory = exports.getStoriesFeed = exports.getUserStories = exports.getMyStories = exports.createStory = void 0;
+exports.getPublicStories = exports.updateStoryPrivacy = exports.getStoryPrivacy = exports.deleteStory = exports.getStoryViewers = exports.viewStory = exports.getStoriesFeed = exports.getUserStories = exports.getMyStories = exports.createStory = void 0;
 const mongoose_1 = require("mongoose");
 const story_model_1 = require("./story.model");
 const user_model_1 = require("../auth/user.model");
@@ -304,3 +304,20 @@ const updateStoryPrivacy = async (req, res) => {
     }
 };
 exports.updateStoryPrivacy = updateStoryPrivacy;
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/story/public — Get public stories/shorts for web portal discovery
+// ─────────────────────────────────────────────────────────────────────────────
+const getPublicStories = async (_req, res) => {
+    try {
+        const stories = await story_model_1.Story.find({})
+            .sort({ createdAt: -1 })
+            .limit(30)
+            .lean();
+        res.status(200).json({ success: true, stories });
+    }
+    catch (error) {
+        console.error('getPublicStories error:', error);
+        res.status(500).json({ success: false, message: error.message || 'Failed to fetch public stories.' });
+    }
+};
+exports.getPublicStories = getPublicStories;

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.appealPost = exports.reportPost = exports.getSavedPosts = exports.savePost = exports.getArchivedPosts = exports.editPost = exports.restorePost = exports.archivePost = exports.deletePost = exports.addComment = exports.viewPost = exports.sharePost = exports.getComments = exports.likePost = exports.createPost = exports.getFeed = void 0;
+exports.getPublicFeed = exports.appealPost = exports.reportPost = exports.getSavedPosts = exports.savePost = exports.getArchivedPosts = exports.editPost = exports.restorePost = exports.archivePost = exports.deletePost = exports.addComment = exports.viewPost = exports.sharePost = exports.getComments = exports.likePost = exports.createPost = exports.getFeed = void 0;
 const mongoose_1 = require("mongoose");
 const post_model_1 = require("./post.model");
 const comment_model_1 = require("./comment.model");
@@ -579,3 +579,36 @@ const appealPost = async (req, res) => {
     }
 };
 exports.appealPost = appealPost;
+// GET /feed/public — Public feed of uploaded user shorts/videos for web portal
+const getPublicFeed = async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 30;
+        const skip = (page - 1) * limit;
+        const filter = { isPublic: true, isArchived: { $ne: true }, isDeleted: { $ne: true } };
+        const posts = await post_model_1.Post.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .populate('userId', 'profilePic')
+            .lean();
+        const enrichedPosts = posts.map(post => {
+            const p = { ...post };
+            if (post.userId && typeof post.userId === 'object') {
+                p.userProfilePic = post.userId.profilePic || post.userProfilePic;
+                p.userId = post.userId._id;
+            }
+            return p;
+        });
+        const total = await post_model_1.Post.countDocuments(filter);
+        res.status(200).json({
+            success: true,
+            posts: enrichedPosts,
+            pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+        });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+exports.getPublicFeed = getPublicFeed;

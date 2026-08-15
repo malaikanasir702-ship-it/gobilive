@@ -5,6 +5,7 @@ const feed_controller_1 = require("./feed.controller");
 const auth_middleware_1 = require("../../core/middlewares/auth.middleware");
 const router = (0, express_1.Router)();
 // Static routes FIRST (before /:id to avoid conflicts)
+router.get('/public', feed_controller_1.getPublicFeed);
 router.get('/archived', auth_middleware_1.authenticateJWT, feed_controller_1.getArchivedPosts);
 router.get('/saved', auth_middleware_1.authenticateJWT, feed_controller_1.getSavedPosts);
 // Feed CRUD

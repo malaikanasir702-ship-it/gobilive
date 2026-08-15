@@ -9,12 +9,14 @@ import {
   deleteStory,
   getStoryPrivacy,
   updateStoryPrivacy,
+  getPublicStories,
 } from './story.controller';
 import { authenticateJWT } from '../../core/middlewares/auth.middleware';
 
 const router = Router();
 
 // Static routes FIRST (before /:id to avoid route conflicts)
+router.get('/public',         getPublicStories          as any);
 router.get('/mine',           authenticateJWT as any, getMyStories      as any);
 router.get('/feed',           authenticateJWT as any, getStoriesFeed    as any);
 router.get('/privacy',        authenticateJWT as any, getStoryPrivacy   as any);

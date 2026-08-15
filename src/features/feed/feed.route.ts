@@ -16,12 +16,14 @@ import {
   getSavedPosts,
   reportPost,
   appealPost,
+  getPublicFeed,
 } from './feed.controller';
 import { authenticateJWT } from '../../core/middlewares/auth.middleware';
 
 const router = Router();
 
 // Static routes FIRST (before /:id to avoid conflicts)
+router.get('/public',         getPublicFeed     as any);
 router.get('/archived',      authenticateJWT as any, getArchivedPosts as any);
 router.get('/saved',         authenticateJWT as any, getSavedPosts    as any);
 

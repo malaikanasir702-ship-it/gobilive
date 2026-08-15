@@ -14,6 +14,7 @@ import {
   createRoom,
   endRoom,
   getActiveRooms,
+  getPublicRooms,
   getAgoraCredentials,
   kickViewer,
   getSessionSummary,
@@ -50,6 +51,7 @@ const router = Router();
 // EXISTING ROUTES (untouched)
 // ─────────────────────────────────────────────
 router.get('/rooms', authenticateJWT as any, getActiveRooms as any);
+router.get('/public/rooms', getPublicRooms as any);
 router.get('/my-sessions', authenticateJWT as any, getMySessions as any);
 router.post('/rooms', authenticateJWT as any, createRoom as any);
 router.get('/rooms/:channelName/agora', authenticateJWT as any, getAgoraCredentials as any);

@@ -323,3 +323,20 @@ export const updateStoryPrivacy = async (req: AuthRequest, res: Response): Promi
     res.status(500).json({ success: false, message: error.message || 'Failed to update privacy.' });
   }
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/story/public — Get public stories/shorts for web portal discovery
+// ─────────────────────────────────────────────────────────────────────────────
+export const getPublicStories = async (_req: any, res: Response): Promise<void> => {
+  try {
+    const stories = await Story.find({})
+      .sort({ createdAt: -1 })
+      .limit(30)
+      .lean();
+
+    res.status(200).json({ success: true, stories });
+  } catch (error: any) {
+    console.error('getPublicStories error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to fetch public stories.' });
+  }
+};
