@@ -1,276 +1,368 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GlobiLive — Live Streaming & Shorts Platform</title>
-  <meta name="description" content="Watch Live Streams, Shorts, PK Battles and play Mini-Games on GlobiLive." />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GlobiLive — Live Streaming & Shorts Platform</title>
+    <meta name="description" content="Watch Live Streams, Shorts, PK Battles and play Mini-Games on GlobiLive." />
 
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            primary: '#E11D48',
-            dark: '#0F172A',
-          },
-          fontFamily: {
-            sans: ['Plus Jakarta Sans', 'sans-serif'],
-          },
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#E11D48',
+                        dark: '#0F172A',
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    },
+                }
+            }
         }
-      }
-    }
-  </script>
+    </script>
 
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap"
+        rel="stylesheet" />
 
-  <!-- FontAwesome 6 -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <!-- FontAwesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
-  <style>
-    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
 
-    /* Shorts feed snap scroll */
-    .shorts-feed { scroll-snap-type: y mandatory; overflow-y: scroll; scrollbar-width: none; }
-    .shorts-feed::-webkit-scrollbar { display: none; }
-    .short-card { scroll-snap-align: start; }
+        /* Shorts feed snap scroll */
+        .shorts-feed {
+            scroll-snap-type: y mandatory;
+            overflow-y: scroll;
+            scrollbar-width: none;
+        }
 
-    /* Play indicator */
-    .play-indicator { opacity: 0; transition: opacity 0.2s; }
-    .play-indicator.show { opacity: 1; }
+        .shorts-feed::-webkit-scrollbar {
+            display: none;
+        }
 
-    /* Progress bar */
-    .progress-fill { transition: width 0.3s linear; }
+        .short-card {
+            scroll-snap-align: start;
+        }
 
-    /* Comments drawer */
-    .comments-drawer { transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.16,1,0.3,1); }
-    .comments-drawer.open { transform: translateY(0); }
+        /* Play indicator */
+        .play-indicator {
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
 
-    /* Modal */
-    .modal-backdrop { opacity: 0; pointer-events: none; transition: opacity 0.25s; }
-    .modal-backdrop.active { opacity: 1; pointer-events: auto; }
+        .play-indicator.show {
+            opacity: 1;
+        }
 
-    /* Fade in animation */
-    .fade-in { animation: fadeIn 0.3s ease; }
-    @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+        /* Progress bar */
+        .progress-fill {
+            transition: width 0.3s linear;
+        }
 
-    /* Active nav dot */
-    .active-dot { width: 6px; height: 6px; background: #E11D48; border-radius: 50%; }
+        /* Comments drawer */
+        .comments-drawer {
+            transform: translateY(100%);
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
 
-    /* Hero card */
-    .hero-card { min-height: 340px; }
-    @media (min-width: 768px) { .hero-card { min-height: 420px; } }
-  </style>
+        .comments-drawer.open {
+            transform: translateY(0);
+        }
+
+        /* Modal */
+        .modal-backdrop {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s;
+        }
+
+        .modal-backdrop.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Fade in animation */
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Active nav dot */
+        .active-dot {
+            width: 6px;
+            height: 6px;
+            background: #E11D48;
+            border-radius: 50%;
+        }
+
+        /* Hero card */
+        .hero-card {
+            min-height: 340px;
+        }
+
+        @media (min-width: 768px) {
+            .hero-card {
+                min-height: 420px;
+            }
+        }
+    </style>
 </head>
 
 <body class="bg-slate-200 min-h-screen">
 
-  <!-- ═══════════════════════════════════════
+    <!-- ═══════════════════════════════════════
        OUTER FRAME
   ═══════════════════════════════════════ -->
-  <div class="max-w-screen-xl mx-auto min-h-screen lg:p-4">
-    <div class="bg-slate-100 lg:rounded-3xl shadow-2xl flex flex-col min-h-screen lg:min-h-0">
+    <div class="max-w-screen-xl mx-auto min-h-screen lg:p-4">
+        <div class="bg-slate-100 lg:rounded-3xl shadow-2xl flex flex-col min-h-screen lg:min-h-0 mt-5">
 
-      <!-- ── TOP HEADER ── -->
-      <header class="flex items-center gap-3 px-3 py-3 lg:px-5 lg:py-3.5 sticky top-0 bg-slate-100 z-30 border-b border-slate-200 flex-nowrap overflow-x-auto lg:rounded-t-3xl">
+            <!-- ── TOP HEADER ── -->
+            <header
+                class="flex items-center gap-3 px-3 py-3 lg:px-5 lg:py-3.5 sticky top-0 bg-slate-100 z-30 border-b border-slate-200 flex-nowrap overflow-x-auto lg:rounded-t-3xl">
 
-        <!-- Search -->
-        <div class="flex items-center gap-2 bg-white rounded-full px-3.5 py-1.5 shadow-sm min-w-[140px] max-w-[200px] shrink-0">
-          <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs"></i>
-          <input id="searchInput" type="text" placeholder="Search"
-                 class="bg-transparent outline-none text-xs text-slate-700 w-full placeholder-slate-400" />
-        </div>
+                <!-- Search -->
+                <div
+                    class="flex items-center gap-2 bg-white rounded-full px-3.5 py-1.5 shadow-sm min-w-[140px] max-w-[200px] shrink-0">
+                    <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs"></i>
+                    <input id="searchInput" type="text" placeholder="Search"
+                        class="bg-transparent outline-none text-xs text-slate-700 w-full placeholder-slate-400" />
+                </div>
 
-        <!-- Category pills (desktop - strictly single horizontal line) -->
-        <nav id="categoryNav" class="hidden lg:flex items-center gap-1.5 flex-nowrap whitespace-nowrap shrink-0 mx-auto">
-          <button class="category-pill active-pill px-3.5 py-1.5 rounded-full text-xs font-700 bg-primary text-white whitespace-nowrap transition-all" data-cat="all">Shorts</button>
-          <button class="category-pill px-3.5 py-1.5 rounded-full text-xs font-600 text-slate-600 hover:bg-white whitespace-nowrap transition-all" data-cat="live">Live Rooms</button>
-          <button class="category-pill px-3.5 py-1.5 rounded-full text-xs font-600 text-slate-600 hover:bg-white whitespace-nowrap transition-all" data-cat="pk">PK Battles</button>
-          <button class="category-pill px-3.5 py-1.5 rounded-full text-xs font-600 text-slate-600 hover:bg-white whitespace-nowrap transition-all" data-cat="teenpatti">Teen Patti</button>
-          <button class="category-pill px-3.5 py-1.5 rounded-full text-xs font-600 text-slate-600 hover:bg-white whitespace-nowrap transition-all" data-cat="plinko">Plinko</button>
-          <button class="category-pill px-3.5 py-1.5 rounded-full text-xs font-600 text-slate-600 hover:bg-white whitespace-nowrap transition-all" data-cat="more">More</button>
-        </nav>
+                <!-- Category pills (desktop - strictly single horizontal line) -->
+                <nav id="categoryNav"
+                    class="hidden lg:flex items-center gap-1.5 flex-nowrap whitespace-nowrap shrink-0 mx-auto">
+                    <button
+                        class="category-pill active-pill px-3.5 py-1.5 rounded-full text-xs font-700 bg-primary text-white whitespace-nowrap transition-all"
+                        data-cat="all">Shorts</button>
+                    <button
+                        class="category-pill px-3.5 py-1.5 rounded-full text-xs font-600 text-slate-600 hover:bg-white whitespace-nowrap transition-all"
+                        data-cat="live">Live Rooms</button>
+                    <button
+                        class="category-pill px-3.5 py-1.5 rounded-full text-xs font-600 text-slate-600 hover:bg-white whitespace-nowrap transition-all"
+                        data-cat="pk">PK Battles</button>
+                    <button
+                        class="category-pill px-3.5 py-1.5 rounded-full text-xs font-600 text-slate-600 hover:bg-white whitespace-nowrap transition-all"
+                        data-cat="teenpatti">Teen Patti</button>
+                    <button
+                        class="category-pill px-3.5 py-1.5 rounded-full text-xs font-600 text-slate-600 hover:bg-white whitespace-nowrap transition-all"
+                        data-cat="plinko">Plinko</button>
+                    <button
+                        class="category-pill px-3.5 py-1.5 rounded-full text-xs font-600 text-slate-600 hover:bg-white whitespace-nowrap transition-all"
+                        data-cat="more">More</button>
+                </nav>
 
-        <!-- Right actions -->
-        <div class="flex items-center gap-2 shrink-0 ml-auto flex-nowrap">
-          <!-- Bell -->
-          <button class="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm text-slate-500 hover:text-primary transition-colors">
-            <i class="fa-regular fa-bell text-xs"></i>
-          </button>
+                <!-- Right actions -->
+                <div class="flex items-center gap-2 shrink-0 ml-auto flex-nowrap">
+                    <!-- Bell -->
+                    <button
+                        class="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm text-slate-500 hover:text-primary transition-colors">
+                        <i class="fa-regular fa-bell text-xs"></i>
+                    </button>
 
-          <!-- User pill - hidden on mobile -->
-          <div class="hidden sm:flex items-center gap-2 bg-white rounded-full px-3 py-1 shadow-sm cursor-pointer whitespace-nowrap">
-            <img id="userPillAvatar"
-                 src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop"
-                 class="w-6 h-6 rounded-full object-cover" alt="User" />
-            <span id="userPillName" class="text-xs font-700 text-slate-700">Alex Morgan</span>
-            <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
-          </div>
+                    <!-- User pill - hidden on mobile -->
+                    <div
+                        class="hidden sm:flex items-center gap-2 bg-white rounded-full px-3 py-1 shadow-sm cursor-pointer whitespace-nowrap">
+                        <img id="userPillAvatar"
+                            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop"
+                            class="w-6 h-6 rounded-full object-cover" alt="User" />
+                        <span id="userPillName" class="text-xs font-700 text-slate-700">Alex Morgan</span>
+                        <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+                    </div>
 
-          <!-- Play Store badge - hidden on small mobile -->
-          <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank"
-             class="hidden xl:block shrink-0">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg"
-                 class="h-7" alt="Google Play" />
-          </a>
+                    <!-- Play Store badge - hidden on small mobile -->
+                    <a href="https://play.google.com/store/apps/details?id=com.gobilive.gobilive_app" target="_blank"
+                        class="hidden xl:block shrink-0">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg"
+                            class="h-7" alt="Google Play" />
+                    </a>
 
-          <!-- Login -->
-          <a href="/admin"
-             class="flex items-center gap-1.5 bg-primary text-white px-3 py-1.5 rounded-full text-xs font-700 hover:opacity-90 transition-opacity whitespace-nowrap shrink-0">
-            <i class="fa-solid fa-right-to-bracket text-xs"></i>
-            <span class="hidden sm:inline">Login</span>
-          </a>
-        </div>
-      </header>
+                    <!-- Login -->
+                    <a href="/admin"
+                        class="flex items-center gap-1.5 bg-primary text-white px-3 py-1.5 rounded-full text-xs font-700 hover:opacity-90 transition-opacity whitespace-nowrap shrink-0">
+                        <i class="fa-solid fa-right-to-bracket text-xs"></i>
+                        <span class="hidden sm:inline">Login</span>
+                    </a>
+                </div>
+            </header>
 
-      <!-- ── BODY (sidebar + main) ── -->
-      <div class="flex flex-1 overflow-hidden">
+            <!-- ── BODY (sidebar + main) ── -->
+            <div class="flex flex-1 overflow-hidden">
 
-        <!-- LEFT SIDEBAR (desktop only) -->
-        <aside class="hidden lg:flex flex-col w-56 shrink-0 bg-white rounded-2xl m-3 mr-0 shadow-sm overflow-y-auto">
-          <!-- Brand -->
-          <div class="flex items-center gap-2.5 px-5 pt-5 pb-3">
-            <img src="/logo.png" class="w-9 h-9 object-contain" alt="GlobiLive" onerror="this.style.display='none'" />
-            <span class="text-primary font-900 text-lg tracking-wide">GLOBILIVE</span>
-          </div>
+                <!-- LEFT SIDEBAR (desktop only) -->
+                <aside
+                    class="hidden lg:flex flex-col w-56 shrink-0 bg-white rounded-2xl m-3 mr-0 shadow-sm overflow-y-auto">
+                    <!-- Brand -->
+                    <div class="flex items-center gap-2.5 px-5 pt-5 pb-3">
+                        <img src="/logo.png" class="w-9 h-9 object-contain" alt="GlobiLive"
+                            onerror="this.style.display='none'" />
+                        <span class="text-primary font-900 text-lg tracking-wide">GLOBILIVE</span>
+                    </div>
 
-          <!-- Nav -->
-          <ul class="flex flex-col gap-0.5 px-3 mt-2">
-            <li class="sidebar-nav-item rounded-xl cursor-pointer" data-view="home">
-              <a class="flex items-center gap-3 px-3 py-2.5 text-sm font-600 text-slate-600 hover:text-primary hover:bg-red-50 rounded-xl transition-all">
-                <i class="fa-solid fa-house w-4 text-center"></i> Home
-              </a>
-            </li>
-            <li class="sidebar-nav-item rounded-xl cursor-pointer active bg-red-50" data-view="explore">
-              <a class="flex items-center gap-3 px-3 py-2.5 text-sm font-700 text-primary rounded-xl transition-all">
-                <i class="fa-solid fa-compass w-4 text-center"></i>
-                <span>Explore</span>
-                <span class="ml-auto active-dot"></span>
-              </a>
-            </li>
-            <li class="sidebar-nav-item rounded-xl cursor-pointer" data-view="favorite">
-              <a class="flex items-center gap-3 px-3 py-2.5 text-sm font-600 text-slate-600 hover:text-primary hover:bg-red-50 rounded-xl transition-all">
-                <i class="fa-regular fa-heart w-4 text-center"></i> Favorite
-              </a>
-            </li>
-          </ul>
+                    <!-- Nav -->
+                    <ul class="flex flex-col gap-0.5 px-3 mt-2">
+                        <li class="sidebar-nav-item rounded-xl cursor-pointer" data-view="home">
+                            <a
+                                class="flex items-center gap-3 px-3 py-2.5 text-sm font-600 text-slate-600 hover:text-primary hover:bg-red-50 rounded-xl transition-all">
+                                <i class="fa-solid fa-house w-4 text-center"></i> Home
+                            </a>
+                        </li>
+                        <li class="sidebar-nav-item rounded-xl cursor-pointer active bg-red-50" data-view="explore">
+                            <a
+                                class="flex items-center gap-3 px-3 py-2.5 text-sm font-700 text-primary rounded-xl transition-all">
+                                <i class="fa-solid fa-compass w-4 text-center"></i>
+                                <span>Explore</span>
+                                <span class="ml-auto active-dot"></span>
+                            </a>
+                        </li>
+                        <li class="sidebar-nav-item rounded-xl cursor-pointer" data-view="favorite">
+                            <a
+                                class="flex items-center gap-3 px-3 py-2.5 text-sm font-600 text-slate-600 hover:text-primary hover:bg-red-50 rounded-xl transition-all">
+                                <i class="fa-regular fa-heart w-4 text-center"></i> Favorite
+                            </a>
+                        </li>
+                    </ul>
 
-          <div class="border-t border-slate-100 mx-4 my-2"></div>
+                    <div class="border-t border-slate-100 mx-4 my-2"></div>
 
-          <ul class="flex flex-col gap-0.5 px-3">
-            <li class="sidebar-nav-item rounded-xl cursor-pointer" data-view="profile">
-              <a class="flex items-center gap-3 px-3 py-2.5 text-sm font-600 text-slate-600 hover:text-primary hover:bg-red-50 rounded-xl transition-all">
-                <i class="fa-regular fa-user w-4 text-center"></i> Profile
-              </a>
-            </li>
-            <li class="sidebar-nav-item rounded-xl cursor-pointer" data-view="settings">
-              <a class="flex items-center gap-3 px-3 py-2.5 text-sm font-600 text-slate-600 hover:text-primary hover:bg-red-50 rounded-xl transition-all">
-                <i class="fa-solid fa-gear w-4 text-center"></i> Settings
-              </a>
-            </li>
-          </ul>
+                    <ul class="flex flex-col gap-0.5 px-3">
+                        <li class="sidebar-nav-item rounded-xl cursor-pointer" data-view="profile">
+                            <a
+                                class="flex items-center gap-3 px-3 py-2.5 text-sm font-600 text-slate-600 hover:text-primary hover:bg-red-50 rounded-xl transition-all">
+                                <i class="fa-regular fa-user w-4 text-center"></i> Profile
+                            </a>
+                        </li>
+                        <li class="sidebar-nav-item rounded-xl cursor-pointer" data-view="settings">
+                            <a
+                                class="flex items-center gap-3 px-3 py-2.5 text-sm font-600 text-slate-600 hover:text-primary hover:bg-red-50 rounded-xl transition-all">
+                                <i class="fa-solid fa-gear w-4 text-center"></i> Settings
+                            </a>
+                        </li>
+                    </ul>
 
-          <!-- Continue watching -->
-          <div class="mt-auto px-4 pb-4">
-            <div class="text-xs font-800 text-slate-400 uppercase tracking-widest mb-2 mt-4">Continue watching</div>
-            <div id="continueWatchingList" class="flex flex-col gap-2"></div>
-          </div>
-        </aside>
+                    <!-- Continue watching -->
+                    <div class="mt-auto px-4 pb-4">
+                        <div class="text-xs font-800 text-slate-400 uppercase tracking-widest mb-2 mt-4">Continue
+                            watching</div>
+                        <div id="continueWatchingList" class="flex flex-col gap-2"></div>
+                    </div>
+                </aside>
 
-        <!-- MAIN CONTENT AREA -->
-        <main class="flex-1 overflow-y-auto" id="mainContentArea">
-          <!-- Shorts feed slot (managed by JS) -->
-          <div id="shortsFeedSlot" class="h-full"></div>
+                <!-- MAIN CONTENT AREA -->
+                <main class="flex-1 overflow-y-auto" id="mainContentArea">
+                    <!-- Shorts feed slot (managed by JS) -->
+                    <div id="shortsFeedSlot" class="h-full"></div>
 
-          <!-- Live/Grid slot (hidden initially) -->
-          <div id="gridSlot" class="hidden p-3 lg:p-4 flex flex-col gap-4">
+                    <!-- Live/Grid slot (hidden initially) -->
+                    <div id="gridSlot" class="hidden p-3 lg:p-4 flex flex-col gap-4">
 
-            <!-- Hero Spotlight -->
-            <div id="heroSpotlight"
-                 class="hero-card relative rounded-2xl overflow-hidden bg-slate-800 shadow-lg cursor-pointer">
+                        <!-- Hero Spotlight -->
+                        <div id="heroSpotlight"
+                            class="hero-card relative rounded-2xl overflow-hidden bg-slate-800 shadow-lg cursor-pointer">
+                        </div>
+
+                        <!-- You Might Like -->
+                        <div>
+                            <div class="flex items-center justify-between mb-3">
+                                <h2 class="text-lg font-800 text-slate-900">You Might Like</h2>
+                                <a href="javascript:void(0)" class="text-sm text-primary font-600">See all</a>
+                            </div>
+                            <div id="youMightLikeGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Profile slot -->
+                    <div id="profileSlot" class="hidden p-3 lg:p-4 fade-in"></div>
+
+                    <!-- Settings slot -->
+                    <div id="settingsSlot" class="hidden p-3 lg:p-4 fade-in"></div>
+                </main>
             </div>
 
-            <!-- You Might Like -->
-            <div>
-              <div class="flex items-center justify-between mb-3">
-                <h2 class="text-lg font-800 text-slate-900">You Might Like</h2>
-                <a href="javascript:void(0)" class="text-sm text-primary font-600">See all</a>
-              </div>
-              <div id="youMightLikeGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
-            </div>
-          </div>
+            <!-- MOBILE BOTTOM NAV -->
+            <nav
+                class="lg:hidden flex items-center justify-around bg-white border-t border-slate-200 px-2 py-2 sticky bottom-0 z-30">
+                <button class="mobile-nav-btn flex flex-col items-center gap-0.5 text-slate-500" data-cat="all">
+                    <i class="fa-solid fa-film text-lg"></i>
+                    <span class="text-xs font-600">Shorts</span>
+                </button>
+                <button class="mobile-nav-btn flex flex-col items-center gap-0.5 text-slate-500" data-cat="live">
+                    <i class="fa-solid fa-headset text-lg"></i>
+                    <span class="text-xs font-600">Live</span>
+                </button>
+                <button class="mobile-nav-btn flex flex-col items-center gap-0.5 text-slate-500" data-cat="pk">
+                    <i class="fa-solid fa-bolt text-lg"></i>
+                    <span class="text-xs font-600">PK</span>
+                </button>
+                <button class="mobile-nav-btn flex flex-col items-center gap-0.5 text-slate-500" data-view="profile">
+                    <i class="fa-regular fa-user text-lg"></i>
+                    <span class="text-xs font-600">Profile</span>
+                </button>
+                <button class="mobile-nav-btn flex flex-col items-center gap-0.5 text-slate-500" data-view="settings">
+                    <i class="fa-solid fa-gear text-lg"></i>
+                    <span class="text-xs font-600">Settings</span>
+                </button>
+            </nav>
 
-          <!-- Profile slot -->
-          <div id="profileSlot" class="hidden p-3 lg:p-4 fade-in"></div>
-
-          <!-- Settings slot -->
-          <div id="settingsSlot" class="hidden p-3 lg:p-4 fade-in"></div>
-        </main>
-      </div>
-
-      <!-- MOBILE BOTTOM NAV -->
-      <nav class="lg:hidden flex items-center justify-around bg-white border-t border-slate-200 px-2 py-2 sticky bottom-0 z-30">
-        <button class="mobile-nav-btn flex flex-col items-center gap-0.5 text-slate-500" data-cat="all">
-          <i class="fa-solid fa-film text-lg"></i>
-          <span class="text-xs font-600">Shorts</span>
-        </button>
-        <button class="mobile-nav-btn flex flex-col items-center gap-0.5 text-slate-500" data-cat="live">
-          <i class="fa-solid fa-headset text-lg"></i>
-          <span class="text-xs font-600">Live</span>
-        </button>
-        <button class="mobile-nav-btn flex flex-col items-center gap-0.5 text-slate-500" data-cat="pk">
-          <i class="fa-solid fa-bolt text-lg"></i>
-          <span class="text-xs font-600">PK</span>
-        </button>
-        <button class="mobile-nav-btn flex flex-col items-center gap-0.5 text-slate-500" data-view="profile">
-          <i class="fa-regular fa-user text-lg"></i>
-          <span class="text-xs font-600">Profile</span>
-        </button>
-        <button class="mobile-nav-btn flex flex-col items-center gap-0.5 text-slate-500" data-view="settings">
-          <i class="fa-solid fa-gear text-lg"></i>
-          <span class="text-xs font-600">Settings</span>
-        </button>
-      </nav>
-
+        </div>
     </div>
-  </div>
 
-  <!-- ── MEDIA MODAL ── -->
-  <div id="mediaModal" class="modal-backdrop fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-    <div class="bg-slate-900 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-lg overflow-hidden relative shadow-2xl">
-      <button onclick="document.getElementById('mediaModal').classList.remove('active')"
-              class="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors">
-        <i class="fa-solid fa-xmark text-sm"></i>
-      </button>
-      <div id="mediaModalBody"></div>
+    <!-- ── MEDIA MODAL ── -->
+    <div id="mediaModal"
+        class="modal-backdrop fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-slate-900 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-lg overflow-hidden relative shadow-2xl">
+            <button onclick="document.getElementById('mediaModal').classList.remove('active')"
+                class="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+            <div id="mediaModalBody"></div>
+        </div>
     </div>
-  </div>
 
-  <!-- ── COMMENTS DRAWER ── -->
-  <div id="commentsDrawer" class="comments-drawer fixed bottom-0 left-0 right-0 bg-slate-800 rounded-t-3xl z-50 flex flex-col max-h-[70vh]">
-    <div class="flex items-center justify-between px-5 py-3 cursor-pointer border-b border-white/10">
-      <div class="w-10 h-1 bg-white/30 rounded-full mx-auto absolute left-1/2 -translate-x-1/2 top-3"></div>
-      <span class="font-800 text-white mt-2">Comments</span>
-      <button onclick="document.getElementById('commentsDrawer').classList.remove('open')"
-              class="text-slate-400 hover:text-white mt-2">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
+    <!-- ── COMMENTS DRAWER ── -->
+    <div id="commentsDrawer"
+        class="comments-drawer fixed bottom-0 left-0 right-0 bg-slate-800 rounded-t-3xl z-50 flex flex-col max-h-[70vh]">
+        <div class="flex items-center justify-between px-5 py-3 cursor-pointer border-b border-white/10">
+            <div class="w-10 h-1 bg-white/30 rounded-full mx-auto absolute left-1/2 -translate-x-1/2 top-3"></div>
+            <span class="font-800 text-white mt-2">Comments</span>
+            <button onclick="document.getElementById('commentsDrawer').classList.remove('open')"
+                class="text-slate-400 hover:text-white mt-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div id="commentsListEl" class="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3"></div>
+        <div class="flex items-center gap-2 p-3 border-t border-white/10">
+            <input id="commentInputEl" type="text" placeholder="Add a comment..."
+                class="flex-1 bg-white/10 border border-white/15 text-white placeholder-white/40 rounded-full px-4 py-2.5 text-sm outline-none" />
+            <button id="postCommentBtn"
+                class="bg-primary text-white px-4 py-2.5 rounded-full text-sm font-700 hover:opacity-90">
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </div>
     </div>
-    <div id="commentsListEl" class="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3"></div>
-    <div class="flex items-center gap-2 p-3 border-t border-white/10">
-      <input id="commentInputEl" type="text" placeholder="Add a comment..."
-             class="flex-1 bg-white/10 border border-white/15 text-white placeholder-white/40 rounded-full px-4 py-2.5 text-sm outline-none" />
-      <button id="postCommentBtn" class="bg-primary text-white px-4 py-2.5 rounded-full text-sm font-700 hover:opacity-90">
-        <i class="fa-solid fa-paper-plane"></i>
-      </button>
-    </div>
-  </div>
 
-  <script type="module" src="/js/app.js"></script>
+    <script type="module" src="/js/app.js"></script>
 </body>
+
 </html>
