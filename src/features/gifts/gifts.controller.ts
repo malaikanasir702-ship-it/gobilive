@@ -289,7 +289,7 @@ async function processGiftPayment(
   beansEarned: number,
   _giftName: string
 ): Promise<void> {
-  // Deduct beans atomically without triggering full-document schema validation
+  // Deduct beans from sender atomically — only if they have enough
   const updatedSender = await User.findOneAndUpdate(
     { _id: senderId, beanWallet: { $gte: beansCost } },
     { $inc: { beanWallet: -beansCost } },
@@ -302,11 +302,11 @@ async function processGiftPayment(
     throw new Error('Insufficient beans.');
   }
 
-  // Credit beans to recipient
+  // Credit DIAMONDS to the host (not beans — host earns diamonds from gifts)
   if (beansEarned > 0) {
     await User.updateOne(
       { _id: hostId },
-      { $inc: { beanWallet: beansEarned } }
+      { $inc: { diamonds: beansEarned } }
     );
   }
 }
