@@ -287,27 +287,55 @@ async function processGiftPayment(
   hostId: string,
   beansCost: number,
   beansEarned: number,
-  _giftName: string
+  giftName: string
 ): Promise<void> {
-  // Deduct beans from sender atomically — only if they have enough
+  // Deduct from sender's beanWallet atomically — keep rcoins in sync too
   const updatedSender = await User.findOneAndUpdate(
     { _id: senderId, beanWallet: { $gte: beansCost } },
-    { $inc: { beanWallet: -beansCost } },
+    { $inc: { beanWallet: -beansCost, rcoins: -beansCost } },
     { new: true }
-  ).select('beanWallet').lean();
+  ).select('beanWallet rcoins').lean();
 
   if (!updatedSender) {
-    const sender = await User.findById(senderId).select('beanWallet').lean();
+    const sender = await User.findById(senderId).select('beanWallet rcoins').lean();
     if (!sender) throw new Error('Sender not found.');
-    throw new Error('Insufficient beans.');
+    // Also try rcoins if beanWallet check failed
+    const balance = Math.max((sender as any).beanWallet ?? 0, (sender as any).rcoins ?? 0);
+    if (balance < beansCost) throw new Error('Insufficient beans.');
+    // If rcoins is sufficient, fallback
+    await User.updateOne(
+      { _id: senderId },
+      { $inc: { beanWallet: -beansCost, rcoins: -beansCost } }
+    );
   }
 
-  // Credit DIAMONDS to the host (not beans — host earns diamonds from gifts)
+  // Credit DIAMONDS to the host — also create wallet transaction ledger entry
   if (beansEarned > 0) {
-    await User.updateOne(
-      { _id: hostId },
-      { $inc: { diamonds: beansEarned } }
-    );
+    const updatedHost = await User.findByIdAndUpdate(
+      hostId,
+      { $inc: { diamonds: beansEarned } },
+      { new: true }
+    ).select('diamonds beanWallet rcoins username').lean();
+
+    if (updatedHost) {
+      // Record transaction in wallet ledger for host
+      try {
+        const WalletTransaction = (await import('../wallet/wallet.transaction.model')).default;
+        await WalletTransaction.create({
+          userId: hostId,
+          type: 'gift_earn',
+          currency: 'diamonds',
+          amount: beansEarned,
+          diamondsDelta: beansEarned,
+          rcoinsDelta: 0,
+          diamondsBalance: (updatedHost as any).diamonds ?? 0,
+          rcoinsBalance: (updatedHost as any).beanWallet ?? (updatedHost as any).rcoins ?? 0,
+          status: 'completed',
+          description: `Gift earned: ${giftName} (+${beansEarned} 💎)`,
+          metadata: { senderId, giftName },
+        });
+      } catch (_) {}
+    }
   }
 }
 

@@ -50,9 +50,13 @@ async function applyBalanceChangeNoTx(
   if (diamondsDelta < 0) query.diamonds = { $gte: Math.abs(diamondsDelta) };
   if (rcoinsDelta < 0) query.rcoins = { $gte: Math.abs(rcoinsDelta) };
 
+  // Always sync BOTH rcoins and beanWallet to keep them consistent
+  const incUpdate: any = { diamonds: diamondsDelta, rcoins: rcoinsDelta };
+  if (rcoinsDelta !== 0) incUpdate.beanWallet = rcoinsDelta;
+
   const updatedUser = await User.findOneAndUpdate(
     query,
-    { $inc: { diamonds: diamondsDelta, rcoins: rcoinsDelta } },
+    { $inc: incUpdate },
     { new: true }
   );
 
@@ -64,6 +68,8 @@ async function applyBalanceChangeNoTx(
     throw new WalletServiceError('Balance update failed.');
   }
 
+  const beanBalance = Math.max((updatedUser as any).beanWallet ?? 0, updatedUser.rcoins ?? 0);
+
   const ledger = await WalletTransaction.create({
     userId: updatedUser._id,
     type: tx.type,
@@ -72,7 +78,7 @@ async function applyBalanceChangeNoTx(
     diamondsDelta,
     rcoinsDelta,
     diamondsBalance: updatedUser.diamonds,
-    rcoinsBalance: updatedUser.rcoins,
+    rcoinsBalance: beanBalance,
     status: tx.status ?? 'completed',
     stripePaymentIntentId: tx.stripePaymentIntentId,
     description: tx.description,
@@ -115,7 +121,13 @@ async function applyBalanceChange(
 
   user.diamonds = newDiamonds;
   user.rcoins = newRcoins;
+  // Sync beanWallet with rcoins to keep both fields consistent
+  if (rcoinsDelta !== 0) {
+    (user as any).beanWallet = Math.max(((user as any).beanWallet ?? 0) + rcoinsDelta, 0);
+  }
   await user.save({ session });
+
+  const beanBalance = Math.max((user as any).beanWallet ?? 0, newRcoins);
 
   const ledger = await WalletTransaction.create(
     [
@@ -127,7 +139,7 @@ async function applyBalanceChange(
         diamondsDelta,
         rcoinsDelta,
         diamondsBalance: newDiamonds,
-        rcoinsBalance: newRcoins,
+        rcoinsBalance: beanBalance,
         status: tx.status ?? 'completed',
         stripePaymentIntentId: tx.stripePaymentIntentId,
         description: tx.description,
@@ -141,16 +153,20 @@ async function applyBalanceChange(
 }
 
 export async function getWalletBalance(userId: string) {
-  const user = await User.findById(userId).select('diamonds rcoins isVIP vipFrame badges vipExpiresAt');
+  // Select BOTH beanWallet and rcoins — beanWallet is the canonical field used by gifts/admin
+  const user = await User.findById(userId).select('diamonds rcoins beanWallet isVIP vipFrame badges vipExpiresAt');
   if (!user) throw new WalletServiceError('User not found.', 404);
 
   const isVipActive =
     user.isVIP && (!user.vipExpiresAt || user.vipExpiresAt > new Date());
 
+  // Use whichever bean field is larger (prevents stale data from showing lower value)
+  const beanBalance = Math.max((user as any).beanWallet ?? 0, user.rcoins ?? 0);
+
   return {
     diamonds: user.diamonds,
-    rcoins: user.beanWallet ?? user.rcoins,
-    beanWallet: user.beanWallet ?? user.rcoins,
+    rcoins: beanBalance,
+    beanWallet: beanBalance,
     isVIP: isVipActive,
     vipFrame: user.vipFrame,
     badges: user.badges ?? [],
@@ -290,13 +306,15 @@ export async function convertBeansToDiamonds(userId: string, beansAmount: number
 
   const user = await User.findOneAndUpdate(
     { _id: userId, beanWallet: { $gte: actualBeansUsed } },
-    { $inc: { beanWallet: -actualBeansUsed, diamonds: diamondsGained } },
+    { $inc: { beanWallet: -actualBeansUsed, rcoins: -actualBeansUsed, diamonds: diamondsGained } },
     { new: true }
   );
 
   if (!user) {
     throw new WalletServiceError('Insufficient Beans balance.');
   }
+
+  const beanBalance = Math.max((user as any).beanWallet ?? 0, user.rcoins ?? 0);
 
   const ledger = await WalletTransaction.create({
     userId: user._id,
@@ -306,7 +324,7 @@ export async function convertBeansToDiamonds(userId: string, beansAmount: number
     diamondsDelta: diamondsGained,
     rcoinsDelta: -actualBeansUsed,
     diamondsBalance: user.diamonds,
-    rcoinsBalance: user.beanWallet ?? user.rcoins,
+    rcoinsBalance: beanBalance,
     status: 'completed',
     description: `Converted ${actualBeansUsed} Beans → ${diamondsGained} 💎`,
     metadata: { rate, diamondsGained, beansUsed: actualBeansUsed },
