@@ -286,36 +286,53 @@ async function processGiftPayment(
   senderId: string,
   hostId: string,
   beansCost: number,
-  beansEarned: number,
+  diamondsEarned: number,
   giftName: string
 ): Promise<void> {
-  // Deduct from sender's beanWallet atomically — keep rcoins in sync too
+  // ── Deduct from sender's beanWallet ONLY (rcoins is not used) ────────────
   const updatedSender = await User.findOneAndUpdate(
     { _id: senderId, beanWallet: { $gte: beansCost } },
-    { $inc: { beanWallet: -beansCost, rcoins: -beansCost } },
+    { $inc: { beanWallet: -beansCost } },
     { new: true }
-  ).select('beanWallet rcoins').lean();
+  ).select('beanWallet').lean();
 
   if (!updatedSender) {
-    const sender = await User.findById(senderId).select('beanWallet rcoins').lean();
+    const sender = await User.findById(senderId).select('beanWallet').lean();
     if (!sender) throw new Error('Sender not found.');
-    // Also try rcoins if beanWallet check failed
-    const balance = Math.max((sender as any).beanWallet ?? 0, (sender as any).rcoins ?? 0);
-    if (balance < beansCost) throw new Error('Insufficient beans.');
-    // If rcoins is sufficient, fallback
+    if ((sender as any).beanWallet < beansCost) throw new Error('Insufficient beans.');
+    // Deduct directly if atomic check failed (race condition guard)
     await User.updateOne(
       { _id: senderId },
-      { $inc: { beanWallet: -beansCost, rcoins: -beansCost } }
+      { $inc: { beanWallet: -beansCost } }
     );
   }
 
-  // Credit DIAMONDS to the host — also create wallet transaction ledger entry
-  if (beansEarned > 0) {
+  // Record bean deduction for sender in wallet ledger
+  try {
+    const senderAfter = await User.findById(senderId).select('beanWallet diamonds').lean();
+    const WalletTransaction = (await import('../wallet/wallet.transaction.model')).default;
+    await WalletTransaction.create({
+      userId: senderId,
+      type: 'gift_spend',
+      currency: 'beans',
+      amount: beansCost,
+      diamondsDelta: 0,
+      rcoinsDelta: -beansCost,
+      diamondsBalance: (senderAfter as any)?.diamonds ?? 0,
+      rcoinsBalance: (senderAfter as any)?.beanWallet ?? 0,
+      status: 'completed',
+      description: `Gift sent: ${giftName} (-${beansCost} 🫘)`,
+      metadata: { hostId, giftName },
+    });
+  } catch (_) {}
+
+  // ── Credit DIAMONDS to the host (1 bean = 1 diamond, no conversion) ─────
+  if (diamondsEarned > 0) {
     const updatedHost = await User.findByIdAndUpdate(
       hostId,
-      { $inc: { diamonds: beansEarned } },
+      { $inc: { diamonds: diamondsEarned } },
       { new: true }
-    ).select('diamonds beanWallet rcoins username').lean();
+    ).select('diamonds beanWallet username').lean();
 
     if (updatedHost) {
       // Record transaction in wallet ledger for host
@@ -325,13 +342,13 @@ async function processGiftPayment(
           userId: hostId,
           type: 'gift_earn',
           currency: 'diamonds',
-          amount: beansEarned,
-          diamondsDelta: beansEarned,
+          amount: diamondsEarned,
+          diamondsDelta: diamondsEarned,
           rcoinsDelta: 0,
           diamondsBalance: (updatedHost as any).diamonds ?? 0,
-          rcoinsBalance: (updatedHost as any).beanWallet ?? (updatedHost as any).rcoins ?? 0,
+          rcoinsBalance: (updatedHost as any).beanWallet ?? 0,
           status: 'completed',
-          description: `Gift earned: ${giftName} (+${beansEarned} 💎)`,
+          description: `Gift earned: ${giftName} (+${diamondsEarned} 💎)`,
           metadata: { senderId, giftName },
         });
       } catch (_) {}
@@ -405,8 +422,8 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
     }
 
     const safeCount = Math.max(1, Number(count));
-    const totalCost = gift.diamondCost * safeCount; // total Beans cost
-    const totalBeansEarned = totalCost; // 1:1 crediting: host earns 100% of gift beans
+    const totalCost = gift.diamondCost * safeCount;       // total Beans deducted from sender
+    const totalDiamondsEarned = totalCost;               // 1:1 — host earns same amount as diamonds
 
     // Determine the actual recipient: targetUserId if provided & valid, else room host
     let recipientId = room.hostId.toString();
@@ -429,7 +446,7 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    await processGiftPayment(req.user.id, recipientId, totalCost, totalBeansEarned, gift.name);
+    await processGiftPayment(req.user.id, recipientId, totalCost, totalDiamondsEarned, gift.name);
 
     room.totalGifts += safeCount;
     room.totalDiamondsEarned += totalCost;
@@ -440,7 +457,7 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
     // Fetch updated balances so the live UI can show them in real-time
     const [senderUpdated, recipientUpdated] = await Promise.all([
       User.findById(req.user.id).select('beanWallet diamonds username').lean(),
-      User.findById(recipientId).select('beanWallet diamonds rcoins username').lean(),
+      User.findById(recipientId).select('beanWallet diamonds username').lean(),
     ]);
 
     // Broadcast balance updates to the live room via Socket.IO
@@ -473,7 +490,6 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
           username: recipientUsername,
           beans: recipientUpdated?.beanWallet ?? 0,
           diamonds: recipientUpdated?.diamonds ?? 0,
-          rcoins: recipientUpdated?.rcoins ?? 0,
         },
       };
 
@@ -492,7 +508,7 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
         animation: gift.animation ?? 'float',
         count: safeCount,
         totalCost,
-        totalBeansEarned,
+        totalDiamondsEarned,
       },
       recipientId,
       recipientUsername,
