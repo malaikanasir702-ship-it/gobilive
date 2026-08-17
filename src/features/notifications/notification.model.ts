@@ -21,6 +21,7 @@ export type NotificationType =
   | 'post_like'
   | 'post_comment'
   | 'post_save'
+  | 'user_mention'
   | 'follow'
   | 'follow_request'
   | 'follow_request_accepted'
@@ -63,6 +64,7 @@ const NotificationSchema = new Schema<INotification>(
         'post_like',
         'post_comment',
         'post_save',
+        'user_mention',
         'follow',
         'follow_request',
         'follow_request_accepted',

@@ -323,6 +323,30 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
       }).catch(() => {});
     }
 
+    // ── Notify mentioned users ──
+    const mentionMatches = text.match(/@([a-zA-Z0-9._]+)/g);
+    if (mentionMatches && mentionMatches.length > 0) {
+      const usernames = Array.from(new Set(mentionMatches.map((m: string) => m.slice(1).toLowerCase())));
+      const mentionedUsers = await User.find({ username: { $in: usernames.map(u => new RegExp(`^${u}$`, 'i')) } }).select('_id username').lean();
+      for (const u of mentionedUsers) {
+        if (u._id.toString() !== req.user.id) {
+          createAndSend({
+            recipientId: u._id.toString(),
+            actorId: req.user.id,
+            actorUsername: user.username,
+            actorProfilePic: user.profilePic ?? '',
+            type: 'user_mention',
+            payload: {
+              title: `@${user.username} mentioned you in a comment`,
+              body: `@${user.username}: ${text.slice(0, 100)}`,
+              data: { type: 'user_mention', postId: req.params.id as string },
+            },
+            referenceId: req.params.id as string,
+          }).catch(() => {});
+        }
+      }
+    }
+
     res.status(201).json({ success: true, comment });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
