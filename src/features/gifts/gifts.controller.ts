@@ -378,7 +378,7 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
 
     const safeCount = Math.max(1, Number(count));
     const totalCost = gift.diamondCost * safeCount; // total Beans cost
-    const totalBeansEarned = (gift.rcoinEarned || gift.diamondCost) * safeCount;
+    const totalBeansEarned = totalCost; // 1:1 crediting: host earns 100% of gift beans
 
     // Determine the actual recipient: targetUserId if provided & valid, else room host
     let recipientId = room.hostId.toString();
@@ -393,6 +393,12 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
         const targetUser = await User.findById(targetUserId).select('username').lean();
         recipientUsername = targetUser?.username ?? targetSeat.username ?? 'Unknown';
       }
+    }
+
+    // ── Self-gifting prevention check ──────────────────────────────────────────
+    if (req.user.id === recipientId) {
+      res.status(400).json({ success: false, message: 'You cannot send a gift to yourself.' });
+      return;
     }
 
     await processGiftPayment(req.user.id, recipientId, totalCost, totalBeansEarned, gift.name);
