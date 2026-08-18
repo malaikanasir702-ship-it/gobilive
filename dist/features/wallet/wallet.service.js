@@ -71,13 +71,17 @@ function isMongoTxnUnsupported(err) {
 }
 async function applyBalanceChangeNoTx(userId, deltas, tx) {
     const diamondsDelta = deltas.diamonds ?? 0;
-    const rcoinsDelta = deltas.rcoins ?? 0;
+    const rcoinsDelta = deltas.rcoins ?? 0; // treated as beanWallet delta
     const query = { _id: userId };
     if (diamondsDelta < 0)
         query.diamonds = { $gte: Math.abs(diamondsDelta) };
     if (rcoinsDelta < 0)
-        query.rcoins = { $gte: Math.abs(rcoinsDelta) };
-    const updatedUser = await user_model_1.User.findOneAndUpdate(query, { $inc: { diamonds: diamondsDelta, rcoins: rcoinsDelta } }, { new: true });
+        query.beanWallet = { $gte: Math.abs(rcoinsDelta) };
+    // beanWallet is canonical — rcoins is NOT updated
+    const incUpdate = { diamonds: diamondsDelta };
+    if (rcoinsDelta !== 0)
+        incUpdate.beanWallet = rcoinsDelta;
+    const updatedUser = await user_model_1.User.findOneAndUpdate(query, { $inc: incUpdate }, { new: true });
     if (!updatedUser) {
         const exists = await user_model_1.User.findById(userId).select('_id');
         if (!exists)
@@ -88,6 +92,7 @@ async function applyBalanceChangeNoTx(userId, deltas, tx) {
             throw new WalletServiceError('Insufficient Beans.');
         throw new WalletServiceError('Balance update failed.');
     }
+    const beanBalance = updatedUser.beanWallet ?? 0;
     const ledger = await wallet_transaction_model_1.default.create({
         userId: updatedUser._id,
         type: tx.type,
@@ -96,7 +101,7 @@ async function applyBalanceChangeNoTx(userId, deltas, tx) {
         diamondsDelta,
         rcoinsDelta,
         diamondsBalance: updatedUser.diamonds,
-        rcoinsBalance: updatedUser.rcoins,
+        rcoinsBalance: beanBalance,
         status: tx.status ?? 'completed',
         stripePaymentIntentId: tx.stripePaymentIntentId,
         description: tx.description,
@@ -113,16 +118,21 @@ async function applyBalanceChange(userId, deltas, tx, session) {
     if (!user)
         throw new WalletServiceError('User not found.', 404);
     const diamondsDelta = deltas.diamonds ?? 0;
-    const rcoinsDelta = deltas.rcoins ?? 0;
+    const rcoinsDelta = deltas.rcoins ?? 0; // treated as beanWallet delta
+    const currentBeans = user.beanWallet ?? 0;
     const newDiamonds = user.diamonds + diamondsDelta;
-    const newRcoins = user.rcoins + rcoinsDelta;
+    const newBeans = currentBeans + rcoinsDelta;
     if (newDiamonds < 0)
         throw new WalletServiceError('Insufficient diamonds.');
-    if (newRcoins < 0)
+    if (newBeans < 0)
         throw new WalletServiceError('Insufficient Beans.');
     user.diamonds = newDiamonds;
-    user.rcoins = newRcoins;
+    // beanWallet is canonical — do NOT touch rcoins field
+    if (rcoinsDelta !== 0) {
+        user.beanWallet = newBeans;
+    }
     await user.save({ session });
+    const beanBalance = user.beanWallet ?? 0;
     const ledger = await wallet_transaction_model_1.default.create([
         {
             userId: user._id,
@@ -132,7 +142,7 @@ async function applyBalanceChange(userId, deltas, tx, session) {
             diamondsDelta,
             rcoinsDelta,
             diamondsBalance: newDiamonds,
-            rcoinsBalance: newRcoins,
+            rcoinsBalance: beanBalance,
             status: tx.status ?? 'completed',
             stripePaymentIntentId: tx.stripePaymentIntentId,
             description: tx.description,
@@ -142,14 +152,16 @@ async function applyBalanceChange(userId, deltas, tx, session) {
     return ledger[0];
 }
 async function getWalletBalance(userId) {
-    const user = await user_model_1.User.findById(userId).select('diamonds rcoins isVIP vipFrame badges vipExpiresAt');
+    const user = await user_model_1.User.findById(userId).select('diamonds beanWallet isVIP vipFrame badges vipExpiresAt');
     if (!user)
         throw new WalletServiceError('User not found.', 404);
     const isVipActive = user.isVIP && (!user.vipExpiresAt || user.vipExpiresAt > new Date());
+    // beanWallet is the single source of truth — rcoins is legacy
+    const beanBalance = user.beanWallet ?? 0;
     return {
         diamonds: user.diamonds,
-        rcoins: user.beanWallet ?? user.rcoins,
-        beanWallet: user.beanWallet ?? user.rcoins,
+        rcoins: beanBalance, // kept for backwards-compat with existing Flutter field
+        beanWallet: beanBalance,
         isVIP: isVipActive,
         vipFrame: user.vipFrame,
         badges: user.badges ?? [],
@@ -266,6 +278,7 @@ async function convertBeansToDiamonds(userId, beansAmount) {
     if (!user) {
         throw new WalletServiceError('Insufficient Beans balance.');
     }
+    const beanBalance = user.beanWallet ?? 0;
     const ledger = await wallet_transaction_model_1.default.create({
         userId: user._id,
         type: 'convert_beans_to_diamonds',
@@ -274,7 +287,7 @@ async function convertBeansToDiamonds(userId, beansAmount) {
         diamondsDelta: diamondsGained,
         rcoinsDelta: -actualBeansUsed,
         diamondsBalance: user.diamonds,
-        rcoinsBalance: user.beanWallet ?? user.rcoins,
+        rcoinsBalance: beanBalance,
         status: 'completed',
         description: `Converted ${actualBeansUsed} Beans → ${diamondsGained} 💎`,
         metadata: { rate, diamondsGained, beansUsed: actualBeansUsed },
@@ -348,7 +361,7 @@ async function requestDiamondWithdrawal(userId, diamondsAmount, payoutMethod, pa
         diamondsDelta: -diamondsAmount,
         rcoinsDelta: 0,
         diamondsBalance: user.diamonds,
-        rcoinsBalance: user.beanWallet ?? user.rcoins,
+        rcoinsBalance: user.beanWallet ?? 0,
         status: 'pending',
         description: `Withdrawal request: ${diamondsAmount} 💎 ($${amountInUsd.toFixed(2)} USD via ${payoutMethod || 'Bank'})`,
         metadata: { withdrawalRequestId: withdrawal._id, payoutMethod, payoutDetails },
@@ -440,7 +453,7 @@ async function activateVipFromStripe(userId, planId, paymentIntentId) {
                 diamondsDelta: 0,
                 rcoinsDelta: 0,
                 diamondsBalance: (await user_model_1.User.findById(userId)).diamonds,
-                rcoinsBalance: (await user_model_1.User.findById(userId)).rcoins,
+                rcoinsBalance: (await user_model_1.User.findById(userId).select('beanWallet').lean())?.beanWallet ?? 0,
                 status: 'completed',
                 stripePaymentIntentId: paymentIntentId,
                 description: `VIP purchase: ${plan.name}`,
@@ -484,7 +497,7 @@ async function activateVipFromStripe(userId, planId, paymentIntentId) {
                 diamondsDelta: 0,
                 rcoinsDelta: 0,
                 diamondsBalance: userNow.diamonds,
-                rcoinsBalance: userNow.rcoins,
+                rcoinsBalance: userNow.beanWallet ?? 0,
                 status: 'completed',
                 stripePaymentIntentId: paymentIntentId,
                 description: `VIP purchase: ${plan.name}`,

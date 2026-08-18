@@ -66,6 +66,7 @@ const NotificationSchema = new mongoose_1.Schema({
             'post_like',
             'post_comment',
             'post_save',
+            'user_mention',
             'follow',
             'follow_request',
             'follow_request_accepted',

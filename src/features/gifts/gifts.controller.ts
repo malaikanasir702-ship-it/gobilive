@@ -390,7 +390,7 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
       // The client sends the cost; we trust it because Beans are server-verified.
       if (typeof giftId === 'string' && giftId.startsWith('local_')) {
         const clientCost = Math.max(1, Number(req.body.cost ?? req.body.diamondCost ?? 1));
-        const rcoin = Math.floor(clientCost * 0.5); // host earns 50% as beans
+        const rcoin = clientCost; // host earns 100% as diamonds
         const friendlyName = giftId
           .replace('local_', '')
           .replace(/_/g, ' ')
