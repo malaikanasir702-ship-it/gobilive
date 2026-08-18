@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -53,6 +86,28 @@ const getSafeUser = async (userId) => {
     const badgeSet = new Set((user.badges || []).map((b) => b.toString().toLowerCase()));
     rolesSet.forEach((r) => badgeSet.add(r));
     user.badges = Array.from(badgeSet);
+    // Populate active frame data so Flutter app has imageUrl + avatarScale inline
+    if (user.activeFrameId) {
+        try {
+            const { Frame } = await Promise.resolve().then(() => __importStar(require('../frames/frame.model')));
+            const frame = await Frame.findById(user.activeFrameId)
+                .select('name imageUrl avatarScale')
+                .lean();
+            if (frame) {
+                user.activeFrameUrl = frame.imageUrl;
+                user.activeFrameScale = frame.avatarScale ?? 0.60;
+                user.activeFrame = {
+                    id: frame._id?.toString(),
+                    name: frame.name,
+                    imageUrl: frame.imageUrl,
+                    avatarScale: frame.avatarScale ?? 0.60,
+                };
+            }
+        }
+        catch (_) {
+            // Frame not found or error — continue without frame data
+        }
+    }
     return user;
 };
 exports.getSafeUser = getSafeUser;

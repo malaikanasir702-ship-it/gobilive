@@ -59,6 +59,28 @@ export const getSafeUser = async (userId: string) => {
   rolesSet.forEach((r) => badgeSet.add(r));
   user.badges = Array.from(badgeSet);
 
+  // Populate active frame data so Flutter app has imageUrl + avatarScale inline
+  if (user.activeFrameId) {
+    try {
+      const { Frame } = await import('../frames/frame.model');
+      const frame = await Frame.findById(user.activeFrameId)
+        .select('name imageUrl avatarScale')
+        .lean();
+      if (frame) {
+        user.activeFrameUrl = (frame as any).imageUrl;
+        user.activeFrameScale = (frame as any).avatarScale ?? 0.60;
+        user.activeFrame = {
+          id: (frame as any)._id?.toString(),
+          name: (frame as any).name,
+          imageUrl: (frame as any).imageUrl,
+          avatarScale: (frame as any).avatarScale ?? 0.60,
+        };
+      }
+    } catch (_) {
+      // Frame not found or error — continue without frame data
+    }
+  }
+
   return user;
 };
 

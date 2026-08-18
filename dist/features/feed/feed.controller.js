@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getPublicFeed = exports.appealPost = exports.reportPost = exports.getSavedPosts = exports.savePost = exports.getArchivedPosts = exports.editPost = exports.restorePost = exports.archivePost = exports.deletePost = exports.addComment = exports.viewPost = exports.sharePost = exports.getComments = exports.likePost = exports.createPost = exports.getFeed = void 0;
 const mongoose_1 = require("mongoose");
@@ -56,16 +89,30 @@ const getFeed = async (req, res) => {
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
-            .populate('userId', 'profilePic')
+            .populate('userId', 'profilePic activeFrameId')
             .lean();
-        const enrichedPosts = posts.map(post => {
+        // Enrich each post with profilePic + active frame data
+        const enrichedPosts = await Promise.all(posts.map(async (post) => {
             const p = { ...post };
             if (post.userId && typeof post.userId === 'object') {
                 p.userProfilePic = post.userId.profilePic || post.userProfilePic;
+                const activeFrameId = post.userId.activeFrameId;
                 p.userId = post.userId._id;
+                if (activeFrameId) {
+                    try {
+                        const { Frame } = await Promise.resolve().then(() => __importStar(require('../frames/frame.model')));
+                        const frame = await Frame.findById(activeFrameId)
+                            .select('imageUrl avatarScale').lean();
+                        if (frame) {
+                            p.activeFrameUrl = frame.imageUrl ?? '';
+                            p.activeFrameScale = frame.avatarScale ?? 0.60;
+                        }
+                    }
+                    catch (_) { /* non-critical */ }
+                }
             }
             return p;
-        });
+        }));
         // Attach isLiked + isSaved for current user
         if (req.user && enrichedPosts.length > 0) {
             const postIds = enrichedPosts.map(p => new mongoose_1.Types.ObjectId(p._id ?? p.id));
@@ -214,16 +261,32 @@ const getComments = async (req, res) => {
         const comments = await comment_model_1.Comment.find({ postId: new mongoose_1.Types.ObjectId(req.params.id) })
             .sort({ createdAt: -1 })
             .limit(50)
-            .populate('userId', 'profilePic')
+            .populate('userId', 'profilePic username activeFrameId')
             .lean();
-        const enrichedComments = comments.map(comment => {
+        // For each comment, resolve the active frame URL + scale inline
+        const enrichedComments = await Promise.all(comments.map(async (comment) => {
             const c = { ...comment };
             if (comment.userId && typeof comment.userId === 'object') {
                 c.userProfilePic = comment.userId.profilePic || comment.userProfilePic;
+                const activeFrameId = comment.userId.activeFrameId;
                 c.userId = comment.userId._id;
+                // Populate frame data
+                if (activeFrameId) {
+                    try {
+                        const { Frame } = await Promise.resolve().then(() => __importStar(require('../frames/frame.model')));
+                        const frame = await Frame.findById(activeFrameId)
+                            .select('imageUrl avatarScale')
+                            .lean();
+                        if (frame) {
+                            c.activeFrameUrl = frame.imageUrl ?? '';
+                            c.activeFrameScale = frame.avatarScale ?? 0.60;
+                        }
+                    }
+                    catch (_) { /* non-critical — frame data optional */ }
+                }
             }
             return c;
-        });
+        }));
         res.status(200).json({ success: true, comments: enrichedComments });
     }
     catch (err) {
@@ -274,7 +337,7 @@ const addComment = async (req, res) => {
             res.status(400).json({ success: false, message: 'text is required' });
             return;
         }
-        const user = await user_model_1.User.findById(req.user.id).select('username profilePic');
+        const user = await user_model_1.User.findById(req.user.id).select('username profilePic activeFrameId');
         if (!user) {
             res.status(404).json({ success: false, message: 'User not found' });
             return;
@@ -286,6 +349,22 @@ const addComment = async (req, res) => {
             userProfilePic: user.profilePic,
             text,
         });
+        await post_model_1.Post.findByIdAndUpdate(new mongoose_1.Types.ObjectId(req.params.id), { $inc: { commentsCount: 1 } });
+        // Resolve commenter's active frame for the response
+        let activeFrameUrl = '';
+        let activeFrameScale = 0.60;
+        const activeFrameId = user.activeFrameId;
+        if (activeFrameId) {
+            try {
+                const { Frame } = await Promise.resolve().then(() => __importStar(require('../frames/frame.model')));
+                const frame = await Frame.findById(activeFrameId).select('imageUrl avatarScale').lean();
+                if (frame) {
+                    activeFrameUrl = frame.imageUrl ?? '';
+                    activeFrameScale = frame.avatarScale ?? 0.60;
+                }
+            }
+            catch (_) { }
+        }
         await post_model_1.Post.findByIdAndUpdate(new mongoose_1.Types.ObjectId(req.params.id), { $inc: { commentsCount: 1 } });
         // ── Notify post owner (skip self-comments) ──
         const parentPost = await post_model_1.Post.findById(req.params.id).select('userId').lean();
@@ -324,7 +403,14 @@ const addComment = async (req, res) => {
                 }
             }
         }
-        res.status(201).json({ success: true, comment });
+        res.status(201).json({
+            success: true,
+            comment: {
+                ...(comment.toObject?.() ?? comment),
+                activeFrameUrl,
+                activeFrameScale,
+            },
+        });
     }
     catch (err) {
         res.status(500).json({ success: false, message: err.message });

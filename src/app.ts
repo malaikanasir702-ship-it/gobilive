@@ -47,6 +47,7 @@ import reportsRouter from './features/admin/reports.route';
 import gamesRouter from './features/admin/games.route';
 import dashboardAdminRouter from './features/admin/dashboard-admin.route';
 import reelsAdminRouter from './features/admin/reels-admin.route';
+import framesRouter from './features/frames/frames.route';
 import { stripeWebhook } from './features/wallet/wallet.controller';
 
 // dotenv is loaded once in index.ts — this call is a safe no-op if already loaded.
@@ -305,6 +306,8 @@ app.use('/api/admin-panel/v1/reports', reportsRouter);
 app.use('/api/admin-panel/v1/games', gamesRouter);
 app.use('/api/admin-panel/v1/dashboard', dashboardAdminRouter);
 app.use('/api/admin-panel/v1/reels', reelsAdminRouter);
+app.use('/api/frames', framesRouter);
+app.use('/api/admin-panel/v1/frames', framesRouter);
 
 // Health Check — Railway uses this to verify the container is alive.
 app.get('/health', (_req, res) => {

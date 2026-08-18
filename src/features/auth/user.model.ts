@@ -94,6 +94,9 @@ export interface IUser extends Document {
   storyPrivacy: 'everyone' | 'followers' | 'following';
   // Username change tracking
   usernameChangedAt?: Date;
+  // Avatar frame system
+  purchasedFrames: string[];   // Array of Frame._id strings user has bought
+  activeFrameId?: string;      // The currently equipped frame _id (null = no frame)
 }
 
 const UserSchema = new Schema<IUser>({
@@ -188,6 +191,9 @@ const UserSchema = new Schema<IUser>({
   storyPrivacy: { type: String, enum: ['everyone', 'followers', 'following'], default: 'everyone' },
   // Username change tracking
   usernameChangedAt: { type: Date },
+  // Avatar frame system
+  purchasedFrames: { type: [String], default: [] },
+  activeFrameId:   { type: String, default: null },
 }, {
   // Only validate fields that were actually modified — prevents full-document
   // validation errors on old documents that have role='host' or other

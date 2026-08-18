@@ -94,6 +94,9 @@ const UserSchema = new mongoose_1.Schema({
     storyPrivacy: { type: String, enum: ['everyone', 'followers', 'following'], default: 'everyone' },
     // Username change tracking
     usernameChangedAt: { type: Date },
+    // Avatar frame system
+    purchasedFrames: { type: [String], default: [] },
+    activeFrameId: { type: String, default: null },
 }, {
     // Only validate fields that were actually modified — prevents full-document
     // validation errors on old documents that have role='host' or other

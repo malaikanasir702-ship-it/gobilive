@@ -143,19 +143,40 @@ function handleLeaveRoom(io: Server, socket: Socket, data: JoinRoomPayload) {
 }
 
 async function handleSendComment(io: Server, data: CommentPayload) {
-  // Look up sender's role so badges can be shown on client
+  // Look up sender's role, profilePic, and active frame so badges+frames can be shown on client
   let role = data.role ?? 'user';
   let profilePic = data.profilePic ?? '';
+  let activeFrameUrl = '';
+  let activeFrameScale = 0.60;
   try {
     const user = await User.findOne({ username: data.username })
-      .select('role profilePic')
+      .select('role profilePic activeFrameId')
       .lean();
     if (user) {
       role = (user as any).role ?? 'user';
       profilePic = (user as any).profilePic ?? profilePic;
+      // Populate frame data if user has an active frame
+      const activeFrameId = (user as any).activeFrameId;
+      if (activeFrameId) {
+        try {
+          const { Frame } = await import('../frames/frame.model');
+          const frame = await Frame.findById(activeFrameId).select('imageUrl avatarScale').lean();
+          if (frame) {
+            activeFrameUrl = (frame as any).imageUrl ?? '';
+            activeFrameScale = (frame as any).avatarScale ?? 0.60;
+          }
+        } catch (_) { /* frame lookup non-critical */ }
+      }
     }
   } catch (_) { /* non-critical */ }
-  io.to(data.roomId).emit('new_comment', { ...data, isSystem: false, role, profilePic });
+  io.to(data.roomId).emit('new_comment', {
+    ...data,
+    isSystem: false,
+    role,
+    profilePic,
+    activeFrameUrl,
+    activeFrameScale,
+  });
 }
 
 async function notifyLiveHost(

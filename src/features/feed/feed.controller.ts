@@ -58,17 +58,30 @@ export const getFeed = async (req: AuthRequest, res: Response): Promise<void> =>
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('userId', 'profilePic')
+      .populate('userId', 'profilePic activeFrameId')
       .lean() as any[];
 
-    const enrichedPosts = posts.map(post => {
+    // Enrich each post with profilePic + active frame data
+    const enrichedPosts = await Promise.all(posts.map(async (post) => {
       const p = { ...post };
       if (post.userId && typeof post.userId === 'object') {
         p.userProfilePic = post.userId.profilePic || post.userProfilePic;
+        const activeFrameId = post.userId.activeFrameId;
         p.userId = post.userId._id;
+        if (activeFrameId) {
+          try {
+            const { Frame } = await import('../frames/frame.model');
+            const frame = await Frame.findById(activeFrameId)
+              .select('imageUrl avatarScale').lean();
+            if (frame) {
+              p.activeFrameUrl = (frame as any).imageUrl ?? '';
+              p.activeFrameScale = (frame as any).avatarScale ?? 0.60;
+            }
+          } catch (_) { /* non-critical */ }
+        }
       }
       return p;
-    });
+    }));
 
     // Attach isLiked + isSaved for current user
     if (req.user && enrichedPosts.length > 0) {
@@ -239,17 +252,33 @@ export const getComments = async (req: AuthRequest, res: Response): Promise<void
     const comments = await Comment.find({ postId: new Types.ObjectId(req.params.id as string) })
       .sort({ createdAt: -1 })
       .limit(50)
-      .populate('userId', 'profilePic')
+      .populate('userId', 'profilePic username activeFrameId')
       .lean() as any[];
 
-    const enrichedComments = comments.map(comment => {
+    // For each comment, resolve the active frame URL + scale inline
+    const enrichedComments = await Promise.all(comments.map(async (comment) => {
       const c = { ...comment };
       if (comment.userId && typeof comment.userId === 'object') {
         c.userProfilePic = comment.userId.profilePic || comment.userProfilePic;
+        const activeFrameId = comment.userId.activeFrameId;
         c.userId = comment.userId._id;
+
+        // Populate frame data
+        if (activeFrameId) {
+          try {
+            const { Frame } = await import('../frames/frame.model');
+            const frame = await Frame.findById(activeFrameId)
+              .select('imageUrl avatarScale')
+              .lean();
+            if (frame) {
+              c.activeFrameUrl = (frame as any).imageUrl ?? '';
+              c.activeFrameScale = (frame as any).avatarScale ?? 0.60;
+            }
+          } catch (_) { /* non-critical — frame data optional */ }
+        }
       }
       return c;
-    });
+    }));
 
     res.status(200).json({ success: true, comments: enrichedComments });
   } catch (err: any) {
@@ -302,7 +331,7 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
     const { text } = req.body;
     if (!text) { res.status(400).json({ success: false, message: 'text is required' }); return; }
 
-    const user = await User.findById(req.user.id).select('username profilePic');
+    const user = await User.findById(req.user.id).select('username profilePic activeFrameId');
     if (!user) { res.status(404).json({ success: false, message: 'User not found' }); return; }
 
     const comment = await Comment.create({
@@ -312,6 +341,23 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
       userProfilePic: user.profilePic,
       text,
     });
+
+    await Post.findByIdAndUpdate(new Types.ObjectId(req.params.id as string), { $inc: { commentsCount: 1 } });
+
+    // Resolve commenter's active frame for the response
+    let activeFrameUrl = '';
+    let activeFrameScale = 0.60;
+    const activeFrameId = (user as any).activeFrameId;
+    if (activeFrameId) {
+      try {
+        const { Frame } = await import('../frames/frame.model');
+        const frame = await Frame.findById(activeFrameId).select('imageUrl avatarScale').lean();
+        if (frame) {
+          activeFrameUrl = (frame as any).imageUrl ?? '';
+          activeFrameScale = (frame as any).avatarScale ?? 0.60;
+        }
+      } catch (_) {}
+    }
 
     await Post.findByIdAndUpdate(new Types.ObjectId(req.params.id as string), { $inc: { commentsCount: 1 } });
 
@@ -354,7 +400,14 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
       }
     }
 
-    res.status(201).json({ success: true, comment });
+    res.status(201).json({
+      success: true,
+      comment: {
+        ...((comment as any).toObject?.() ?? comment),
+        activeFrameUrl,
+        activeFrameScale,
+      },
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }

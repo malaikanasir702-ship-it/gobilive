@@ -18,6 +18,39 @@
  *  seat_cam_mute       — Occupant confirms local video mute state change
  *  seat_layout_change  — Host broadcasts a new layout count to all viewers
  */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -84,20 +117,42 @@ function handleLeaveRoom(io, socket, data) {
     }
 }
 async function handleSendComment(io, data) {
-    // Look up sender's role so badges can be shown on client
+    // Look up sender's role, profilePic, and active frame so badges+frames can be shown on client
     let role = data.role ?? 'user';
     let profilePic = data.profilePic ?? '';
+    let activeFrameUrl = '';
+    let activeFrameScale = 0.60;
     try {
         const user = await user_model_1.User.findOne({ username: data.username })
-            .select('role profilePic')
+            .select('role profilePic activeFrameId')
             .lean();
         if (user) {
             role = user.role ?? 'user';
             profilePic = user.profilePic ?? profilePic;
+            // Populate frame data if user has an active frame
+            const activeFrameId = user.activeFrameId;
+            if (activeFrameId) {
+                try {
+                    const { Frame } = await Promise.resolve().then(() => __importStar(require('../frames/frame.model')));
+                    const frame = await Frame.findById(activeFrameId).select('imageUrl avatarScale').lean();
+                    if (frame) {
+                        activeFrameUrl = frame.imageUrl ?? '';
+                        activeFrameScale = frame.avatarScale ?? 0.60;
+                    }
+                }
+                catch (_) { /* frame lookup non-critical */ }
+            }
         }
     }
     catch (_) { /* non-critical */ }
-    io.to(data.roomId).emit('new_comment', { ...data, isSystem: false, role, profilePic });
+    io.to(data.roomId).emit('new_comment', {
+        ...data,
+        isSystem: false,
+        role,
+        profilePic,
+        activeFrameUrl,
+        activeFrameScale,
+    });
 }
 async function notifyLiveHost(roomId, payload) {
     try {
