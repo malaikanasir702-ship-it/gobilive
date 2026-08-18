@@ -55,7 +55,9 @@ const getActiveRooms = async (req, res) => {
         // Attach isLiked, isSaved, likesCount, roomType per room for current viewer
         const enriched = rooms.map((r) => ({
             ...r,
+            hostId: r.hostId?._id?.toString() ?? r.hostId?.toString() ?? '',
             hostProfilePic: r.hostId?.profilePic ?? '',
+            hostRole: r.hostId?.role ?? r.hostRole ?? 'user',
             likesCount: r.likedBy?.length ?? 0,
             isLiked: viewerId ? r.likedBy?.some((id) => id.toString() === viewerId) ?? false : false,
             isSaved: viewerId ? r.savedBy?.some((id) => id.toString() === viewerId) ?? false : false,
@@ -91,7 +93,9 @@ const getPublicRooms = async (req, res) => {
         }
         const enriched = rooms.map((r) => ({
             ...r,
+            hostId: r.hostId?._id?.toString() ?? r.hostId?.toString() ?? '',
             hostProfilePic: r.hostId?.profilePic ?? '',
+            hostRole: r.hostId?.role ?? r.hostRole ?? 'user',
             likesCount: r.likedBy?.length ?? 0,
             roomType: r.roomType ?? 'live',
             thumbnailUrl: r.thumbnailUrl ?? '',
@@ -237,7 +241,7 @@ const kickViewer = async (req, res) => {
     try {
         const user = req.user;
         const { channelName } = req.params;
-        const { viewerId } = req.body;
+        const { viewerId, viewerUsername } = req.body;
         const room = await live_model_1.default.findOne({ channelName, hostId: user.id });
         if (!room) {
             return res.status(404).json({ success: false, message: 'Room not found.' });
@@ -245,6 +249,14 @@ const kickViewer = async (req, res) => {
         if (!room.blockedViewers.includes(viewerId)) {
             room.blockedViewers.push(viewerId);
             await room.save();
+        }
+        // Emit real-time kick event so the viewer's app boots them instantly
+        if (_io) {
+            _io.to(channelName).emit('user_kicked', {
+                viewerId,
+                viewerUsername: viewerUsername ?? '',
+                channelName,
+            });
         }
         res.status(200).json({ success: true, blockedViewers: room.blockedViewers });
     }
