@@ -44,6 +44,14 @@ const getFeed = async (req, res) => {
             // Dynamic liked posts: fetch popular posts with likes
             filter.likesCount = { $gt: 0 };
         }
+        else {
+            // Global home feed — exclude posts from private accounts entirely
+            const privateUserIds = await user_model_1.User.find({ isPrivate: true }).select('_id').lean();
+            const privateIds = privateUserIds.map((u) => u._id);
+            if (privateIds.length > 0) {
+                filter.userId = { $nin: privateIds };
+            }
+        }
         const posts = await post_model_1.Post.find(filter)
             .sort({ createdAt: -1 })
             .skip(skip)
@@ -608,7 +616,15 @@ const getPublicFeed = async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 30;
         const skip = (page - 1) * limit;
-        const filter = { isPublic: true, isArchived: { $ne: true }, isDeleted: { $ne: true } };
+        // Exclude posts from private accounts in the global public feed
+        const privateUserIds = await user_model_1.User.find({ isPrivate: true }).select('_id').lean();
+        const privateIds = privateUserIds.map((u) => u._id);
+        const filter = {
+            isPublic: true,
+            isArchived: { $ne: true },
+            isDeleted: { $ne: true },
+            ...(privateIds.length > 0 ? { userId: { $nin: privateIds } } : {}),
+        };
         const posts = await post_model_1.Post.find(filter)
             .sort({ createdAt: -1 })
             .skip(skip)
