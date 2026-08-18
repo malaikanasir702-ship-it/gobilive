@@ -108,6 +108,21 @@ function broadcastViewers(io: Server, roomId: string) {
 function handleJoinRoom(io: Server, socket: Socket, data: JoinRoomPayload) {
   const { roomId, username } = data;
   socket.join(roomId);
+
+  // Also join channelName / MongoDB ID alias room
+  const isObjectId = /^[0-9a-fA-F]{24}$/.test(roomId);
+  LiveRoom.findOne({
+    $or: [
+      { channelName: roomId },
+      ...(isObjectId ? [{ _id: roomId }] : []),
+    ],
+  }).then((r) => {
+    if (r) {
+      if (r.channelName) socket.join(r.channelName);
+      if (r._id) socket.join(r._id.toString());
+    }
+  }).catch(() => {});
+
   if (!roomViewers[roomId]) roomViewers[roomId] = new Set();
   roomViewers[roomId].add(username);
   broadcastViewers(io, roomId);

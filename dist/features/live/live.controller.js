@@ -240,23 +240,37 @@ exports.endRoom = endRoom;
 const kickViewer = async (req, res) => {
     try {
         const user = req.user;
-        const { channelName } = req.params;
+        const channelName = String(req.params.channelName);
         const { viewerId, viewerUsername } = req.body;
-        const room = await live_model_1.default.findOne({ channelName, hostId: user.id });
+        const isObjectId = /^[0-9a-fA-F]{24}$/.test(channelName);
+        const room = await live_model_1.default.findOne({
+            $or: [
+                { channelName: channelName },
+                ...(isObjectId ? [{ _id: channelName }] : []),
+            ],
+            hostId: user.id,
+        });
         if (!room) {
             return res.status(404).json({ success: false, message: 'Room not found.' });
         }
-        if (!room.blockedViewers.includes(viewerId)) {
+        if (viewerId && !room.blockedViewers.includes(viewerId)) {
             room.blockedViewers.push(viewerId);
             await room.save();
         }
-        // Emit real-time kick event so the viewer's app boots them instantly
+        // Emit real-time kick event to all potential room identifiers
         if (_io) {
-            _io.to(channelName).emit('user_kicked', {
-                viewerId,
-                viewerUsername: viewerUsername ?? '',
-                channelName,
-            });
+            const payload = {
+                viewerId: viewerId ?? '',
+                viewerUsername: viewerUsername ?? viewerId ?? '',
+                channelName: room.channelName || channelName,
+            };
+            _io.to(channelName).emit('user_kicked', payload);
+            if (room.channelName && room.channelName !== channelName) {
+                _io.to(room.channelName).emit('user_kicked', payload);
+            }
+            if (room._id) {
+                _io.to(room._id.toString()).emit('user_kicked', payload);
+            }
         }
         res.status(200).json({ success: true, blockedViewers: room.blockedViewers });
     }
