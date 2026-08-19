@@ -26,53 +26,70 @@ const execFileAsync = (0, util_1.promisify)(child_process_1.execFile);
 const downloadWithWatermark = async (req, res) => {
     const { id } = req.params;
     const username = req.query.username || req.user?.username || 'gobilive';
+    // videoUrl can be passed directly as query param to bypass DB lookup
+    const directVideoUrl = req.query.videoUrl || '';
     const ts = Date.now();
     const rawPath = path_1.default.join(os_1.default.tmpdir(), `raw_${ts}.mp4`);
     const outPath = path_1.default.join(os_1.default.tmpdir(), `wm_${ts}.mp4`);
+    let videoUrl = directVideoUrl;
     try {
-        // ── 1. Get post videoUrl ─────────────────────────────────────────────────
-        const post = await post_model_1.Post.findById(id).select('videoUrl username').lean();
-        if (!post?.videoUrl) {
+        // ── 1. Get post videoUrl (from DB or direct param) ─────────────────────
+        if (!videoUrl) {
+            try {
+                const post = await post_model_1.Post.findById(id).select('videoUrl username').lean();
+                if (post?.videoUrl) {
+                    videoUrl = post.videoUrl;
+                }
+            }
+            catch (dbErr) {
+                console.warn('[download] DB lookup failed:', dbErr);
+            }
+        }
+        if (!videoUrl) {
             res.status(404).json({ success: false, message: 'Post or video not found.' });
             return;
         }
-        const videoUrl = post.videoUrl;
-        const owner = post.username || username;
+        const owner = username; // use the username passed from Flutter
         // ── 2. Download raw video to /tmp ────────────────────────────────────────
         await _downloadFile(videoUrl, rawPath);
         // ── 3. Build logo path ───────────────────────────────────────────────────
         // Logo is at: dist/public/logo.png  OR  public/logo.png  OR  use drawtext only
         const logoSrc = _findLogo();
         // ── 4. Build FFmpeg watermark command ─────────────────────────────────────
-        // Watermark layout (bottom-left, 20px from edge):
-        //   [logo 50×50 px]
-        //   globilive
-        //   @username
-        const safeOwner = _escapeDrawtext(`@${owner}`);
+        // Watermark Layout (bottom-left):
+        //
+        //   [LOGO]  globilive        ← Line 1: Logo (aspect ratio preserved, h=34) + "globilive" text
+        //   [LOGO]  @username        ← Line 2: @username text aligned below "globilive"
+        //
+        const formattedOwner = owner.startsWith('@') ? owner : `@${owner}`;
+        const safeOwner = _escapeDrawtext(formattedOwner);
         let filterComplex;
         if (logoSrc) {
+            // Logo scaled with aspect ratio preserved (height=34px, width ~45px for 4:3 logo)
+            // Logo Y: bottom at H-32, top at H-66
+            // Text X: starts at 75 (20 margin + 45 logo width + 10 gap)
             filterComplex =
-                `[1:v]scale=50:50[logo];` +
-                    `[0:v][logo]overlay=20:H-h-110[v1];` +
+                `[1:v]scale=-1:34[logo];` +
+                    `[0:v][logo]overlay=20:H-h-32[v1];` +
                     `[v1]drawtext=` +
-                    `fontsize=18:fontcolor=white:borderw=2:bordercolor=black@0.8:` +
-                    `text='globilive':x=20:y=H-55` +
+                    `fontsize=20:fontcolor=white:borderw=2:bordercolor=black@0.8:` +
+                    `text='globilive':x=75:y=H-62` +
                     `[v2];` +
                     `[v2]drawtext=` +
-                    `fontsize=14:fontcolor=white@0.9:borderw=1:bordercolor=black@0.7:` +
-                    `text='${safeOwner}':x=20:y=H-32` +
+                    `fontsize=14:fontcolor=white@0.9:borderw=1.5:bordercolor=black@0.8:` +
+                    `text='${safeOwner}':x=75:y=H-36` +
                     `[out]`;
         }
         else {
-            // No logo — text only
+            // Fallback if logo not found: text only at x=20
             filterComplex =
                 `[0:v]drawtext=` +
-                    `fontsize=18:fontcolor=white:borderw=2:bordercolor=black@0.8:` +
-                    `text='globilive':x=20:y=H-55` +
+                    `fontsize=20:fontcolor=white:borderw=2:bordercolor=black@0.8:` +
+                    `text='globilive':x=20:y=H-62` +
                     `[v2];` +
                     `[v2]drawtext=` +
-                    `fontsize=14:fontcolor=white@0.9:borderw=1:bordercolor=black@0.7:` +
-                    `text='${safeOwner}':x=20:y=H-32` +
+                    `fontsize=14:fontcolor=white@0.9:borderw=1.5:bordercolor=black@0.8:` +
+                    `text='${safeOwner}':x=20:y=H-36` +
                     `[out]`;
         }
         // ── 5. Run FFmpeg ─────────────────────────────────────────────────────────
