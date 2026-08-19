@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const feed_controller_1 = require("./feed.controller");
+const feed_download_controller_1 = require("./feed.download.controller");
 const auth_middleware_1 = require("../../core/middlewares/auth.middleware");
 const router = (0, express_1.Router)();
 // Static routes FIRST (before /:id to avoid conflicts)
@@ -24,4 +25,6 @@ router.get('/:id/comments', auth_middleware_1.authenticateJWT, feed_controller_1
 router.post('/:id/comments', auth_middleware_1.authenticateJWT, feed_controller_1.addComment);
 router.post('/:id/report', auth_middleware_1.authenticateJWT, feed_controller_1.reportPost);
 router.post('/:id/appeal', auth_middleware_1.authenticateJWT, feed_controller_1.appealPost);
+// Watermarked video download — server-side FFmpeg
+router.get('/:id/download', auth_middleware_1.authenticateJWT, feed_download_controller_1.downloadWithWatermark);
 exports.default = router;

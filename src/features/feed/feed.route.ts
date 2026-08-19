@@ -18,6 +18,7 @@ import {
   appealPost,
   getPublicFeed,
 } from './feed.controller';
+import { downloadWithWatermark } from './feed.download.controller';
 import { authenticateJWT } from '../../core/middlewares/auth.middleware';
 
 const router = Router();
@@ -44,5 +45,8 @@ router.get('/:id/comments',  authenticateJWT as any, getComments      as any);
 router.post('/:id/comments', authenticateJWT as any, addComment       as any);
 router.post('/:id/report',   authenticateJWT as any, reportPost       as any);
 router.post('/:id/appeal',   authenticateJWT as any, appealPost       as any);
+
+// Watermarked video download — server-side FFmpeg
+router.get('/:id/download',  authenticateJWT as any, downloadWithWatermark as any);
 
 export default router;
