@@ -24,21 +24,34 @@ const execFileAsync = promisify(execFile);
 export const downloadWithWatermark = async (req: AuthRequest, res: Response): Promise<void> => {
   const { id } = req.params;
   const username = (req.query.username as string) || req.user?.username || 'gobilive';
+  // videoUrl can be passed directly as query param to bypass DB lookup
+  const directVideoUrl = (req.query.videoUrl as string) || '';
 
   const ts = Date.now();
   const rawPath  = path.join(os.tmpdir(), `raw_${ts}.mp4`);
   const outPath  = path.join(os.tmpdir(), `wm_${ts}.mp4`);
 
+  let videoUrl = directVideoUrl;
+
   try {
-    // ── 1. Get post videoUrl ─────────────────────────────────────────────────
-    const post = await Post.findById(id).select('videoUrl username').lean() as any;
-    if (!post?.videoUrl) {
+    // ── 1. Get post videoUrl (from DB or direct param) ─────────────────────
+    if (!videoUrl) {
+      try {
+        const post = await Post.findById(id).select('videoUrl username').lean() as any;
+        if (post?.videoUrl) {
+          videoUrl = post.videoUrl as string;
+        }
+      } catch (dbErr) {
+        console.warn('[download] DB lookup failed:', dbErr);
+      }
+    }
+
+    if (!videoUrl) {
       res.status(404).json({ success: false, message: 'Post or video not found.' });
       return;
     }
 
-    const videoUrl = post.videoUrl as string;
-    const owner    = (post.username as string) || username;
+    const owner = username; // use the username passed from Flutter
 
     // ── 2. Download raw video to /tmp ────────────────────────────────────────
     await _downloadFile(videoUrl, rawPath);
