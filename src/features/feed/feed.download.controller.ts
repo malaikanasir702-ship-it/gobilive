@@ -61,35 +61,41 @@ export const downloadWithWatermark = async (req: AuthRequest, res: Response): Pr
     const logoSrc = _findLogo();
 
     // ── 4. Build FFmpeg watermark command ─────────────────────────────────────
-    // Watermark layout (bottom-left, 20px from edge):
-    //   [logo 50×50 px]
-    //   globilive
-    //   @username
+    // New layout (bottom-left, 20px margin):
+    //
+    //   [logo] globilive       ← Row 1: logo (32×32) + "globilive" text on same line
+    //          @username        ← Row 2: username below, aligned with text
+    //
+    // Logo: 32×32, at (20, H-60)
+    // "globilive" text: x=60 (logo width + gap), y=H-56 (vertically centered with logo)
+    // "@username": x=60, y=H-34
     const safeOwner = _escapeDrawtext(`@${owner}`);
     let filterComplex: string;
 
     if (logoSrc) {
+      // Logo is 32×32, positioned at bottom-left
+      // Text starts at x=60 (20 margin + 32 logo + 8 gap)
       filterComplex =
-        `[1:v]scale=50:50[logo];` +
-        `[0:v][logo]overlay=20:H-h-110[v1];` +
+        `[1:v]scale=32:32[logo];` +
+        `[0:v][logo]overlay=20:H-h-38[v1];` +
         `[v1]drawtext=` +
           `fontsize=18:fontcolor=white:borderw=2:bordercolor=black@0.8:` +
-          `text='globilive':x=20:y=H-55` +
+          `text='globilive':x=60:y=H-56` +
         `[v2];` +
         `[v2]drawtext=` +
-          `fontsize=14:fontcolor=white@0.9:borderw=1:bordercolor=black@0.7:` +
-          `text='${safeOwner}':x=20:y=H-32` +
+          `fontsize=13:fontcolor=white@0.85:borderw=1:bordercolor=black@0.7:` +
+          `text='${safeOwner}':x=60:y=H-34` +
         `[out]`;
     } else {
-      // No logo — text only
+      // No logo — text only, both lines left-aligned
       filterComplex =
         `[0:v]drawtext=` +
           `fontsize=18:fontcolor=white:borderw=2:bordercolor=black@0.8:` +
-          `text='globilive':x=20:y=H-55` +
+          `text='globilive':x=20:y=H-56` +
         `[v2];` +
         `[v2]drawtext=` +
-          `fontsize=14:fontcolor=white@0.9:borderw=1:bordercolor=black@0.7:` +
-          `text='${safeOwner}':x=20:y=H-32` +
+          `fontsize=13:fontcolor=white@0.85:borderw=1:bordercolor=black@0.7:` +
+          `text='${safeOwner}':x=20:y=H-34` +
         `[out]`;
     }
 
