@@ -96,11 +96,11 @@ export const changeUsername = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    // 60-day cooldown check
+    // 7-day cooldown check
     if (user.usernameChangedAt) {
       const daysSinceChange = (Date.now() - user.usernameChangedAt.getTime()) / (1000 * 60 * 60 * 24);
-      if (daysSinceChange < 60) {
-        const daysRemaining = Math.ceil(60 - daysSinceChange);
+      if (daysSinceChange < 7) {
+        const daysRemaining = Math.ceil(7 - daysSinceChange);
         res.status(429).json({
           success: false,
           message: `You can change your username again in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}.`,
