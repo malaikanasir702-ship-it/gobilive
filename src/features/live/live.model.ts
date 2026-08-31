@@ -195,6 +195,9 @@ export interface ILiveRoom extends Document {
   /** Cloudinary URL of the host's stream snapshot — shown in discovery cards. */
   thumbnailUrl?: string;
 
+  /** Whether the host has muted their camera — shown as green badge in discovery. */
+  hostVideoMuted?: boolean;
+
   createdAt: Date;
 }
 
@@ -258,6 +261,9 @@ const LiveRoomSchema = new Schema<ILiveRoom>(
 
     // Snapshot URL set by the host's Flutter app shortly after going live
     thumbnailUrl: { type: String, default: '' },
+
+    // Host camera state — updated via mute_state_changed socket event
+    hostVideoMuted: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

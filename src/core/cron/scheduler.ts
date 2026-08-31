@@ -89,6 +89,12 @@ async function revokeExpiredVIP() {
   }
 }
 
+import {
+  processDailyHostRewards,
+  processWeeklyHostRewards,
+  processMonthlyAgencyTiers,
+} from './policy-rewards.cron';
+
 /**
  * Initialize and start all cron jobs.
  * Call this once after the database connection is established.
@@ -101,10 +107,25 @@ export function startCronJobs(): void {
   });
 
   // Every day at midnight UTC
-  cron.schedule('0 0 * * *', revokeExpiredVIP, {
-    name: 'revoke-expired-vip',
+  cron.schedule('0 0 * * *', () => {
+    revokeExpiredVIP();
+    processDailyHostRewards();
+  }, {
+    name: 'daily-midnight-tasks',
     timezone: 'UTC',
   });
 
-  logger.info('[CRON] Scheduler started: unblock-expired-bans (hourly), revoke-expired-vip (daily).');
+  // Every Sunday at midnight UTC
+  cron.schedule('0 0 * * 0', processWeeklyHostRewards, {
+    name: 'weekly-host-rewards',
+    timezone: 'UTC',
+  });
+
+  // 1st of every month at 00:05 UTC
+  cron.schedule('5 0 1 * *', processMonthlyAgencyTiers, {
+    name: 'monthly-agency-tiers',
+    timezone: 'UTC',
+  });
+
+  logger.info('[CRON] Scheduler started with all policy reward triggers.');
 }

@@ -72,8 +72,10 @@ const UserSchema = new mongoose_1.Schema({
     createdAt: { type: Date, default: Date.now },
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },
-    // Admin panel extensions
+    // Admin panel & Wallet extensions
     beanWallet: { type: Number, default: 0 },
+    currentWallet: { type: Number, default: 0 },
+    rewardWallet: { type: Number, default: 0 },
     isBlocked: { type: Boolean, default: false },
     blockedUntil: { type: Date },
     blockType: { type: String, enum: ['permanent', 'temporary'], sparse: true },
@@ -97,6 +99,10 @@ const UserSchema = new mongoose_1.Schema({
     // Avatar frame system
     purchasedFrames: { type: [String], default: [] },
     activeFrameId: { type: String, default: null },
+    // Display name — user-set name shown in UI, falls back to username
+    displayName: { type: String, default: '' },
+    // Gifts received from hosts during live streams — shown as badges on profile
+    receivedGiftBadges: { type: [{ giftName: String, emoji: String, fromHost: String, receivedAt: Date }], default: [] },
 }, {
     // Only validate fields that were actually modified — prevents full-document
     // validation errors on old documents that have role='host' or other

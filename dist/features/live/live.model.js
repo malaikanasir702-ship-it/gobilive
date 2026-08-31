@@ -133,6 +133,8 @@ const LiveRoomSchema = new mongoose_1.Schema({
     sideCallers: { type: [SideCallerSchema], default: [] },
     // Snapshot URL set by the host's Flutter app shortly after going live
     thumbnailUrl: { type: String, default: '' },
+    // Host camera state — updated via mute_state_changed socket event
+    hostVideoMuted: { type: Boolean, default: false },
 }, { timestamps: true });
 // ─────────────────────────────────────────────
 // Indexes

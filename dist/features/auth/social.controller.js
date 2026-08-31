@@ -15,7 +15,7 @@ const updateProfile = async (req, res) => {
             res.status(401).json({ success: false, message: 'Unauthorized.' });
             return;
         }
-        const { bio, profilePic, age, gender, thought, payoutMethod, payoutDetails, bankName, bankAccountNumber, bankAccountHolder } = req.body;
+        const { bio, profilePic, age, gender, thought, payoutMethod, payoutDetails, bankName, bankAccountNumber, bankAccountHolder, displayName } = req.body;
         const user = await user_model_1.User.findById(req.user.id);
         if (!user) {
             res.status(404).json({ success: false, message: 'User not found.' });
@@ -43,6 +43,10 @@ const updateProfile = async (req, res) => {
             user.bankAccountNumber = bankAccountNumber;
         if (bankAccountHolder !== undefined)
             user.bankAccountHolder = bankAccountHolder;
+        if (displayName !== undefined) {
+            // Max 30 chars, strip leading/trailing spaces
+            user.displayName = String(displayName).trim().slice(0, 30);
+        }
         await user.save();
         res.status(200).json({ success: true, user: await user_model_1.User.findById(user.id).select('-passwordHash') });
     }

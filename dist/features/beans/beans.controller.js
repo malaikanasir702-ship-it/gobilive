@@ -151,9 +151,13 @@ const assignBeans = async (req, res) => {
             res.status(400).json({ success: false, message: 'Insufficient bean wallet balance.' });
             return;
         }
+        // Apply 12% Extra Beans bonus if recipient is a Top-up Agent
+        const isTopUpAgent = recipient.role === 'top_up_agent';
+        const bonusBeans = isTopUpAgent ? Math.round(amount * 0.12) : 0;
+        const totalBeansToCredit = amount + bonusBeans;
         await user_model_1.User.findByIdAndUpdate(req.adminUser.id, { $inc: { beanWallet: -amount } }, { session });
-        // Credit beans and auto-lift gifting suspension if balance becomes >= 0
-        const updatedRecipient = await user_model_1.User.findByIdAndUpdate(recipient._id, { $inc: { beanWallet: amount } }, { new: true, session }).select('beanWallet isGiftingSuspended');
+        // Credit beans (with 12% bonus for Top-up Agent) and auto-lift gifting suspension if balance becomes >= 0
+        const updatedRecipient = await user_model_1.User.findByIdAndUpdate(recipient._id, { $inc: { beanWallet: totalBeansToCredit } }, { new: true, session }).select('beanWallet isGiftingSuspended');
         if (updatedRecipient && (updatedRecipient.beanWallet ?? 0) >= 0 && updatedRecipient.isGiftingSuspended) {
             await user_model_1.User.findByIdAndUpdate(recipient._id, { isGiftingSuspended: false }, { session });
         }
@@ -164,10 +168,12 @@ const assignBeans = async (req, res) => {
                 fromRole: 'company_admin',
                 toId: recipient._id,
                 toRole: recipient.role,
-                amount,
+                amount: totalBeansToCredit,
                 transferSlipUrl,
                 status: 'completed',
-                note: `Assigned by company admin`,
+                note: isTopUpAgent
+                    ? `Assigned ${amount.toLocaleString()} beans + 12% bonus (${bonusBeans.toLocaleString()} extra beans)`
+                    : `Assigned by company admin`,
             },
         ], { session });
         await session.commitTransaction();
@@ -177,9 +183,15 @@ const assignBeans = async (req, res) => {
             actionType: 'assign_beans',
             targetEntityType: 'User',
             targetEntityId: recipient._id.toString(),
-            description: `Assigned ${amount} beans to ${recipient.username} (${recipient.role})`,
+            description: `Assigned ${amount} beans (+ ${bonusBeans} bonus) to ${recipient.username} (${recipient.role})`,
         });
-        res.status(200).json({ success: true, assigned: amount, recipientUsername: recipient.username });
+        res.status(200).json({
+            success: true,
+            baseAssigned: amount,
+            bonusBeans,
+            totalCredited: totalBeansToCredit,
+            recipientUsername: recipient.username,
+        });
     }
     catch (error) {
         await session.abortTransaction();

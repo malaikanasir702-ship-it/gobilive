@@ -82,6 +82,7 @@ async function revokeExpiredVIP() {
         logger_middleware_1.default.error(`[CRON] revokeExpiredVIP error: ${err.message}`);
     }
 }
+const policy_rewards_cron_1 = require("./policy-rewards.cron");
 /**
  * Initialize and start all cron jobs.
  * Call this once after the database connection is established.
@@ -93,9 +94,22 @@ function startCronJobs() {
         timezone: 'UTC',
     });
     // Every day at midnight UTC
-    node_cron_1.default.schedule('0 0 * * *', revokeExpiredVIP, {
-        name: 'revoke-expired-vip',
+    node_cron_1.default.schedule('0 0 * * *', () => {
+        revokeExpiredVIP();
+        (0, policy_rewards_cron_1.processDailyHostRewards)();
+    }, {
+        name: 'daily-midnight-tasks',
         timezone: 'UTC',
     });
-    logger_middleware_1.default.info('[CRON] Scheduler started: unblock-expired-bans (hourly), revoke-expired-vip (daily).');
+    // Every Sunday at midnight UTC
+    node_cron_1.default.schedule('0 0 * * 0', policy_rewards_cron_1.processWeeklyHostRewards, {
+        name: 'weekly-host-rewards',
+        timezone: 'UTC',
+    });
+    // 1st of every month at 00:05 UTC
+    node_cron_1.default.schedule('5 0 1 * *', policy_rewards_cron_1.processMonthlyAgencyTiers, {
+        name: 'monthly-agency-tiers',
+        timezone: 'UTC',
+    });
+    logger_middleware_1.default.info('[CRON] Scheduler started with all policy reward triggers.');
 }

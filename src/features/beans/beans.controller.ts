@@ -169,14 +169,20 @@ export const assignBeans = async (req: AdminAuthRequest, res: Response): Promise
       return;
     }
 
+    // Apply 12% Extra Beans bonus if recipient is a Top-up Agent
+    const isTopUpAgent = recipient.role === 'top_up_agent';
+    const bonusBeans = isTopUpAgent ? Math.round(amount * 0.12) : 0;
+    const totalBeansToCredit = amount + bonusBeans;
+
     await User.findByIdAndUpdate(req.adminUser!.id, { $inc: { beanWallet: -amount } }, { session });
 
-    // Credit beans and auto-lift gifting suspension if balance becomes >= 0
+    // Credit beans (with 12% bonus for Top-up Agent) and auto-lift gifting suspension if balance becomes >= 0
     const updatedRecipient = await User.findByIdAndUpdate(
       recipient._id,
-      { $inc: { beanWallet: amount } },
+      { $inc: { beanWallet: totalBeansToCredit } },
       { new: true, session }
     ).select('beanWallet isGiftingSuspended');
+
     if (updatedRecipient && (updatedRecipient.beanWallet ?? 0) >= 0 && updatedRecipient.isGiftingSuspended) {
       await User.findByIdAndUpdate(recipient._id, { isGiftingSuspended: false }, { session });
     }
@@ -189,10 +195,12 @@ export const assignBeans = async (req: AdminAuthRequest, res: Response): Promise
           fromRole: 'company_admin',
           toId: recipient._id,
           toRole: recipient.role,
-          amount,
+          amount: totalBeansToCredit,
           transferSlipUrl,
           status: 'completed',
-          note: `Assigned by company admin`,
+          note: isTopUpAgent
+            ? `Assigned ${amount.toLocaleString()} beans + 12% bonus (${bonusBeans.toLocaleString()} extra beans)`
+            : `Assigned by company admin`,
         },
       ],
       { session }
@@ -206,10 +214,16 @@ export const assignBeans = async (req: AdminAuthRequest, res: Response): Promise
       actionType: 'assign_beans',
       targetEntityType: 'User',
       targetEntityId: recipient._id.toString(),
-      description: `Assigned ${amount} beans to ${recipient.username} (${recipient.role})`,
+      description: `Assigned ${amount} beans (+ ${bonusBeans} bonus) to ${recipient.username} (${recipient.role})`,
     });
 
-    res.status(200).json({ success: true, assigned: amount, recipientUsername: recipient.username });
+    res.status(200).json({
+      success: true,
+      baseAssigned: amount,
+      bonusBeans,
+      totalCredited: totalBeansToCredit,
+      recipientUsername: recipient.username,
+    });
   } catch (error: any) {
     await session.abortTransaction();
     res.status(500).json({ success: false, message: error.message });

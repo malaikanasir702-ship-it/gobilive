@@ -1,22 +1,47 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReferralStats = exports.getDailyRewardStatus = exports.claimAdReward = exports.claimDailyReward = exports.applyReferralCode = exports.getReferralInfo = void 0;
+exports.getAdRewardStatus = exports.getReferralStats = exports.claimAdReward = exports.applyReferralCode = exports.getReferralInfo = exports.REF_7_DAYS_ACTIVE_BEANS = exports.REF_FIRST_PURCHASE_BEANS = exports.REF_REGISTRATION_BEANS = exports.AD_REWARD_MONTHLY_LIMIT = exports.AD_REWARD_DAILY_LIMIT = exports.AD_REWARD_BEANS_PER_AD = void 0;
 const user_model_1 = require("../auth/user.model");
-const platform_settings_model_1 = require("../settings/platform-settings.model");
-const wallet_service_1 = require("../wallet/wallet.service");
+const activity_log_service_1 = require("../activity-log/activity-log.service");
+/**
+ * ─── AD REWARD CONSTANTS ──────────────────────────────────────────────────────
+ * 1 Ad Viewed = 5 BEANS ($0.0005)
+ * Daily Limit = 20 Ads (100 BEANS / $0.01 max daily)
+ * Monthly Limit = 600 Ads (3,000 BEANS / $0.30 max monthly)
+ */
+exports.AD_REWARD_BEANS_PER_AD = 5;
+exports.AD_REWARD_DAILY_LIMIT = 20;
+exports.AD_REWARD_MONTHLY_LIMIT = 600;
+/**
+ * ─── REFERRAL REWARD CONSTANTS ────────────────────────────────────────────────
+ * Registration: 2,500 BEANS ($0.25)
+ * First Purchase (min $10): 5,000 BEANS ($0.50)
+ * 7 Days Active: 2,500 BEANS ($0.25)
+ * Total Per Referral: 10,000 BEANS ($1.00)
+ */
+exports.REF_REGISTRATION_BEANS = 2500;
+exports.REF_FIRST_PURCHASE_BEANS = 5000;
+exports.REF_7_DAYS_ACTIVE_BEANS = 2500;
+const adTrackers = {};
+// ─── GET /api/referral/info ───────────────────────────────────────────────────
 const getReferralInfo = async (req, res) => {
     try {
         if (!req.user) {
             res.status(401).json({ success: false, message: 'Unauthorized.' });
             return;
         }
-        const user = await user_model_1.User.findById(req.user.id).select('referralCode referredBy');
-        const settings = await (0, platform_settings_model_1.getPlatformSettings)();
+        const user = await user_model_1.User.findById(req.user.id).select('referralCode referredBy rewardWallet').lean();
         res.status(200).json({
             success: true,
             referralCode: user?.referralCode,
             referredBy: user?.referredBy,
-            bonusDiamonds: settings.referralBonusDiamonds,
+            policy: {
+                registrationBeans: exports.REF_REGISTRATION_BEANS,
+                firstPurchaseBeans: exports.REF_FIRST_PURCHASE_BEANS,
+                active7DaysBeans: exports.REF_7_DAYS_ACTIVE_BEANS,
+                totalBeansPerReferral: 10000,
+                totalUsdPerReferral: 1.0,
+            },
         });
     }
     catch (error) {
@@ -24,6 +49,7 @@ const getReferralInfo = async (req, res) => {
     }
 };
 exports.getReferralInfo = getReferralInfo;
+// ─── POST /api/referral/apply ─────────────────────────────────────────────────
 const applyReferralCode = async (req, res) => {
     try {
         if (!req.user) {
@@ -31,25 +57,39 @@ const applyReferralCode = async (req, res) => {
             return;
         }
         const { code } = req.body;
-        const settings = await (0, platform_settings_model_1.getPlatformSettings)();
-        const user = await user_model_1.User.findById(req.user.id);
-        if (!user || user.referredBy) {
-            res.status(400).json({ success: false, message: 'Referral already applied or user not found.' });
+        if (!code) {
+            res.status(400).json({ success: false, message: 'Referral code is required.' });
             return;
         }
-        const referrer = await user_model_1.User.findOne({ referralCode: code });
+        const user = await user_model_1.User.findById(req.user.id);
+        if (!user || user.referredBy) {
+            res.status(400).json({ success: false, message: 'Referral code already applied or user not found.' });
+            return;
+        }
+        const referrer = await user_model_1.User.findOne({ referralCode: code.trim().toUpperCase() });
         if (!referrer || referrer.id === user.id) {
             res.status(400).json({ success: false, message: 'Invalid referral code.' });
             return;
         }
         user.referredBy = referrer.referralCode;
         await user.save();
-        await (0, wallet_service_1.creditBonusDiamonds)(user.id, settings.referralBonusDiamonds, 'referral_bonus', `Referral bonus from ${referrer.username}`);
-        await (0, wallet_service_1.creditBonusDiamonds)(referrer.id, Math.floor(settings.referralBonusDiamonds / 2), 'referral_bonus', `Referral reward — ${user.username} joined`);
+        // Credit Milestone 1: Registration Bonus (2,500 BEANS = $0.25) to Referrer
+        await user_model_1.User.findByIdAndUpdate(referrer._id, {
+            $inc: { rewardWallet: exports.REF_REGISTRATION_BEANS, beanWallet: exports.REF_REGISTRATION_BEANS },
+        });
+        await (0, activity_log_service_1.logActivity)({
+            actorId: user.id,
+            actorRole: user.role,
+            actionType: 'referral_registered',
+            targetEntityType: 'User',
+            targetEntityId: referrer._id.toString(),
+            description: `User @${user.username} registered with referral code from @${referrer.username}. Credited ${exports.REF_REGISTRATION_BEANS} Beans ($0.25) to referrer.`,
+        });
         res.status(200).json({
             success: true,
-            message: `You earned ${settings.referralBonusDiamonds} diamonds!`,
-            diamondsAwarded: settings.referralBonusDiamonds,
+            message: `Referral code applied! @${referrer.username} earned ${exports.REF_REGISTRATION_BEANS} Beans ($0.25).`,
+            referrerUsername: referrer.username,
+            beansAwarded: exports.REF_REGISTRATION_BEANS,
         });
     }
     catch (error) {
@@ -57,99 +97,69 @@ const applyReferralCode = async (req, res) => {
     }
 };
 exports.applyReferralCode = applyReferralCode;
-const claimDailyReward = async (req, res) => {
-    try {
-        if (!req.user) {
-            res.status(401).json({ success: false, message: 'Unauthorized.' });
-            return;
-        }
-        const settings = await (0, platform_settings_model_1.getPlatformSettings)();
-        const user = await user_model_1.User.findById(req.user.id);
-        if (!user) {
-            res.status(404).json({ success: false, message: 'User not found.' });
-            return;
-        }
-        const now = new Date();
-        if (user.lastDailyRewardAt) {
-            const last = new Date(user.lastDailyRewardAt);
-            const hoursSince = (now.getTime() - last.getTime()) / (1000 * 60 * 60);
-            if (hoursSince < 24) {
-                res.status(400).json({
-                    success: false,
-                    message: 'Daily reward already claimed. Come back tomorrow.',
-                    nextClaimInHours: Math.ceil(24 - hoursSince),
-                });
-                return;
-            }
-        }
-        user.lastDailyRewardAt = now;
-        await user.save();
-        await (0, wallet_service_1.creditBonusDiamonds)(user.id, settings.dailyLoginDiamonds, 'daily_reward', 'Daily login reward');
-        res.status(200).json({
-            success: true,
-            diamondsAwarded: settings.dailyLoginDiamonds,
-            message: `Daily reward: +${settings.dailyLoginDiamonds} diamonds`,
-        });
-    }
-    catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
-exports.claimDailyReward = claimDailyReward;
+// ─── POST /api/referral/claim-ad-reward ──────────────────────────────────────
 const claimAdReward = async (req, res) => {
     try {
         if (!req.user) {
             res.status(401).json({ success: false, message: 'Unauthorized.' });
             return;
         }
-        const diamonds = 10;
-        await (0, wallet_service_1.creditBonusDiamonds)(req.user.id, diamonds, 'ad_reward', 'Watched ad reward');
-        res.status(200).json({ success: true, diamondsAwarded: diamonds });
-    }
-    catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
-exports.claimAdReward = claimAdReward;
-const getDailyRewardStatus = async (req, res) => {
-    try {
-        if (!req.user) {
-            res.status(401).json({ success: false, message: 'Unauthorized.' });
-            return;
-        }
-        const settings = await (0, platform_settings_model_1.getPlatformSettings)();
-        const user = await user_model_1.User.findById(req.user.id).select('lastDailyRewardAt');
-        if (!user) {
-            res.status(404).json({ success: false, message: 'User not found.' });
-            return;
-        }
+        const userId = req.user.id;
         const now = new Date();
-        let canClaim = true;
-        let nextClaimAt = null;
-        let hoursUntilNext = 0;
-        if (user.lastDailyRewardAt) {
-            const last = new Date(user.lastDailyRewardAt);
-            const hoursSince = (now.getTime() - last.getTime()) / (1000 * 60 * 60);
-            if (hoursSince < 24) {
-                canClaim = false;
-                hoursUntilNext = 24 - hoursSince;
-                nextClaimAt = new Date(last.getTime() + 24 * 60 * 60 * 1000);
-            }
+        const todayStr = now.toISOString().slice(0, 10);
+        const monthStr = todayStr.slice(0, 7);
+        if (!adTrackers[userId]) {
+            adTrackers[userId] = { lastAdDate: todayStr, dailyCount: 0, lastAdMonth: monthStr, monthlyCount: 0 };
         }
+        const tracker = adTrackers[userId];
+        if (tracker.lastAdDate !== todayStr) {
+            tracker.lastAdDate = todayStr;
+            tracker.dailyCount = 0;
+        }
+        if (tracker.lastAdMonth !== monthStr) {
+            tracker.lastAdMonth = monthStr;
+            tracker.monthlyCount = 0;
+        }
+        if (tracker.dailyCount >= exports.AD_REWARD_DAILY_LIMIT) {
+            res.status(400).json({
+                success: false,
+                message: `Daily limit reached (${exports.AD_REWARD_DAILY_LIMIT} ads/day). Come back tomorrow!`,
+                dailyCount: tracker.dailyCount,
+                dailyLimit: exports.AD_REWARD_DAILY_LIMIT,
+            });
+            return;
+        }
+        if (tracker.monthlyCount >= exports.AD_REWARD_MONTHLY_LIMIT) {
+            res.status(400).json({
+                success: false,
+                message: `Monthly limit reached (${exports.AD_REWARD_MONTHLY_LIMIT} ads/month).`,
+                monthlyCount: tracker.monthlyCount,
+                monthlyLimit: exports.AD_REWARD_MONTHLY_LIMIT,
+            });
+            return;
+        }
+        tracker.dailyCount += 1;
+        tracker.monthlyCount += 1;
+        // Credit 5 BEANS ($0.0005) to user's rewardWallet
+        const updatedUser = await user_model_1.User.findByIdAndUpdate(userId, { $inc: { rewardWallet: exports.AD_REWARD_BEANS_PER_AD, beanWallet: exports.AD_REWARD_BEANS_PER_AD } }, { new: true }).select('rewardWallet beanWallet');
         res.status(200).json({
             success: true,
-            canClaim,
-            diamondsReward: settings.dailyLoginDiamonds,
-            nextClaimAt: nextClaimAt?.toISOString() || null,
-            hoursUntilNext: Math.ceil(hoursUntilNext),
-            lastClaimedAt: user.lastDailyRewardAt?.toISOString() || null,
+            beansAwarded: exports.AD_REWARD_BEANS_PER_AD,
+            usdValue: 0.0005,
+            dailyCount: tracker.dailyCount,
+            dailyLimit: exports.AD_REWARD_DAILY_LIMIT,
+            monthlyCount: tracker.monthlyCount,
+            monthlyLimit: exports.AD_REWARD_MONTHLY_LIMIT,
+            rewardWallet: updatedUser?.rewardWallet ?? 0,
+            message: `Earned +${exports.AD_REWARD_BEANS_PER_AD} BEANS for watching ad!`,
         });
     }
     catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-exports.getDailyRewardStatus = getDailyRewardStatus;
+exports.claimAdReward = claimAdReward;
+// ─── GET /api/referral/stats ─────────────────────────────────────────────────
 const getReferralStats = async (req, res) => {
     try {
         if (!req.user) {
@@ -161,21 +171,23 @@ const getReferralStats = async (req, res) => {
             res.status(404).json({ success: false, message: 'User not found.' });
             return;
         }
-        // Count how many users this user has referred
-        const referredCount = await user_model_1.User.countDocuments({ referredBy: user.referralCode });
-        // Get referral earnings from wallet transactions
-        const WalletTransaction = require('../wallet/wallet.transaction.model').WalletTransaction;
-        const referralTransactions = await WalletTransaction.find({
-            userId: req.user.id,
-            type: 'referral_bonus',
-        });
-        const referralEarnings = referralTransactions.reduce((sum, tx) => sum + (tx.diamondsDelta || 0), 0);
+        const referredUsers = await user_model_1.User.find({ referredBy: user.referralCode })
+            .select('username createdAt rcoins diamonds')
+            .lean();
+        const totalReferred = referredUsers.length;
+        // Each completed referral gives 2,500 beans on registration
+        const registrationEarnings = totalReferred * exports.REF_REGISTRATION_BEANS;
         res.status(200).json({
             success: true,
             referralCode: user.referralCode,
             referredBy: user.referredBy || null,
-            referredCount,
-            referralEarnings,
+            totalReferred,
+            totalBeansEarned: registrationEarnings,
+            totalUsdEarned: (registrationEarnings / 10000).toFixed(2),
+            referredUsers: referredUsers.map(u => ({
+                username: u.username,
+                joinedAt: u.createdAt,
+            })),
         });
     }
     catch (error) {
@@ -183,3 +195,31 @@ const getReferralStats = async (req, res) => {
     }
 };
 exports.getReferralStats = getReferralStats;
+// ─── GET /api/referral/ad-status ─────────────────────────────────────────────
+const getAdRewardStatus = async (req, res) => {
+    try {
+        if (!req.user) {
+            res.status(401).json({ success: false, message: 'Unauthorized.' });
+            return;
+        }
+        const userId = req.user.id;
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const monthStr = todayStr.slice(0, 7);
+        const tracker = adTrackers[userId] || { lastAdDate: todayStr, dailyCount: 0, lastAdMonth: monthStr, monthlyCount: 0 };
+        const dailyCount = tracker.lastAdDate === todayStr ? tracker.dailyCount : 0;
+        const monthlyCount = tracker.lastAdMonth === monthStr ? tracker.monthlyCount : 0;
+        res.status(200).json({
+            success: true,
+            beansPerAd: exports.AD_REWARD_BEANS_PER_AD,
+            dailyCount,
+            dailyLimit: exports.AD_REWARD_DAILY_LIMIT,
+            monthlyCount,
+            monthlyLimit: exports.AD_REWARD_MONTHLY_LIMIT,
+            canWatchMore: dailyCount < exports.AD_REWARD_DAILY_LIMIT && monthlyCount < exports.AD_REWARD_MONTHLY_LIMIT,
+        });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.getAdRewardStatus = getAdRewardStatus;

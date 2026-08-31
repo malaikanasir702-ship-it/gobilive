@@ -72,8 +72,10 @@ export interface IUser extends Document {
   createdAt: Date;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
-  // Admin panel extensions
+  // Admin panel & Wallet extensions
   beanWallet: number;
+  currentWallet: number; // Host base gift earnings (50%), min withdrawal $10 / 100,000 Beans
+  rewardWallet: number;  // Host rewards (Daily 2k, Weekly 10k-30k, New Host 15k), min withdrawal $20 / 200,000 Beans
   isBlocked: boolean;
   blockedUntil?: Date;
   blockType?: 'permanent' | 'temporary';
@@ -97,6 +99,8 @@ export interface IUser extends Document {
   // Avatar frame system
   purchasedFrames: string[];   // Array of Frame._id strings user has bought
   activeFrameId?: string;      // The currently equipped frame _id (null = no frame)
+  displayName?: string;        // User-set display name shown in UI instead of username
+  receivedGiftBadges?: Array<{giftName: string; emoji: string; fromHost: string; receivedAt: Date}>;
 }
 
 const UserSchema = new Schema<IUser>({
@@ -169,8 +173,10 @@ const UserSchema = new Schema<IUser>({
   createdAt: { type: Date, default: Date.now },
   resetPasswordToken: { type: String },
   resetPasswordExpires: { type: Date },
-  // Admin panel extensions
+  // Admin panel & Wallet extensions
   beanWallet: { type: Number, default: 0 },
+  currentWallet: { type: Number, default: 0 },
+  rewardWallet: { type: Number, default: 0 },
   isBlocked: { type: Boolean, default: false },
   blockedUntil: { type: Date },
   blockType: { type: String, enum: ['permanent', 'temporary'], sparse: true },
@@ -194,6 +200,10 @@ const UserSchema = new Schema<IUser>({
   // Avatar frame system
   purchasedFrames: { type: [String], default: [] },
   activeFrameId:   { type: String, default: null },
+  // Display name — user-set name shown in UI, falls back to username
+  displayName: { type: String, default: '' },
+  // Gifts received from hosts during live streams — shown as badges on profile
+  receivedGiftBadges: { type: [{ giftName: String, emoji: String, fromHost: String, receivedAt: Date }], default: [] },
 }, {
   // Only validate fields that were actually modified — prevents full-document
   // validation errors on old documents that have role='host' or other

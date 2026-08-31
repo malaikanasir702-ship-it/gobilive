@@ -31,7 +31,7 @@ import { injectLiveControllerIo } from './live.controller';
 // ─────────────────────────────────────────────
 interface JoinRoomPayload { roomId: string; username: string; }
 interface CommentPayload  { roomId: string; username: string; text: string; level: number; profilePic?: string; role?: string; }
-interface GiftPayload     { roomId: string; sender: string; giftName: string; count: number; cost: number; giftType?: string; svgaUrl?: string | null; emoji?: string; }
+interface GiftPayload     { roomId: string; sender: string; giftName: string; count: number; cost: number; giftType?: string; svgaUrl?: string | null; emoji?: string; targetUserId?: string; }
 interface PkStartPayload  { roomId: string; opponentRoomId: string; opponentHost: string; durationSeconds: number; }
 interface PkScorePayload  { roomId: string; change: number; side: 'left' | 'right'; }
 interface ChangeFilterPayload {
@@ -194,6 +194,24 @@ async function notifyLiveHost(
 function handleSendGift(io: Server, data: GiftPayload) {
   notifyLiveHost(data.roomId, NotificationTriggers.liveGift(data.sender, data.giftName));
   io.to(data.roomId).emit('gift_received', data);
+
+  // Comment text: differentiate host→viewer gift vs viewer→host gift
+  const giftCommentText = data.targetUserId
+    ? `🎁 @${data.sender} (Host) sent a ${data.giftName} to a viewer! ✨`
+    : `@${data.sender} sent Host a ${data.giftName}! 🎁✨`;
+
+  // If host gifted a specific viewer — save badge on that viewer's profile
+  if (data.targetUserId) {
+    User.findByIdAndUpdate(data.targetUserId, {
+      $push: {
+        receivedGiftBadges: {
+          $each: [{ giftName: data.giftName, emoji: data.emoji ?? '🎁', fromHost: data.sender, receivedAt: new Date() }],
+          $slice: -20, // keep last 20 badges max
+        },
+      },
+    }).catch(() => {/* non-critical */});
+  }
+
   io.to(data.roomId).emit('overlay_notification', {
     roomId: data.roomId, type: 'gift',
     title: `${data.sender} sent ${data.giftName}!`,
@@ -201,7 +219,7 @@ function handleSendGift(io: Server, data: GiftPayload) {
   });
   io.to(data.roomId).emit('new_comment', {
     roomId: data.roomId, username: 'Gift',
-    text: `@${data.sender} sent Host a ${data.giftName}! 🎁✨`,
+    text: giftCommentText,
     level: 100, isSystem: true,
   });
 }
@@ -615,11 +633,29 @@ export function registerStreamSignaling(io: Server) {
       io.to(data.roomId).emit('quick_reaction_received', data);
     });
 
-    socket.on('mute_state_changed', (data: MuteStatePayload) => {
+    socket.on('mute_state_changed', async (data: MuteStatePayload) => {
       io.to(data.roomId).emit('mute_state_changed', {
         roomId: data.roomId,
         videoMuted: data.videoMuted,
         audioMuted: data.audioMuted,
+      });
+      // Persist hostVideoMuted so discovery cards reflect current camera state
+      try {
+        await LiveRoom.updateOne(
+          { channelName: data.roomId, isActive: true },
+          { $set: { hostVideoMuted: data.videoMuted } }
+        );
+      } catch (_) { /* non-critical */ }
+    });
+
+    socket.on('call_request', (data: { roomId: string; username: string; profilePic?: string }) => {
+      if (!data?.roomId) return;
+      // Forward call request only to the host (room channel)
+      // The host's client listens on 'call_request' event
+      io.to(data.roomId).emit('call_request', {
+        roomId: data.roomId,
+        username: data.username,
+        profilePic: data.profilePic ?? '',
       });
     });
 

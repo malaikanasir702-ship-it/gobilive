@@ -13,7 +13,7 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    const { bio, profilePic, age, gender, thought, payoutMethod, payoutDetails, bankName, bankAccountNumber, bankAccountHolder } = req.body;
+    const { bio, profilePic, age, gender, thought, payoutMethod, payoutDetails, bankName, bankAccountNumber, bankAccountHolder, displayName } = req.body;
     const user = await User.findById(req.user.id);
     if (!user) {
       res.status(404).json({ success: false, message: 'User not found.' });
@@ -33,6 +33,10 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
     if (bankName !== undefined) user.bankName = bankName;
     if (bankAccountNumber !== undefined) user.bankAccountNumber = bankAccountNumber;
     if (bankAccountHolder !== undefined) user.bankAccountHolder = bankAccountHolder;
+    if (displayName !== undefined) {
+      // Max 30 chars, strip leading/trailing spaces
+      (user as any).displayName = String(displayName).trim().slice(0, 30);
+    }
 
     await user.save();
 

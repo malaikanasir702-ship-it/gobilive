@@ -167,6 +167,21 @@ async function notifyLiveHost(roomId, payload) {
 function handleSendGift(io, data) {
     notifyLiveHost(data.roomId, notification_service_1.NotificationTriggers.liveGift(data.sender, data.giftName));
     io.to(data.roomId).emit('gift_received', data);
+    // Comment text: differentiate host→viewer gift vs viewer→host gift
+    const giftCommentText = data.targetUserId
+        ? `🎁 @${data.sender} (Host) sent a ${data.giftName} to a viewer! ✨`
+        : `@${data.sender} sent Host a ${data.giftName}! 🎁✨`;
+    // If host gifted a specific viewer — save badge on that viewer's profile
+    if (data.targetUserId) {
+        user_model_1.User.findByIdAndUpdate(data.targetUserId, {
+            $push: {
+                receivedGiftBadges: {
+                    $each: [{ giftName: data.giftName, emoji: data.emoji ?? '🎁', fromHost: data.sender, receivedAt: new Date() }],
+                    $slice: -20, // keep last 20 badges max
+                },
+            },
+        }).catch(() => { });
+    }
     io.to(data.roomId).emit('overlay_notification', {
         roomId: data.roomId, type: 'gift',
         title: `${data.sender} sent ${data.giftName}!`,
@@ -174,7 +189,7 @@ function handleSendGift(io, data) {
     });
     io.to(data.roomId).emit('new_comment', {
         roomId: data.roomId, username: 'Gift',
-        text: `@${data.sender} sent Host a ${data.giftName}! 🎁✨`,
+        text: giftCommentText,
         level: 100, isSystem: true,
     });
 }
@@ -547,11 +562,27 @@ function registerStreamSignaling(io) {
         socket.on('quick_reaction', (data) => {
             io.to(data.roomId).emit('quick_reaction_received', data);
         });
-        socket.on('mute_state_changed', (data) => {
+        socket.on('mute_state_changed', async (data) => {
             io.to(data.roomId).emit('mute_state_changed', {
                 roomId: data.roomId,
                 videoMuted: data.videoMuted,
                 audioMuted: data.audioMuted,
+            });
+            // Persist hostVideoMuted so discovery cards reflect current camera state
+            try {
+                await live_model_1.default.updateOne({ channelName: data.roomId, isActive: true }, { $set: { hostVideoMuted: data.videoMuted } });
+            }
+            catch (_) { /* non-critical */ }
+        });
+        socket.on('call_request', (data) => {
+            if (!data?.roomId)
+                return;
+            // Forward call request only to the host (room channel)
+            // The host's client listens on 'call_request' event
+            io.to(data.roomId).emit('call_request', {
+                roomId: data.roomId,
+                username: data.username,
+                profilePic: data.profilePic ?? '',
             });
         });
         // ── Heart burst (double-tap) ─────────────────────────────────────────────

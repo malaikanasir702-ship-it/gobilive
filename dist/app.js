@@ -53,6 +53,7 @@ const games_route_1 = __importDefault(require("./features/admin/games.route"));
 const dashboard_admin_route_1 = __importDefault(require("./features/admin/dashboard-admin.route"));
 const reels_admin_route_1 = __importDefault(require("./features/admin/reels-admin.route"));
 const frames_route_1 = __importDefault(require("./features/frames/frames.route"));
+const country_policy_route_1 = __importDefault(require("./features/policy/country-policy.route"));
 const wallet_controller_1 = require("./features/wallet/wallet.controller");
 // dotenv is loaded once in index.ts — this call is a safe no-op if already loaded.
 dotenv_1.default.config({ path: path_1.default.resolve(__dirname, '../.env') });
@@ -285,6 +286,8 @@ app.use('/api/admin-panel/v1/reports', reports_route_1.default);
 app.use('/api/admin-panel/v1/games', games_route_1.default);
 app.use('/api/admin-panel/v1/dashboard', dashboard_admin_route_1.default);
 app.use('/api/admin-panel/v1/reels', reels_admin_route_1.default);
+app.use('/api/policy', country_policy_route_1.default);
+app.use('/api/admin-panel/v1/policy', country_policy_route_1.default);
 app.use('/api/frames', frames_route_1.default);
 app.use('/api/admin-panel/v1/frames', frames_route_1.default);
 // Health Check — Railway uses this to verify the container is alive.
