@@ -42,7 +42,7 @@ export const getSafeUser = async (userId: string) => {
   }
   if (!isHostUser) {
     // Check if there is an approved host registration request for this user
-    const hasApprovedHostReq = await RegistrationRequest.exists({
+    const approvedHostReq = await RegistrationRequest.findOne({
       role: 'host',
       status: 'approved',
       $or: [
@@ -50,11 +50,22 @@ export const getSafeUser = async (userId: string) => {
         ...(user.email ? [{ 'formData.email': user.email.toLowerCase().trim() }] : []),
         ...(user.phone ? [{ 'formData.phone': user.phone.trim() }] : []),
       ],
-    });
-    if (hasApprovedHostReq) {
+    }).select('formData').lean();
+    if (approvedHostReq) {
       isHostUser = true;
-      // Auto-heal DB user record
-      await User.findByIdAndUpdate(user._id, { role: 'host', $addToSet: { badges: 'host' } }).catch(() => {});
+      // Resolve agencyCode → ObjectId and auto-heal DB record
+      let resolvedAgencyId: any = undefined;
+      const fd = (approvedHostReq as any).formData;
+      if (fd?.agencyCode && !user.agencyId) {
+        const { Agency } = await import('../agency/agency.model');
+        const agencyDoc = await Agency.findOne({ agencyCode: fd.agencyCode }).select('_id').lean();
+        resolvedAgencyId = agencyDoc ? agencyDoc._id : fd.agencyCode;
+      }
+      const healUpdate: any = { role: 'host', $addToSet: { badges: 'host' } };
+      if (resolvedAgencyId) healUpdate.agencyId = resolvedAgencyId;
+      await User.findByIdAndUpdate(user._id, healUpdate).catch(() => {});
+      // Update in-memory user so response includes agencyId
+      if (resolvedAgencyId && !user.agencyId) user.agencyId = resolvedAgencyId;
     }
   }
 

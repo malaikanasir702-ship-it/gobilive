@@ -71,7 +71,7 @@ const getSafeUser = async (userId) => {
     }
     if (!isHostUser) {
         // Check if there is an approved host registration request for this user
-        const hasApprovedHostReq = await registration_request_model_1.RegistrationRequest.exists({
+        const approvedHostReq = await registration_request_model_1.RegistrationRequest.findOne({
             role: 'host',
             status: 'approved',
             $or: [
@@ -79,11 +79,24 @@ const getSafeUser = async (userId) => {
                 ...(user.email ? [{ 'formData.email': user.email.toLowerCase().trim() }] : []),
                 ...(user.phone ? [{ 'formData.phone': user.phone.trim() }] : []),
             ],
-        });
-        if (hasApprovedHostReq) {
+        }).select('formData').lean();
+        if (approvedHostReq) {
             isHostUser = true;
-            // Auto-heal DB user record
-            await user_model_1.User.findByIdAndUpdate(user._id, { role: 'host', $addToSet: { badges: 'host' } }).catch(() => { });
+            // Resolve agencyCode → ObjectId and auto-heal DB record
+            let resolvedAgencyId = undefined;
+            const fd = approvedHostReq.formData;
+            if (fd?.agencyCode && !user.agencyId) {
+                const { Agency } = await Promise.resolve().then(() => __importStar(require('../agency/agency.model')));
+                const agencyDoc = await Agency.findOne({ agencyCode: fd.agencyCode }).select('_id').lean();
+                resolvedAgencyId = agencyDoc ? agencyDoc._id : fd.agencyCode;
+            }
+            const healUpdate = { role: 'host', $addToSet: { badges: 'host' } };
+            if (resolvedAgencyId)
+                healUpdate.agencyId = resolvedAgencyId;
+            await user_model_1.User.findByIdAndUpdate(user._id, healUpdate).catch(() => { });
+            // Update in-memory user so response includes agencyId
+            if (resolvedAgencyId && !user.agencyId)
+                user.agencyId = resolvedAgencyId;
         }
     }
     if (isHostUser) {

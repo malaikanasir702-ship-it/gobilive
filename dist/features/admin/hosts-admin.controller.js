@@ -52,27 +52,38 @@ const listHosts = async (req, res) => {
         const agency = req.query.agency || '';
         const status = req.query.status || '';
         // Auto-sync any users who have an approved host registration request
+        // Also resolves and sets agencyId so the Agency column displays correctly
         try {
             const { RegistrationRequest } = await Promise.resolve().then(() => __importStar(require('../registration/registration-request.model')));
             const approvedRequests = await RegistrationRequest.find({ role: 'host', status: 'approved' }).select('formData').lean();
-            const parentIds = approvedRequests.map(r => r.formData?.parentId).filter(Boolean);
-            const approvedEmails = approvedRequests
-                .map(r => r.formData?.email)
-                .filter((e) => typeof e === 'string' && e.trim().length > 0)
-                .map(e => e.toLowerCase().trim());
-            const approvedPhones = approvedRequests
-                .map(r => r.formData?.phone)
-                .filter((p) => typeof p === 'string' && p.trim().length > 0)
-                .map(p => p.trim());
-            if (parentIds.length > 0 || approvedEmails.length > 0 || approvedPhones.length > 0) {
-                const validParentObjectIds = parentIds.filter(id => mongoose_1.Types.ObjectId.isValid(String(id)));
-                await user_model_1.User.updateMany({
-                    $or: [
-                        ...(validParentObjectIds.length > 0 ? [{ _id: { $in: validParentObjectIds } }] : []),
-                        ...(approvedEmails.length > 0 ? [{ email: { $in: approvedEmails } }] : []),
-                        ...(approvedPhones.length > 0 ? [{ phone: { $in: approvedPhones } }] : []),
-                    ],
-                }, { role: 'host', $addToSet: { badges: 'host' } });
+            for (const req of approvedRequests) {
+                const fd = req.formData;
+                if (!fd)
+                    continue;
+                // Resolve agencyCode → Agency ObjectId
+                let resolvedAgencyId = undefined;
+                if (fd.agencyCode) {
+                    const agencyDoc = await agency_model_1.Agency.findOne({ agencyCode: fd.agencyCode }).select('_id').lean();
+                    resolvedAgencyId = agencyDoc ? agencyDoc._id : fd.agencyCode;
+                }
+                // Build match criteria for existing app users
+                const matchOr = [];
+                if (fd.parentId && mongoose_1.Types.ObjectId.isValid(String(fd.parentId))) {
+                    matchOr.push({ _id: fd.parentId });
+                }
+                if (fd.email)
+                    matchOr.push({ email: fd.email.toLowerCase().trim() });
+                if (fd.phone)
+                    matchOr.push({ phone: fd.phone.trim() });
+                if (matchOr.length === 0)
+                    continue;
+                const updateDoc = { role: 'host', $addToSet: { badges: 'host' } };
+                if (resolvedAgencyId)
+                    updateDoc.agencyId = resolvedAgencyId;
+                const noAgencyFilter = { $and: [{ $or: matchOr }, { $or: [{ agencyId: { $exists: false } }, { agencyId: null }, { agencyId: '' }] }] };
+                await user_model_1.User.updateMany(noAgencyFilter, updateDoc);
+                // Also ensure role/badge on users that already have agencyId set
+                await user_model_1.User.updateMany({ $or: matchOr }, { role: 'host', $addToSet: { badges: 'host' } });
             }
         }
         catch (_) { }
