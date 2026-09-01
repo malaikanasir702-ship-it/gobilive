@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -18,16 +51,48 @@ const listHosts = async (req, res) => {
         const search = req.query.search || '';
         const agency = req.query.agency || '';
         const status = req.query.status || '';
-        const filter = { agencyId: { $exists: true, $ne: null } };
+        // Auto-sync any users who have an approved host registration request
+        try {
+            const { RegistrationRequest } = await Promise.resolve().then(() => __importStar(require('../registration/registration-request.model')));
+            const approvedRequests = await RegistrationRequest.find({ role: 'host', status: 'approved' }).select('formData').lean();
+            const parentIds = approvedRequests.map(r => r.formData?.parentId).filter(Boolean);
+            const approvedEmails = approvedRequests
+                .map(r => r.formData?.email)
+                .filter((e) => typeof e === 'string' && e.trim().length > 0)
+                .map(e => e.toLowerCase().trim());
+            const approvedPhones = approvedRequests
+                .map(r => r.formData?.phone)
+                .filter((p) => typeof p === 'string' && p.trim().length > 0)
+                .map(p => p.trim());
+            if (parentIds.length > 0 || approvedEmails.length > 0 || approvedPhones.length > 0) {
+                const validParentObjectIds = parentIds.filter(id => mongoose_1.Types.ObjectId.isValid(String(id)));
+                await user_model_1.User.updateMany({
+                    $or: [
+                        ...(validParentObjectIds.length > 0 ? [{ _id: { $in: validParentObjectIds } }] : []),
+                        ...(approvedEmails.length > 0 ? [{ email: { $in: approvedEmails } }] : []),
+                        ...(approvedPhones.length > 0 ? [{ phone: { $in: approvedPhones } }] : []),
+                    ],
+                }, { role: 'host', $addToSet: { badges: 'host' } });
+            }
+        }
+        catch (_) { }
+        // Show ALL users with role='host' OR badges contains 'host'
+        const filter = {
+            $or: [
+                { role: 'host' },
+                { badges: 'host' },
+            ],
+        };
         if (search) {
             const re = new RegExp(search, 'i');
-            filter.$or = [{ username: re }];
+            filter.$and = [{ $or: [{ username: re }, { email: re }] }];
         }
-        if (status === 'blocked')
+        if (status === 'blocked') {
             filter.isBlocked = true;
-        if (status === 'suspended')
+        }
+        if (status === 'suspended') {
             filter.isSuspended = true;
-        // Agency role: only show hosts belonging to their own agency
+        }
         const role = req.adminUser?.role;
         if (role === 'agency' || role === 'sub_agency') {
             const ownAgency = await agency_model_1.Agency.findOne({ ownerId: req.adminUser.id }).select('_id agencyCode').lean();
@@ -35,28 +100,23 @@ const listHosts = async (req, res) => {
                 res.status(200).json({ success: true, hosts: [], total: 0, page, totalPages: 0 });
                 return;
             }
-            // Filter by agency ObjectId or agencyCode (hosts may store either)
-            filter.agencyId = {
-                $in: [String(ownAgency._id), ownAgency.agencyCode],
-            };
+            filter.agencyId = { $in: [String(ownAgency._id), ownAgency.agencyCode] };
         }
         else {
-            // super_admin / company_admin / sub_admin: allow optional agency filter from query
             if (agency)
                 filter.agencyId = agency;
         }
         const total = await user_model_1.User.countDocuments(filter);
         const hosts = await user_model_1.User.find(filter)
-            .select('username email phone diamonds beanWallet agencyId isBlocked isSuspended createdAt profilePic')
+            .select('username email phone diamonds beanWallet agencyId isBlocked isSuspended createdAt profilePic role badges')
             .sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
-        // Resolve agency names — agencyId may be ObjectId or agencyCode string
         const agencyIds = [...new Set(hosts.map(h => h.agencyId).filter(Boolean))];
-        const agencyDocs = await agency_model_1.Agency.find({
+        const agencyDocs = agencyIds.length > 0 ? await agency_model_1.Agency.find({
             $or: [
                 { _id: { $in: agencyIds.filter(id => mongoose_1.Types.ObjectId.isValid(String(id))) } },
                 { agencyCode: { $in: agencyIds.map(String) } },
             ],
-        }).select('_id agencyCode name').lean();
+        }).select('_id agencyCode name').lean() : [];
         const agencyMap = new Map();
         for (const a of agencyDocs) {
             agencyMap.set(String(a._id), a.name);
@@ -64,10 +124,10 @@ const listHosts = async (req, res) => {
         }
         const hostsWithAgency = hosts.map(h => ({
             ...h,
-            agencyName: h.agencyId ? (agencyMap.get(String(h.agencyId)) ?? '—') : '—',
+            agencyName: h.agencyId ? (agencyMap.get(String(h.agencyId)) ?? 'No Agency') : 'No Agency',
             agencyCode: h.agencyId ? (() => {
-                const agency = agencyDocs.find(a => String(a._id) === String(h.agencyId) || a.agencyCode === String(h.agencyId));
-                return agency?.agencyCode ?? String(h.agencyId);
+                const agencyDoc = agencyDocs.find(a => String(a._id) === String(h.agencyId) || a.agencyCode === String(h.agencyId));
+                return agencyDoc?.agencyCode ?? String(h.agencyId);
             })() : '—',
         }));
         res.status(200).json({ success: true, hosts: hostsWithAgency, total, page, totalPages: Math.ceil(total / limit) });

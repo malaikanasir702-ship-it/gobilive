@@ -64,8 +64,29 @@ const getSafeUser = async (userId) => {
     if (isAgencyOwner) {
         rolesSet.add('agency');
     }
-    // Check host status
-    if (user.role === 'host' || user.agencyId) {
+    // Check host status (from DB role, agencyId, badges, or approved host registration)
+    let isHostUser = user.role === 'host' || !!user.agencyId;
+    if (!isHostUser && Array.isArray(user.badges) && user.badges.includes('host')) {
+        isHostUser = true;
+    }
+    if (!isHostUser) {
+        // Check if there is an approved host registration request for this user
+        const hasApprovedHostReq = await registration_request_model_1.RegistrationRequest.exists({
+            role: 'host',
+            status: 'approved',
+            $or: [
+                { 'formData.parentId': user._id.toString() },
+                ...(user.email ? [{ 'formData.email': user.email.toLowerCase().trim() }] : []),
+                ...(user.phone ? [{ 'formData.phone': user.phone.trim() }] : []),
+            ],
+        });
+        if (hasApprovedHostReq) {
+            isHostUser = true;
+            // Auto-heal DB user record
+            await user_model_1.User.findByIdAndUpdate(user._id, { role: 'host', $addToSet: { badges: 'host' } }).catch(() => { });
+        }
+    }
+    if (isHostUser) {
         rolesSet.add('host');
     }
     // Combine existing badges and roles array
@@ -82,6 +103,9 @@ const getSafeUser = async (userId) => {
         });
     }
     user.roles = Array.from(rolesSet);
+    if (rolesSet.has('host') || isHostUser) {
+        user.role = 'host';
+    }
     // Sync badges to include all active roles as well
     const badgeSet = new Set((user.badges || []).map((b) => b.toString().toLowerCase()));
     rolesSet.forEach((r) => badgeSet.add(r));

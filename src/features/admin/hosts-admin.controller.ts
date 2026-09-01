@@ -16,12 +16,47 @@ export const listHosts = async (req: AdminAuthRequest, res: Response): Promise<v
     const agency = (req.query.agency as string) || '';
     const status = (req.query.status as string) || '';
 
-    const filter: any = { agencyId: { $exists: true, $ne: null } };
-    if (search) { const re = new RegExp(search, 'i'); filter.$or = [{ username: re }]; }
-    if (status === 'blocked') filter.isBlocked = true;
-    if (status === 'suspended') filter.isSuspended = true;
+    // Auto-sync any users who have an approved host registration request
+    try {
+      const { RegistrationRequest } = await import('../registration/registration-request.model');
+      const approvedRequests = await RegistrationRequest.find({ role: 'host', status: 'approved' }).select('formData').lean();
+      const parentIds = approvedRequests.map(r => r.formData?.parentId).filter(Boolean);
+      const approvedEmails = approvedRequests
+        .map(r => r.formData?.email)
+        .filter((e): e is string => typeof e === 'string' && e.trim().length > 0)
+        .map(e => e.toLowerCase().trim());
+      const approvedPhones = approvedRequests
+        .map(r => r.formData?.phone)
+        .filter((p): p is string => typeof p === 'string' && p.trim().length > 0)
+        .map(p => p.trim());
 
-    // Agency role: only show hosts belonging to their own agency
+      if (parentIds.length > 0 || approvedEmails.length > 0 || approvedPhones.length > 0) {
+        const validParentObjectIds = parentIds.filter(id => Types.ObjectId.isValid(String(id)));
+        await User.updateMany(
+          {
+            $or: [
+              ...(validParentObjectIds.length > 0 ? [{ _id: { $in: validParentObjectIds } }] : []),
+              ...(approvedEmails.length > 0 ? [{ email: { $in: approvedEmails } }] : []),
+              ...(approvedPhones.length > 0 ? [{ phone: { $in: approvedPhones } }] : []),
+            ],
+          },
+          { role: 'host', $addToSet: { badges: 'host' } }
+        );
+      }
+    } catch (_) {}
+
+    // Show ALL users with role='host' OR badges contains 'host'
+    const filter: any = {
+      $or: [
+        { role: 'host' },
+        { badges: 'host' },
+      ],
+    };
+
+    if (search) { const re = new RegExp(search, 'i'); filter.$and = [{ $or: [{ username: re }, { email: re }] }]; }
+    if (status === 'blocked') { filter.isBlocked = true; }
+    if (status === 'suspended') { filter.isSuspended = true; }
+
     const role = req.adminUser?.role;
     if (role === 'agency' || role === 'sub_agency') {
       const ownAgency = await Agency.findOne({ ownerId: req.adminUser!.id }).select('_id agencyCode').lean();
@@ -29,28 +64,23 @@ export const listHosts = async (req: AdminAuthRequest, res: Response): Promise<v
         res.status(200).json({ success: true, hosts: [], total: 0, page, totalPages: 0 });
         return;
       }
-      // Filter by agency ObjectId or agencyCode (hosts may store either)
-      filter.agencyId = {
-        $in: [String(ownAgency._id), ownAgency.agencyCode],
-      };
+      filter.agencyId = { $in: [String(ownAgency._id), ownAgency.agencyCode] };
     } else {
-      // super_admin / company_admin / sub_admin: allow optional agency filter from query
       if (agency) filter.agencyId = agency;
     }
 
     const total = await User.countDocuments(filter);
     const hosts = await User.find(filter)
-      .select('username email phone diamonds beanWallet agencyId isBlocked isSuspended createdAt profilePic')
+      .select('username email phone diamonds beanWallet agencyId isBlocked isSuspended createdAt profilePic role badges')
       .sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
 
-    // Resolve agency names — agencyId may be ObjectId or agencyCode string
     const agencyIds = [...new Set(hosts.map(h => h.agencyId).filter(Boolean))];
-    const agencyDocs = await Agency.find({
+    const agencyDocs = agencyIds.length > 0 ? await Agency.find({
       $or: [
         { _id: { $in: agencyIds.filter(id => Types.ObjectId.isValid(String(id))) } },
         { agencyCode: { $in: agencyIds.map(String) } },
       ],
-    }).select('_id agencyCode name').lean();
+    }).select('_id agencyCode name').lean() : [];
 
     const agencyMap = new Map<string, string>();
     for (const a of agencyDocs) {
@@ -60,10 +90,10 @@ export const listHosts = async (req: AdminAuthRequest, res: Response): Promise<v
 
     const hostsWithAgency = hosts.map(h => ({
       ...h,
-      agencyName: h.agencyId ? (agencyMap.get(String(h.agencyId)) ?? '—') : '—',
+      agencyName: h.agencyId ? (agencyMap.get(String(h.agencyId)) ?? 'No Agency') : 'No Agency',
       agencyCode: h.agencyId ? (() => {
-        const agency = agencyDocs.find(a => String(a._id) === String(h.agencyId) || a.agencyCode === String(h.agencyId));
-        return agency?.agencyCode ?? String(h.agencyId);
+        const agencyDoc = agencyDocs.find(a => String(a._id) === String(h.agencyId) || a.agencyCode === String(h.agencyId));
+        return agencyDoc?.agencyCode ?? String(h.agencyId);
       })() : '—',
     }));
 

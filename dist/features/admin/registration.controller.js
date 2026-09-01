@@ -160,20 +160,25 @@ async function approveRegistration(req, res) {
             const agencyDoc = await agency_model_1.Agency.findOne({ agencyCode: request.formData.agencyCode }).select('_id').lean();
             resolvedAgencyId = agencyDoc ? agencyDoc._id : request.formData.agencyCode;
         }
-        // ── Check if a user with this email AND role already exists ───────────
-        // If so, update that account. Otherwise create a separate account for this role.
+        // ── Check if a user with this email OR phone already exists ───────────
+        // If so, promote that account. Otherwise create a separate account for this role.
         let newUser;
-        const existingEmailUser = request.formData.email
-            ? await user_model_1.User.findOne({ email: request.formData.email.toLowerCase().trim(), role: userRole })
-            : null;
-        if (existingEmailUser) {
+        let existingMatchUser = null;
+        if (request.formData.email) {
+            existingMatchUser = await user_model_1.User.findOne({ email: request.formData.email.toLowerCase().trim() });
+        }
+        if (!existingMatchUser && request.formData.phone) {
+            existingMatchUser = await user_model_1.User.findOne({ phone: request.formData.phone.trim() });
+        }
+        if (existingMatchUser) {
             // Update the existing user's fields for this role
-            await user_model_1.User.findByIdAndUpdate(existingEmailUser._id, {
-                passwordHash, // reset to temp password so they can login
+            await user_model_1.User.findByIdAndUpdate(existingMatchUser._id, {
+                role: userRole,
                 ...(resolvedParentId ? { parentId: resolvedParentId } : {}),
                 ...(resolvedAgencyId ? { agencyId: resolvedAgencyId } : {}),
+                $addToSet: { badges: userRole },
             });
-            newUser = existingEmailUser;
+            newUser = existingMatchUser;
         }
         else {
             newUser = await user_model_1.User.create({
@@ -235,7 +240,7 @@ async function approveRegistration(req, res) {
                 await (0, email_service_1.sendApprovalEmail)({
                     to: emailTo,
                     fullName: request.formData.fullName || username,
-                    username: existingEmailUser ? existingEmailUser.username : username,
+                    username: existingMatchUser ? existingMatchUser.username : username,
                     password: tempPassword,
                     role: request.role,
                 });
