@@ -54,6 +54,7 @@ export interface IUser extends Document {
   fcmPlatform?: string;
   followersCount: number;
   followingCount: number;
+  friendsCount: number;
   likesCount: number;
   referralCode: string;
   referredBy?: string;
@@ -136,6 +137,7 @@ const UserSchema = new Schema<IUser>({
   xp: { type: Number, default: 0 },
   followersCount: { type: Number, default: 0 },
   followingCount: { type: Number, default: 0 },
+  friendsCount: { type: Number, default: 0 },
   likesCount: { type: Number, default: 0 },
   referralCode: { type: String, unique: true, sparse: true },
   referredBy: { type: String },

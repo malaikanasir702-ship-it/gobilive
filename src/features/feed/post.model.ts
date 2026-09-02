@@ -38,6 +38,8 @@ export interface IPost extends Document {
   appealStatus: 'none' | 'pending' | 'accepted' | 'rejected';
   appealReason?: string;
   appealedAt?: Date;
+  isPinned?: boolean;
+  originalPostId?: Types.ObjectId;
   createdAt: Date;
 }
 
@@ -77,6 +79,8 @@ const PostSchema = new Schema<IPost>({
   appealStatus:     { type: String, enum: ['none', 'pending', 'accepted', 'rejected'], default: 'none' },
   appealReason:     { type: String, default: '' },
   appealedAt:       { type: Date },
+  isPinned:         { type: Boolean, default: false },
+  originalPostId:   { type: Schema.Types.ObjectId, ref: 'Post' },
   createdAt:        { type: Date, default: Date.now },
 });
 

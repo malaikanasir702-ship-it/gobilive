@@ -730,3 +730,79 @@ export const getPublicFeed = async (req: any, res: Response): Promise<void> => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+// POST /feed/:id/repost — Repost video to current user profile feed
+export const repostPost = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+
+    const originalPost = await Post.findById(req.params.id);
+    if (!originalPost) {
+      res.status(404).json({ success: false, message: 'Post not found' });
+      return;
+    }
+
+    const user = await User.findById(req.user.id).select('username profilePic');
+    if (!user) { res.status(404).json({ success: false, message: 'User not found' }); return; }
+
+    // Increment share/repost count on original
+    await Post.findByIdAndUpdate(req.params.id, { $inc: { sharesCount: 1 } });
+
+    // Create a repost under the current user's account
+    const reposted = await Post.create({
+      userId: new Types.ObjectId(req.user.id),
+      username: user.username,
+      userProfilePic: user.profilePic,
+      postType: originalPost.postType,
+      videoUrl: originalPost.videoUrl,
+      imageUrls: originalPost.imageUrls,
+      thumbnailUrl: originalPost.thumbnailUrl,
+      blurHash: originalPost.blurHash,
+      aspectRatio: originalPost.aspectRatio,
+      caption: `Reposted from @${originalPost.username}: ${originalPost.caption}`,
+      tags: originalPost.tags,
+      duration: originalPost.duration,
+      isPublic: true,
+      originalPostId: originalPost._id,
+    });
+
+    res.status(201).json({ success: true, message: 'Post reposted to your profile', post: reposted });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /feed/:id/pin — Pin post to profile top
+export const pinPost = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+
+    const post = await Post.findById(req.params.id);
+    if (!post) { res.status(404).json({ success: false, message: 'Post not found' }); return; }
+
+    post.isPinned = true;
+    await post.save();
+
+    res.status(200).json({ success: true, message: 'Post pinned', post });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /feed/:id/unpin — Unpin post
+export const unpinPost = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+
+    const post = await Post.findById(req.params.id);
+    if (!post) { res.status(404).json({ success: false, message: 'Post not found' }); return; }
+
+    post.isPinned = false;
+    await post.save();
+
+    res.status(200).json({ success: true, message: 'Post unpinned', post });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+

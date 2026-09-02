@@ -52,8 +52,34 @@ const generateToken = (userId, username, tokenVersion = 0) => {
 };
 const getSafeUser = async (userId) => {
     const user = await user_model_1.User.findById(userId).select('-passwordHash').lean({ virtuals: true });
-    if (!user)
-        return null;
+    // Real-time calculated social counts (Followers, Following, Friends)
+    try {
+        const { Follow } = await Promise.resolve().then(() => __importStar(require('./follow.model')));
+        const uId = user._id.toString();
+        const [realFollowers, realFollowing] = await Promise.all([
+            Follow.countDocuments({ followingId: uId }),
+            Follow.countDocuments({ followerId: uId }),
+        ]);
+        const myFollowingDocs = await Follow.find({ followerId: uId }).select('followingId').lean();
+        const myFollowingIds = myFollowingDocs.map((f) => f.followingId);
+        let realFriends = 0;
+        if (myFollowingIds.length > 0) {
+            realFriends = await Follow.countDocuments({
+                followerId: { $in: myFollowingIds },
+                followingId: uId,
+            });
+        }
+        user.followersCount = realFollowers;
+        user.followingCount = realFollowing;
+        user.friendsCount = realFriends;
+        // Self-heal DB cached fields if out of sync
+        user_model_1.User.findByIdAndUpdate(uId, {
+            followersCount: realFollowers,
+            followingCount: realFollowing,
+            friendsCount: realFriends,
+        }).catch(() => { });
+    }
+    catch (_) { }
     const rolesSet = new Set();
     // Primary role
     if (user.role && user.role !== 'user') {

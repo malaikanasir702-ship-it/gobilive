@@ -35,6 +35,7 @@ const UserSchema = new mongoose_1.Schema({
     xp: { type: Number, default: 0 },
     followersCount: { type: Number, default: 0 },
     followingCount: { type: Number, default: 0 },
+    friendsCount: { type: Number, default: 0 },
     likesCount: { type: Number, default: 0 },
     referralCode: { type: String, unique: true, sparse: true },
     referredBy: { type: String },

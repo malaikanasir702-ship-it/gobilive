@@ -17,6 +17,9 @@ import {
   reportPost,
   appealPost,
   getPublicFeed,
+  repostPost,
+  pinPost,
+  unpinPost,
 } from './feed.controller';
 import { downloadWithWatermark } from './feed.download.controller';
 import { authenticateJWT } from '../../core/middlewares/auth.middleware';
@@ -45,6 +48,10 @@ router.get('/:id/comments',  authenticateJWT as any, getComments      as any);
 router.post('/:id/comments', authenticateJWT as any, addComment       as any);
 router.post('/:id/report',   authenticateJWT as any, reportPost       as any);
 router.post('/:id/appeal',   authenticateJWT as any, appealPost       as any);
+router.post('/:id/repost',   authenticateJWT as any, repostPost       as any);
+router.post('/:id/pin',      authenticateJWT as any, pinPost          as any);
+router.delete('/:id/pin',    authenticateJWT as any, unpinPost        as any);
+router.post('/:id/unpin',    authenticateJWT as any, unpinPost        as any);
 
 // Watermarked video download — server-side FFmpeg
 router.get('/:id/download',  authenticateJWT as any, downloadWithWatermark as any);

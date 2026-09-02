@@ -38,6 +38,8 @@ const PostSchema = new mongoose_1.Schema({
     appealStatus: { type: String, enum: ['none', 'pending', 'accepted', 'rejected'], default: 'none' },
     appealReason: { type: String, default: '' },
     appealedAt: { type: Date },
+    isPinned: { type: Boolean, default: false },
+    originalPostId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Post' },
     createdAt: { type: Date, default: Date.now },
 });
 // Index for fast chronological feed queries & moderation queries

@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPublicFeed = exports.appealPost = exports.reportPost = exports.getSavedPosts = exports.savePost = exports.getArchivedPosts = exports.editPost = exports.restorePost = exports.archivePost = exports.deletePost = exports.addComment = exports.viewPost = exports.sharePost = exports.getComments = exports.likePost = exports.createPost = exports.getFeed = void 0;
+exports.unpinPost = exports.pinPost = exports.repostPost = exports.getPublicFeed = exports.appealPost = exports.reportPost = exports.getSavedPosts = exports.savePost = exports.getArchivedPosts = exports.editPost = exports.restorePost = exports.archivePost = exports.deletePost = exports.addComment = exports.viewPost = exports.sharePost = exports.getComments = exports.likePost = exports.createPost = exports.getFeed = void 0;
 const mongoose_1 = require("mongoose");
 const post_model_1 = require("./post.model");
 const comment_model_1 = require("./comment.model");
@@ -737,3 +737,88 @@ const getPublicFeed = async (req, res) => {
     }
 };
 exports.getPublicFeed = getPublicFeed;
+// POST /feed/:id/repost — Repost video to current user profile feed
+const repostPost = async (req, res) => {
+    try {
+        if (!req.user) {
+            res.status(401).json({ success: false, message: 'Unauthorized' });
+            return;
+        }
+        const originalPost = await post_model_1.Post.findById(req.params.id);
+        if (!originalPost) {
+            res.status(404).json({ success: false, message: 'Post not found' });
+            return;
+        }
+        const user = await user_model_1.User.findById(req.user.id).select('username profilePic');
+        if (!user) {
+            res.status(404).json({ success: false, message: 'User not found' });
+            return;
+        }
+        // Increment share/repost count on original
+        await post_model_1.Post.findByIdAndUpdate(req.params.id, { $inc: { sharesCount: 1 } });
+        // Create a repost under the current user's account
+        const reposted = await post_model_1.Post.create({
+            userId: new mongoose_1.Types.ObjectId(req.user.id),
+            username: user.username,
+            userProfilePic: user.profilePic,
+            postType: originalPost.postType,
+            videoUrl: originalPost.videoUrl,
+            imageUrls: originalPost.imageUrls,
+            thumbnailUrl: originalPost.thumbnailUrl,
+            blurHash: originalPost.blurHash,
+            aspectRatio: originalPost.aspectRatio,
+            caption: `Reposted from @${originalPost.username}: ${originalPost.caption}`,
+            tags: originalPost.tags,
+            duration: originalPost.duration,
+            isPublic: true,
+            originalPostId: originalPost._id,
+        });
+        res.status(201).json({ success: true, message: 'Post reposted to your profile', post: reposted });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+exports.repostPost = repostPost;
+// POST /feed/:id/pin — Pin post to profile top
+const pinPost = async (req, res) => {
+    try {
+        if (!req.user) {
+            res.status(401).json({ success: false, message: 'Unauthorized' });
+            return;
+        }
+        const post = await post_model_1.Post.findById(req.params.id);
+        if (!post) {
+            res.status(404).json({ success: false, message: 'Post not found' });
+            return;
+        }
+        post.isPinned = true;
+        await post.save();
+        res.status(200).json({ success: true, message: 'Post pinned', post });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+exports.pinPost = pinPost;
+// POST /feed/:id/unpin — Unpin post
+const unpinPost = async (req, res) => {
+    try {
+        if (!req.user) {
+            res.status(401).json({ success: false, message: 'Unauthorized' });
+            return;
+        }
+        const post = await post_model_1.Post.findById(req.params.id);
+        if (!post) {
+            res.status(404).json({ success: false, message: 'Post not found' });
+            return;
+        }
+        post.isPinned = false;
+        await post.save();
+        res.status(200).json({ success: true, message: 'Post unpinned', post });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+exports.unpinPost = unpinPost;
