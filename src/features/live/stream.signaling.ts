@@ -659,6 +659,14 @@ export function registerStreamSignaling(io: Server) {
       });
     });
 
+    socket.on('toggle_call', (data: { roomId: string; enabled: boolean }) => {
+      if (!data?.roomId) return;
+      io.to(data.roomId).emit('call_toggle_changed', {
+        roomId: data.roomId,
+        enabled: !!data.enabled,
+      });
+    });
+
     // ── Heart burst (double-tap) ─────────────────────────────────────────────
     socket.on('send_heart', async (data: { roomId: string; username: string }) => {
       if (!data?.roomId) return;
