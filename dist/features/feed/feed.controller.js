@@ -48,10 +48,11 @@ const getFeed = async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
-        const filter = { isPublic: true, isArchived: { $ne: true }, isDeleted: { $ne: true } };
+        const tab = req.query.tab || 'forYou';
+        const filter = { isPublic: { $ne: false }, isArchived: { $ne: true }, isDeleted: { $ne: true } };
         if (req.query.userId) {
             filter.userId = new mongoose_1.Types.ObjectId(req.query.userId);
-            filter.isArchived = { $ne: true };
+            delete filter.isPublic; // User can see all non-archived non-deleted posts on target profile
             // If the target user has a private account, only show posts to followers.
             // Public endpoints (unauthenticated) see nothing for private accounts.
             const targetUser = await user_model_1.User.findById(filter.userId).select('isPrivate').lean();
@@ -74,19 +75,38 @@ const getFeed = async (req, res) => {
             }
         }
         else if (req.query.likedBy) {
-            // Dynamic liked posts: fetch popular posts with likes
-            filter.likesCount = { $gt: 0 };
+            // Dynamic liked posts: fetch specific user's liked posts
+            const likedPosts = await post_like_model_1.PostLike.find({ userId: new mongoose_1.Types.ObjectId(req.query.likedBy) }).select('postId').lean();
+            const likedPostIds = likedPosts.map((l) => l.postId);
+            filter._id = { $in: likedPostIds };
         }
-        else {
-            // Global home feed — exclude posts from private accounts entirely
-            const privateUserIds = await user_model_1.User.find({ isPrivate: true }).select('_id').lean();
-            const privateIds = privateUserIds.map((u) => u._id);
-            if (privateIds.length > 0) {
-                filter.userId = { $nin: privateIds };
+        else if (tab === 'following') {
+            if (req.user) {
+                const viewerId = req.user.id;
+                const follows = await follow_model_1.Follow.find({ followerId: viewerId }).select('followingId').lean();
+                const followingIds = [new mongoose_1.Types.ObjectId(viewerId), ...follows.map((f) => f.followingId)];
+                filter.userId = { $in: followingIds };
             }
         }
+        else {
+            // Global home feed — exclude posts from private accounts entirely (unless viewer follows them or is owner)
+            const privateUserIds = await user_model_1.User.find({ isPrivate: true }).select('_id').lean();
+            let privateIds = privateUserIds.map((u) => u._id.toString());
+            if (req.user) {
+                const viewerId = req.user.id;
+                const follows = await follow_model_1.Follow.find({ followerId: viewerId }).select('followingId').lean();
+                const allowedIds = new Set([viewerId, ...follows.map((f) => f.followingId.toString())]);
+                privateIds = privateIds.filter(id => !allowedIds.has(id));
+            }
+            if (privateIds.length > 0) {
+                filter.userId = { $nin: privateIds.map(id => new mongoose_1.Types.ObjectId(id)) };
+            }
+        }
+        const sortOptions = tab === 'trending'
+            ? { likesCount: -1, viewsCount: -1, createdAt: -1 }
+            : { createdAt: -1 };
         const posts = await post_model_1.Post.find(filter)
-            .sort({ createdAt: -1 })
+            .sort(sortOptions)
             .skip(skip)
             .limit(limit)
             .populate('userId', 'profilePic activeFrameId')
@@ -174,7 +194,9 @@ const createPost = async (req, res) => {
             caption: caption || '',
             tags: tags || [],
             duration: duration || 0,
-            isPublic: isPublic !== false,
+            isPublic: isPublic === false ? false : true,
+            isArchived: false,
+            isDeleted: false,
             location: location || '',
             allowComments: allowComments !== false,
         });

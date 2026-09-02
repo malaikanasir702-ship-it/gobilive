@@ -15,12 +15,13 @@ export const getFeed = async (req: AuthRequest, res: Response): Promise<void> =>
     const page  = parseInt(req.query.page  as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const skip  = (page - 1) * limit;
+    const tab   = (req.query.tab as string) || 'forYou';
 
-    const filter: any = { isPublic: true, isArchived: { $ne: true }, isDeleted: { $ne: true } };
+    const filter: any = { isPublic: { $ne: false }, isArchived: { $ne: true }, isDeleted: { $ne: true } };
 
     if (req.query.userId) {
       filter.userId = new Types.ObjectId(req.query.userId as string);
-      filter.isArchived = { $ne: true };
+      delete filter.isPublic; // User can see all non-archived non-deleted posts on target profile
 
       // If the target user has a private account, only show posts to followers.
       // Public endpoints (unauthenticated) see nothing for private accounts.
@@ -43,19 +44,38 @@ export const getFeed = async (req: AuthRequest, res: Response): Promise<void> =>
         }
       }
     } else if (req.query.likedBy) {
-      // Dynamic liked posts: fetch popular posts with likes
-      filter.likesCount = { $gt: 0 };
+      // Dynamic liked posts: fetch specific user's liked posts
+      const likedPosts = await PostLike.find({ userId: new Types.ObjectId(req.query.likedBy as string) }).select('postId').lean();
+      const likedPostIds = likedPosts.map((l: any) => l.postId);
+      filter._id = { $in: likedPostIds };
+    } else if (tab === 'following') {
+      if (req.user) {
+        const viewerId = req.user.id;
+        const follows = await Follow.find({ followerId: viewerId }).select('followingId').lean();
+        const followingIds = [new Types.ObjectId(viewerId), ...follows.map((f: any) => f.followingId)];
+        filter.userId = { $in: followingIds };
+      }
     } else {
-      // Global home feed — exclude posts from private accounts entirely
+      // Global home feed — exclude posts from private accounts entirely (unless viewer follows them or is owner)
       const privateUserIds = await User.find({ isPrivate: true }).select('_id').lean();
-      const privateIds = privateUserIds.map((u: any) => u._id);
+      let privateIds = privateUserIds.map((u: any) => u._id.toString());
+      if (req.user) {
+        const viewerId = req.user.id;
+        const follows = await Follow.find({ followerId: viewerId }).select('followingId').lean();
+        const allowedIds = new Set([viewerId, ...follows.map((f: any) => f.followingId.toString())]);
+        privateIds = privateIds.filter(id => !allowedIds.has(id));
+      }
       if (privateIds.length > 0) {
-        filter.userId = { $nin: privateIds };
+        filter.userId = { $nin: privateIds.map(id => new Types.ObjectId(id)) };
       }
     }
 
+    const sortOptions: any = tab === 'trending'
+      ? { likesCount: -1, viewsCount: -1, createdAt: -1 }
+      : { createdAt: -1 };
+
     const posts = await Post.find(filter)
-      .sort({ createdAt: -1 })
+      .sort(sortOptions)
       .skip(skip)
       .limit(limit)
       .populate('userId', 'profilePic activeFrameId')
@@ -160,7 +180,9 @@ export const createPost = async (req: AuthRequest, res: Response): Promise<void>
       caption:        caption      || '',
       tags:           tags         || [],
       duration:       duration     || 0,
-      isPublic:       isPublic !== false,
+      isPublic:       isPublic === false ? false : true,
+      isArchived:     false,
+      isDeleted:      false,
       location:       location || '',
       allowComments:  allowComments !== false,
     });
