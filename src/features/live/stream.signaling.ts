@@ -683,6 +683,16 @@ export function registerStreamSignaling(io: Server) {
       });
     });
 
+    socket.on('toggle_moderator', (data: { roomId: string; userId: string; username: string; assign: boolean }) => {
+      if (!data?.roomId) return;
+      io.to(data.roomId).emit('moderator_updated', {
+        roomId: data.roomId,
+        userId: data.userId,
+        username: data.username,
+        assign: !!data.assign,
+      });
+    });
+
     // ── Heart burst (double-tap) ─────────────────────────────────────────────
     socket.on('send_heart', async (data: { roomId: string; username: string }) => {
       if (!data?.roomId) return;
