@@ -593,6 +593,22 @@ function registerStreamSignaling(io) {
                 enabled: !!data.enabled,
             });
         });
+        socket.on('accept_call', (data) => {
+            if (!data?.roomId)
+                return;
+            io.to(data.roomId).emit('call_accepted', {
+                roomId: data.roomId,
+                username: data.username,
+            });
+        });
+        socket.on('end_call', (data) => {
+            if (!data?.roomId)
+                return;
+            io.to(data.roomId).emit('call_ended', {
+                roomId: data.roomId,
+                username: data.username,
+            });
+        });
         // ── Heart burst (double-tap) ─────────────────────────────────────────────
         socket.on('send_heart', async (data) => {
             if (!data?.roomId)
