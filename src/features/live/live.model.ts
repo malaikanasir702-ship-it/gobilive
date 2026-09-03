@@ -269,9 +269,11 @@ const LiveRoomSchema = new Schema<ILiveRoom>(
 );
 
 // ─────────────────────────────────────────────
-// Indexes
+// Indexes (Phase 3: Database Indexing Optimization)
 // ─────────────────────────────────────────────
 LiveRoomSchema.index({ hostId: 1, isActive: 1 });
 LiveRoomSchema.index({ isActive: 1, roomType: 1, privacyMode: 1 });
+LiveRoomSchema.index({ isActive: 1, createdAt: -1 });
+LiveRoomSchema.index({ isActive: 1, category: 1, createdAt: -1 });
 
 export default mongoose.model<ILiveRoom>('LiveRoom', LiveRoomSchema);

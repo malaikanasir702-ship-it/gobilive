@@ -73,6 +73,7 @@ const getTransactions = async (req, res) => {
 };
 exports.getTransactions = getTransactions;
 const getCatalog = async (_req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
     res.status(200).json({
         success: true,
         diamondPackages: wallet_config_1.DIAMOND_PACKAGES,
@@ -173,7 +174,7 @@ const confirmPayment = async (req, res) => {
             if (purchaseType === 'vip' && planId) {
                 const result = await (0, wallet_service_1.activateVipFromStripe)(userId, planId, paymentIntentId);
                 await pushWalletNotification(userId, notification_service_1.NotificationTriggers.vipActivated(result.plan.name));
-                const user = await user_model_1.User.findById(userId).select('-passwordHash');
+                const user = await user_model_1.User.findById(userId).select('-passwordHash').lean();
                 res.status(200).json({ success: true, message: 'VIP activated (mock).', user, ...result });
                 return;
             }
@@ -185,7 +186,7 @@ const confirmPayment = async (req, res) => {
             const totalDiamonds = pack.diamonds + pack.bonusDiamonds;
             await (0, wallet_service_1.creditDiamondsPurchase)(userId, totalDiamonds, paymentIntentId, packageId);
             await pushWalletNotification(userId, notification_service_1.NotificationTriggers.walletTopUp(totalDiamonds));
-            const user = await user_model_1.User.findById(userId).select('-passwordHash');
+            const user = await user_model_1.User.findById(userId).select('-passwordHash').lean();
             res.status(200).json({
                 success: true,
                 message: `${totalDiamonds} diamonds added (mock payment).`,
@@ -201,14 +202,14 @@ const confirmPayment = async (req, res) => {
         if (intent.metadata.purchaseType === 'vip') {
             const result = await (0, wallet_service_1.activateVipFromStripe)(userId, intent.metadata.planId, paymentIntentId);
             await pushWalletNotification(userId, notification_service_1.NotificationTriggers.vipActivated(result.plan.name));
-            const user = await user_model_1.User.findById(userId).select('-passwordHash');
+            const user = await user_model_1.User.findById(userId).select('-passwordHash').lean();
             res.status(200).json({ success: true, message: 'VIP activated.', user, ...result });
             return;
         }
         const diamonds = parseInt(intent.metadata.diamonds || '0', 10);
         await (0, wallet_service_1.creditDiamondsPurchase)(userId, diamonds, paymentIntentId, intent.metadata.packageId || packageId);
         await pushWalletNotification(userId, notification_service_1.NotificationTriggers.walletTopUp(diamonds));
-        const user = await user_model_1.User.findById(userId).select('-passwordHash');
+        const user = await user_model_1.User.findById(userId).select('-passwordHash').lean();
         res.status(200).json({ success: true, message: 'Diamonds credited.', user });
     }
     catch (e) {
@@ -220,7 +221,7 @@ const convertDiamonds = async (req, res) => {
     try {
         const { diamondAmount } = req.body;
         const ledger = await (0, wallet_service_1.convertDiamondsToRcoins)(req.user.id, diamondAmount);
-        const user = await user_model_1.User.findById(req.user.id).select('-passwordHash');
+        const user = await user_model_1.User.findById(req.user.id).select('-passwordHash').lean();
         res.status(200).json({
             success: true,
             message: 'Conversion successful.',
@@ -242,7 +243,7 @@ const convertBeansToDiamondsHandler = async (req, res) => {
             return;
         }
         const ledger = await (0, wallet_service_1.convertBeansToDiamonds)(req.user.id, Number(beansAmount));
-        const user = await user_model_1.User.findById(req.user.id).select('-passwordHash');
+        const user = await user_model_1.User.findById(req.user.id).select('-passwordHash').lean();
         res.status(200).json({
             success: true,
             message: 'Successfully converted Beans to Diamonds!',
@@ -261,7 +262,7 @@ const withdrawRcoinsHandler = async (req, res) => {
         const { rcoinAmount, diamondsAmount, amount, payoutMethod, payoutDetails } = req.body;
         const withdrawQty = Number(diamondsAmount ?? amount ?? rcoinAmount ?? 0);
         const result = await (0, wallet_service_1.requestDiamondWithdrawal)(req.user.id, withdrawQty, payoutMethod || 'bank', payoutDetails || '');
-        const user = await user_model_1.User.findById(req.user.id).select('-passwordHash');
+        const user = await user_model_1.User.findById(req.user.id).select('-passwordHash').lean();
         res.status(200).json({
             success: true,
             message: 'Withdrawal request submitted successfully! Pending admin approval.',
@@ -292,7 +293,7 @@ const purchaseVipWithDiamonds = async (req, res) => {
         const { planId } = req.body;
         const result = await (0, wallet_service_1.activateVipWithDiamonds)(req.user.id, planId);
         await pushWalletNotification(req.user.id, notification_service_1.NotificationTriggers.vipActivated(result.plan.name));
-        const user = await user_model_1.User.findById(req.user.id).select('-passwordHash');
+        const user = await user_model_1.User.findById(req.user.id).select('-passwordHash').lean();
         res.status(200).json({
             success: true,
             message: 'VIP membership activated.',

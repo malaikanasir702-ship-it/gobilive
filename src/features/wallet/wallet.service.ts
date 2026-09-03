@@ -441,13 +441,13 @@ export async function activateVipWithDiamonds(userId: string, planId: string) {
     session.startTransaction();
     await applyBalanceChange(
       userId,
-      { diamonds: -plan.diamondPrice },
+      { rcoins: -plan.diamondPrice },
       {
         type: 'vip_purchase',
-        currency: 'diamonds',
+        currency: 'rcoins',
         amount: plan.diamondPrice,
         description: `VIP purchase: ${plan.name}`,
-        metadata: { planId, paymentMethod: 'diamonds' },
+        metadata: { planId, paymentMethod: 'beans' },
       },
       session
     );
@@ -473,12 +473,12 @@ export async function activateVipWithDiamonds(userId: string, planId: string) {
   } catch (e) {
     await session.abortTransaction().catch(() => undefined);
     if (isMongoTxnUnsupported(e)) {
-      await applyBalanceChangeNoTx(userId, { diamonds: -plan.diamondPrice }, {
+      await applyBalanceChangeNoTx(userId, { rcoins: -plan.diamondPrice }, {
         type: 'vip_purchase',
-        currency: 'diamonds',
+        currency: 'rcoins',
         amount: plan.diamondPrice,
         description: `VIP purchase: ${plan.name}`,
-        metadata: { planId, paymentMethod: 'diamonds' },
+        metadata: { planId, paymentMethod: 'beans' },
       });
 
       const user = await User.findById(userId);

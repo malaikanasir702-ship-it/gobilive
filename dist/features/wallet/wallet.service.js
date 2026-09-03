@@ -375,12 +375,12 @@ async function activateVipWithDiamonds(userId, planId) {
     const session = await mongoose_1.default.startSession();
     try {
         session.startTransaction();
-        await applyBalanceChange(userId, { diamonds: -plan.diamondPrice }, {
+        await applyBalanceChange(userId, { rcoins: -plan.diamondPrice }, {
             type: 'vip_purchase',
-            currency: 'diamonds',
+            currency: 'rcoins',
             amount: plan.diamondPrice,
             description: `VIP purchase: ${plan.name}`,
-            metadata: { planId, paymentMethod: 'diamonds' },
+            metadata: { planId, paymentMethod: 'beans' },
         }, session);
         const user = await user_model_1.User.findById(userId).session(session);
         if (!user)
@@ -402,12 +402,12 @@ async function activateVipWithDiamonds(userId, planId) {
     catch (e) {
         await session.abortTransaction().catch(() => undefined);
         if (isMongoTxnUnsupported(e)) {
-            await applyBalanceChangeNoTx(userId, { diamonds: -plan.diamondPrice }, {
+            await applyBalanceChangeNoTx(userId, { rcoins: -plan.diamondPrice }, {
                 type: 'vip_purchase',
-                currency: 'diamonds',
+                currency: 'rcoins',
                 amount: plan.diamondPrice,
                 description: `VIP purchase: ${plan.name}`,
-                metadata: { planId, paymentMethod: 'diamonds' },
+                metadata: { planId, paymentMethod: 'beans' },
             });
             const user = await user_model_1.User.findById(userId);
             if (!user)
