@@ -9,12 +9,12 @@ const crypto_1 = __importDefault(require("crypto"));
 const SPIN_COST = 10;
 const FREE_SPIN_COOLDOWN_HOURS = 24;
 const PRIZES = [
-    { label: '5 💎', diamonds: 5, weight: 28 },
-    { label: '10 💎', diamonds: 10, weight: 22 },
-    { label: '20 💎', diamonds: 20, weight: 14 },
-    { label: '50 💎', diamonds: 50, weight: 8 },
-    { label: '100 💎', diamonds: 100, weight: 3 },
-    { label: 'Better luck next time', diamonds: 0, weight: 25 },
+    { label: '5 🫘 Beans', beans: 5, weight: 28 },
+    { label: '10 🫘 Beans', beans: 10, weight: 22 },
+    { label: '20 🫘 Beans', beans: 20, weight: 14 },
+    { label: '50 🫘 Beans', beans: 50, weight: 8 },
+    { label: '100 🫘 Beans', beans: 100, weight: 3 },
+    { label: 'Better luck next time', beans: 0, weight: 25 },
 ];
 function pickPrize() {
     const total = PRIZES.reduce((s, p) => s + p.weight, 0);
@@ -49,14 +49,14 @@ const spinWheel = async (req, res) => {
         const nextFreeSpinAt = getNextFreeSpinAt(user.lastFreeSpinAt);
         const freeSpinAvailable = !user.lastFreeSpinAt || nextFreeSpinAt <= now;
         const cost = freeSpinAvailable ? 0 : SPIN_COST;
-        if ((user.diamonds ?? 0) < cost) {
-            res.status(400).json({ success: false, message: `Need ${cost} diamonds to spin.` });
+        if ((user.rcoins ?? 0) < cost) {
+            res.status(400).json({ success: false, message: `Need ${cost} Beans to spin.` });
             return;
         }
         if (cost > 0)
-            user.diamonds -= cost;
+            user.rcoins -= cost;
         const prize = pickPrize();
-        user.diamonds += prize.diamonds;
+        user.rcoins += prize.beans;
         if (freeSpinAvailable)
             user.lastFreeSpinAt = now;
         await user.save({ validateModifiedOnly: true });
@@ -64,15 +64,15 @@ const spinWheel = async (req, res) => {
             success: true,
             spinCost: SPIN_COST,
             costCharged: cost,
-            prize: { label: prize.label, diamonds: prize.diamonds },
+            prize: { label: prize.label, beans: prize.beans, diamonds: prize.beans },
             freeSpin: {
                 available: freeSpinAvailable,
                 nextFreeSpinAt: getNextFreeSpinAt(user.lastFreeSpinAt).toISOString(),
             },
             user: {
                 id: user.id,
-                diamonds: user.diamonds,
                 rcoins: user.rcoins,
+                diamonds: user.diamonds,
             },
         });
     }
@@ -86,7 +86,7 @@ const getSpinConfig = async (_req, res) => {
         success: true,
         spinCost: SPIN_COST,
         freeSpinCooldownHours: FREE_SPIN_COOLDOWN_HOURS,
-        prizes: PRIZES.map((p) => ({ label: p.label, diamonds: p.diamonds })),
+        prizes: PRIZES.map((p) => ({ label: p.label, beans: p.beans, diamonds: p.beans })),
     });
 };
 exports.getSpinConfig = getSpinConfig;

@@ -96,7 +96,7 @@ const playTeenPatti = async (req, res) => {
         }
         const bet = Number(req.body.bet);
         if (!bet || bet < MIN_BET || bet > MAX_BET) {
-            res.status(400).json({ success: false, message: `Bet must be ${MIN_BET}–${MAX_BET} 💎.` });
+            res.status(400).json({ success: false, message: `Bet must be ${MIN_BET}–${MAX_BET} Beans.` });
             return;
         }
         const user = await user_model_1.User.findById(req.user.id);
@@ -104,8 +104,8 @@ const playTeenPatti = async (req, res) => {
             res.status(404).json({ success: false, message: 'User not found.' });
             return;
         }
-        if ((user.diamonds ?? 0) < bet) {
-            res.status(400).json({ success: false, message: 'Insufficient diamonds.' });
+        if ((user.rcoins ?? 0) < bet) {
+            res.status(400).json({ success: false, message: 'Insufficient Beans.' });
             return;
         }
         // Deal
@@ -117,8 +117,8 @@ const playTeenPatti = async (req, res) => {
         const payout = winner === 'player' ? Math.floor(bet * PAYOUT[ph.rank]) : 0;
         const outcome = winner === 'player' ? 'win' : winner === 'tie' ? 'tie' : 'loss';
         // Update balance
-        user.diamonds -= bet;
-        user.diamonds += payout;
+        user.rcoins -= bet;
+        user.rcoins += payout;
         await user.save({ validateModifiedOnly: true });
         // Persist history
         await game_history_model_1.GameHistory.create({
@@ -129,7 +129,7 @@ const playTeenPatti = async (req, res) => {
             netDelta: payout - bet,
             outcome,
             meta: { playerCards, dealerCards, playerHand: ph.rank, winner },
-            diamondsAfter: user.diamonds,
+            diamondsAfter: user.rcoins,
         });
         res.status(200).json({
             success: true,
@@ -140,7 +140,7 @@ const playTeenPatti = async (req, res) => {
             bet,
             payout,
             netDelta: payout - bet,
-            user: { diamonds: user.diamonds },
+            user: { rcoins: user.rcoins, diamonds: user.diamonds },
         });
     }
     catch (err) {

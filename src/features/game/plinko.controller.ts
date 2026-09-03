@@ -24,13 +24,13 @@ export const dropPlinko = async (req: AuthRequest, res: Response): Promise<void>
 
     const bet = Number(req.body.bet);
     if (!bet || bet < MIN_BET || bet > MAX_BET) {
-      res.status(400).json({ success: false, message: `Bet must be ${MIN_BET}–${MAX_BET} 💎.` }); return;
+      res.status(400).json({ success: false, message: `Bet must be ${MIN_BET}–${MAX_BET} Beans.` }); return;
     }
 
     const user = await User.findById(req.user.id);
     if (!user) { res.status(404).json({ success: false, message: 'User not found.' }); return; }
-    if ((user.diamonds ?? 0) < bet) {
-      res.status(400).json({ success: false, message: 'Insufficient diamonds.' }); return;
+    if ((user.rcoins ?? 0) < bet) {
+      res.status(400).json({ success: false, message: 'Insufficient Beans.' }); return;
     }
 
     // Simulate ball path — each row: 0 = go left, 1 = go right
@@ -45,8 +45,8 @@ export const dropPlinko = async (req: AuthRequest, res: Response): Promise<void>
     const payout     = Math.floor(bet * multiplier);
     const outcome    = payout >= bet ? 'win' : 'loss';
 
-    user.diamonds -= bet;
-    user.diamonds += payout;
+    user.rcoins -= bet;
+    user.rcoins += payout;
     await user.save({ validateModifiedOnly: true } as any);
 
     await GameHistory.create({
@@ -57,7 +57,7 @@ export const dropPlinko = async (req: AuthRequest, res: Response): Promise<void>
       netDelta:      payout - bet,
       outcome,
       meta:          { path, slotIndex, multiplier, slotLabel: SLOT_LABELS[slotIndex] },
-      diamondsAfter: user.diamonds,
+      diamondsAfter: user.rcoins,
     });
 
     res.status(200).json({
@@ -69,7 +69,7 @@ export const dropPlinko = async (req: AuthRequest, res: Response): Promise<void>
       bet,
       payout,
       netDelta:      payout - bet,
-      user: { diamonds: user.diamonds },
+      user: { rcoins: user.rcoins, diamonds: user.diamonds },
     });
   } catch (err: any) {
     console.error('[Plinko]', err);

@@ -37,7 +37,7 @@ export const rollDice = async (req: AuthRequest, res: Response): Promise<void> =
     const { bet, betType, exactSum } = req.body as DiceBetPayload;
 
     if (!bet || bet < MIN_BET || bet > MAX_BET) {
-      res.status(400).json({ success: false, message: `Bet must be ${MIN_BET}–${MAX_BET} 💎.` }); return;
+      res.status(400).json({ success: false, message: `Bet must be ${MIN_BET}–${MAX_BET} Beans.` }); return;
     }
     if (!['over', 'under', 'exact'].includes(betType)) {
       res.status(400).json({ success: false, message: 'Invalid bet type.' }); return;
@@ -48,8 +48,8 @@ export const rollDice = async (req: AuthRequest, res: Response): Promise<void> =
 
     const user = await User.findById(req.user.id);
     if (!user) { res.status(404).json({ success: false, message: 'User not found.' }); return; }
-    if ((user.diamonds ?? 0) < bet) {
-      res.status(400).json({ success: false, message: 'Insufficient diamonds.' }); return;
+    if ((user.rcoins ?? 0) < bet) {
+      res.status(400).json({ success: false, message: 'Insufficient Beans.' }); return;
     }
 
     const d1 = rollDie();
@@ -66,8 +66,8 @@ export const rollDice = async (req: AuthRequest, res: Response): Promise<void> =
     const payout  = won ? Math.floor(bet * multiplier) : 0;
     const outcome = won ? 'win' : 'loss';
 
-    user.diamonds -= bet;
-    user.diamonds += payout;
+    user.rcoins -= bet;
+    user.rcoins += payout;
     await user.save({ validateModifiedOnly: true } as any);
 
     await GameHistory.create({
@@ -78,7 +78,7 @@ export const rollDice = async (req: AuthRequest, res: Response): Promise<void> =
       netDelta:      payout - bet,
       outcome,
       meta:          { d1, d2, sum, betType, exactSum: exactSum ?? null, multiplier },
-      diamondsAfter: user.diamonds,
+      diamondsAfter: user.rcoins,
     });
 
     res.status(200).json({
@@ -92,7 +92,7 @@ export const rollDice = async (req: AuthRequest, res: Response): Promise<void> =
       bet,
       payout,
       netDelta: payout - bet,
-      user: { diamonds: user.diamonds },
+      user: { rcoins: user.rcoins, diamonds: user.diamonds },
     });
   } catch (err: any) {
     console.error('[Dice]', err);
