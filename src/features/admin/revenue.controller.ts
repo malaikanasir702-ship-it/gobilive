@@ -3,7 +3,7 @@ import { AdminAuthRequest } from '../../core/middlewares/rbac.middleware';
 import WalletTransaction from '../wallet/wallet.transaction.model';
 import { WithdrawalRequest } from '../withdrawal/withdrawal-request.model';
 import { User } from '../auth/user.model';
-import { Agency, AGENCY_TIERS, getAgencyRankTier } from '../agency/agency.model';
+import { Agency, getAgencyRankTier } from '../agency/agency.model';
 import { CountryPolicy } from '../policy/country-policy.model';
 
 export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response): Promise<void> => {
@@ -193,18 +193,19 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
 
     if (dbAgencies && dbAgencies.length > 0) {
       topAgencies = await Promise.all(
-        dbAgencies.map(async (agency) => {
+        dbAgencies.map(async (agency: any) => {
+          const agencyIdStr = String(agency._id);
           const hostsCount = await User.countDocuments({
             $or: [
-              { agencyId: agency._id },
-              { agencyId: String(agency._id) },
-              { agencyId: agency.agencyCode },
+              { agencyId: agencyIdStr },
+              { agencyId: agency.agencyCode || '' },
             ],
-          });
+          } as any);
 
           const tierInfo = getAgencyRankTier(agency.targetAchieved || 0);
           const revUsd = Number(((agency.targetAchieved || 0) / 10000).toFixed(2));
-          const commPaid = Number((revUsd * ((agency.sharePercent || tierInfo.sharePercent) / 100)).toFixed(2));
+          const commPercent = agency.sharePercent ?? tierInfo.sharePercent;
+          const commPaid = Number((revUsd * (commPercent / 100)).toFixed(2));
           const netShare = Number((revUsd - commPaid).toFixed(2));
 
           return {
@@ -212,7 +213,7 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
             hostsCount,
             revenueUsd: revUsd,
             tierName: agency.rankTier || tierInfo.tier,
-            tierPercent: agency.sharePercent || tierInfo.sharePercent,
+            tierPercent: commPercent,
             commissionPaidUsd: commPaid,
             companyNetShareUsd: netShare,
           };
@@ -228,11 +229,11 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
 
     if (countryPolicies && countryPolicies.length > 0) {
       taxLedger = await Promise.all(
-        countryPolicies.map(async (cp) => {
+        countryPolicies.map(async (cp: any) => {
           const wAgg = await WithdrawalRequest.aggregate([
             {
               $match: {
-                countryCode: cp.countryCode.toUpperCase(),
+                countryCode: String(cp.countryCode).toUpperCase(),
                 status: { $nin: ['rejected', 'cancelled'] },
                 ...filter,
               },
@@ -274,7 +275,7 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
 
     let topHosts: any[] = [];
     if (dbHosts && dbHosts.length > 0) {
-      topHosts = dbHosts.map((h) => ({
+      topHosts = dbHosts.map((h: any) => ({
         username: h.displayName || h.username,
         amount: Number((((h.currentWallet || 0) + (h.beanWallet || 0)) / 10000).toFixed(2)),
       }));
@@ -292,13 +293,13 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
 
     let topCountries: any[] = [];
     if (countryRevenueAgg && countryRevenueAgg.length > 0) {
-      topCountries = countryRevenueAgg.map((cr) => ({
+      topCountries = countryRevenueAgg.map((cr: any) => ({
         countryCode: cr._id || 'PK',
         countryName: cr._id === 'PK' ? 'Pakistan' : cr._id === 'IN' ? 'India' : cr._id === 'AE' ? 'UAE' : cr._id || 'Global',
         amount: Number((cr.amount || 0).toFixed(2)),
       }));
     } else if (countryPolicies && countryPolicies.length > 0) {
-      topCountries = countryPolicies.slice(0, 5).map((cp) => ({
+      topCountries = countryPolicies.slice(0, 5).map((cp: any) => ({
         countryCode: cp.countryCode,
         countryName: cp.countryName,
         amount: 0.0,
@@ -314,7 +315,7 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
 
     let totalBeansIssued = 0;
     let pendingInventoryBeans = 0;
-    agentUsers.forEach((ag) => {
+    agentUsers.forEach((ag: any) => {
       totalBeansIssued += (ag.beanWallet || 0) + (ag.currentWallet || 0);
       pendingInventoryBeans += ag.beanWallet || 0;
     });
