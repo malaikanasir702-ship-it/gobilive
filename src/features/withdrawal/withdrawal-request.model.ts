@@ -8,6 +8,12 @@ export interface IWithdrawalRequest extends Document {
   agencyId?: Types.ObjectId;
   superAdminId?: Types.ObjectId;
   diamondsRequested: number;
+  grossAmountInUsd?: number;
+  withdrawalChargePercent?: number;
+  withdrawalChargeAmount?: number;
+  taxPercent?: number;
+  taxAmount?: number;
+  netAmountInUsd?: number;
   amountInLocalCurrency: number;
   currencyCode: string;
   status: WithdrawalStatus;
@@ -26,6 +32,12 @@ const WithdrawalRequestSchema = new Schema<IWithdrawalRequest>(
     agencyId: { type: Schema.Types.ObjectId, ref: 'Agency', sparse: true },
     superAdminId: { type: Schema.Types.ObjectId, ref: 'User', sparse: true },
     diamondsRequested: { type: Number, required: true, min: 1 },
+    grossAmountInUsd: { type: Number, default: 0 },
+    withdrawalChargePercent: { type: Number, default: 0 },
+    withdrawalChargeAmount: { type: Number, default: 0 },
+    taxPercent: { type: Number, default: 0 },
+    taxAmount: { type: Number, default: 0 },
+    netAmountInUsd: { type: Number, default: 0 },
     amountInLocalCurrency: { type: Number, required: true, min: 0 },
     currencyCode: { type: String, required: true, default: 'PKR' },
     status: {
