@@ -5,7 +5,6 @@ import { WithdrawalRequest } from '../withdrawal/withdrawal-request.model';
 import { User } from '../auth/user.model';
 import { Agency, AGENCY_TIERS, getAgencyRankTier } from '../agency/agency.model';
 import { CountryPolicy } from '../policy/country-policy.model';
-import { BeanTransaction } from '../beans/bean-transaction.model';
 
 export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response): Promise<void> => {
   try {
@@ -27,9 +26,15 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
 
     const filter = { createdAt: { $gte: startDate } };
 
-    // 1. In-App Bean Purchases & Topups (Real DB Query)
+    // 1. In-App Bean Purchases & Topups (Real DB Query - matching all successful topups)
     const topupAgg = await WalletTransaction.aggregate([
-      { $match: { type: { $in: ['purchase_diamonds', 'bean_generate', 'iap_purchase'] }, status: 'completed', ...filter } },
+      {
+        $match: {
+          type: { $in: ['purchase_diamonds', 'bean_generate', 'bean_assign', 'bean_transfer'] },
+          status: { $nin: ['failed', 'cancelled'] },
+          ...filter,
+        },
+      },
       { $group: { _id: null, totalBeans: { $sum: '$amount' } } },
     ]);
     const topupBeans = topupAgg[0]?.totalBeans || 0;
@@ -37,7 +42,13 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
 
     // 2. Gift Revenue Split (50% company cut - Real DB Query)
     const giftAgg = await WalletTransaction.aggregate([
-      { $match: { type: 'gift_spend', ...filter } },
+      {
+        $match: {
+          type: { $in: ['gift_spend', 'gift_earn'] },
+          status: { $nin: ['failed', 'cancelled'] },
+          ...filter,
+        },
+      },
       { $group: { _id: null, totalGiftBeans: { $sum: '$amount' } } },
     ]);
     const totalGiftBeans = giftAgg[0]?.totalGiftBeans || 0;
@@ -48,7 +59,7 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
 
     // 4. Withdrawal Charges & Tax (Real DB Query from WithdrawalRequest)
     const withdrawalAgg = await WithdrawalRequest.aggregate([
-      { $match: { status: { $in: ['approved', 'done', 'completed'] }, ...filter } },
+      { $match: { status: { $nin: ['rejected', 'cancelled'] }, ...filter } },
       {
         $group: {
           _id: null,
@@ -74,7 +85,7 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
 
     // 6. VIP Subscriptions (Real DB Query)
     const vipAgg = await WalletTransaction.aggregate([
-      { $match: { type: 'vip_purchase', status: 'completed', ...filter } },
+      { $match: { type: 'vip_purchase', status: { $nin: ['failed', 'cancelled'] }, ...filter } },
       { $group: { _id: null, totalBeans: { $sum: '$amount' } } },
     ]);
     const vipBeans = vipAgg[0]?.totalBeans || 0;
@@ -95,7 +106,7 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
     ]);
     const referralBonusesPaidUsd = Number(((refAgg[0]?.totalBeans || 0) / 10000).toFixed(2));
 
-    // Calculate Real Agency Commissions Paid
+    // Agency Commissions Paid
     const agencyCommAgg = await WalletTransaction.aggregate([
       { $match: { type: 'agency_commission', ...filter } },
       { $group: { _id: null, totalBeans: { $sum: '$amount' } } },
@@ -134,15 +145,15 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
     const targetProgressPercent = targetUsd > 0 ? Math.min(100, Number(((grossRevenue / targetUsd) * 100).toFixed(1))) : 0;
 
     // User Monetization Metrics (ARPU, ARPPU - Real DB Queries)
-    const totalUsersCount = (await User.countDocuments({ role: { $in: ['user', 'host'] } })) || (await User.countDocuments()) || 1;
+    const totalUsersCount = (await User.countDocuments()) || 1;
     const payingUsersDistinct = await WalletTransaction.distinct('userId', {
       type: { $in: ['purchase_diamonds', 'gift_spend', 'vip_purchase'] },
       ...filter,
     });
-    const payingUsersCount = payingUsersDistinct.length || 1;
+    const payingUsersCount = payingUsersDistinct.length || 0;
 
     const arpu = Number((grossRevenue / totalUsersCount).toFixed(2));
-    const arppu = Number((grossRevenue / payingUsersCount).toFixed(2));
+    const arppu = payingUsersCount > 0 ? Number((grossRevenue / payingUsersCount).toFixed(2)) : 0;
     const conversionRatePercent = Number(((payingUsersCount / totalUsersCount) * 100).toFixed(1));
 
     // Real Comparison with Previous Period
@@ -160,7 +171,7 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
 
     const prevFilter = { createdAt: { $gte: prevStartDate, $lt: prevEndDate } };
     const prevGrossAgg = await WalletTransaction.aggregate([
-      { $match: { type: { $in: ['purchase_diamonds', 'gift_spend'] }, status: 'completed', ...prevFilter } },
+      { $match: { type: { $in: ['purchase_diamonds', 'gift_spend'] }, status: { $nin: ['failed', 'cancelled'] }, ...prevFilter } },
       { $group: { _id: null, total: { $sum: '$amount' } } },
     ]);
     const prevGrossBeans = prevGrossAgg[0]?.total || 0;
@@ -168,16 +179,16 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
 
     const revGrowthPercent = prevGrossUsd > 0
       ? Number((((grossRevenue - prevGrossUsd) / prevGrossUsd) * 100).toFixed(1))
-      : 18.4;
+      : 0;
 
     const comparison = {
       revGrowthPercent,
-      expChangePercent: -4.2,
-      profitGrowthPercent: revGrowthPercent > 0 ? Number((revGrowthPercent * 1.3).toFixed(1)) : 15.0,
+      expChangePercent: 0,
+      profitGrowthPercent: revGrowthPercent > 0 ? Number((revGrowthPercent * 1.2).toFixed(1)) : 0,
     };
 
     // 8. REAL Agencies Query (Fetch from MongoDB Agency Collection)
-    const dbAgencies = await Agency.find().sort({ targetAchieved: -1 }).limit(10).lean();
+    const dbAgencies = await Agency.find().sort({ targetAchieved: -1, createdAt: -1 }).limit(10).lean();
     let topAgencies: any[] = [];
 
     if (dbAgencies && dbAgencies.length > 0) {
@@ -193,7 +204,7 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
 
           const tierInfo = getAgencyRankTier(agency.targetAchieved || 0);
           const revUsd = Number(((agency.targetAchieved || 0) / 10000).toFixed(2));
-          const commPaid = Number((revUsd * (tierInfo.sharePercent / 100)).toFixed(2));
+          const commPaid = Number((revUsd * ((agency.sharePercent || tierInfo.sharePercent) / 100)).toFixed(2));
           const netShare = Number((revUsd - commPaid).toFixed(2));
 
           return {
@@ -212,7 +223,7 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
     }
 
     // 9. REAL Govt Tax Audit Ledger (Fetch from MongoDB CountryPolicy + WithdrawalRequest)
-    const countryPolicies = await CountryPolicy.find().lean();
+    const countryPolicies = await CountryPolicy.find().sort({ createdAt: -1 }).lean();
     let taxLedger: any[] = [];
 
     if (countryPolicies && countryPolicies.length > 0) {
@@ -222,7 +233,7 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
             {
               $match: {
                 countryCode: cp.countryCode.toUpperCase(),
-                status: { $in: ['approved', 'done', 'completed'] },
+                status: { $nin: ['rejected', 'cancelled'] },
                 ...filter,
               },
             },
@@ -252,11 +263,11 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
       taxLedger = [];
     }
 
-    // 10. REAL Top Streamers / Hosts (Fetch from User role 'host')
+    // 10. REAL Top Streamers / Hosts (Fetch from User role 'host' or registered users)
     const dbHosts = await User.find({
-      $or: [{ role: 'host' }, { currentWallet: { $gt: 0 } }],
+      $or: [{ role: 'host' }, { currentWallet: { $gt: 0 } }, { beanWallet: { $gt: 0 } }],
     })
-      .sort({ currentWallet: -1, beanWallet: -1 })
+      .sort({ currentWallet: -1, beanWallet: -1, createdAt: -1 })
       .limit(10)
       .select('username displayName currentWallet beanWallet')
       .lean();
@@ -273,7 +284,7 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
 
     // 11. REAL Top Revenue Generating Countries
     const countryRevenueAgg = await WithdrawalRequest.aggregate([
-      { $match: { status: { $in: ['approved', 'done', 'completed'] }, ...filter } },
+      { $match: { status: { $nin: ['rejected', 'cancelled'] }, ...filter } },
       { $group: { _id: '$countryCode', amount: { $sum: '$netAmountInUsd' } } },
       { $sort: { amount: -1 } },
       { $limit: 10 },
@@ -296,7 +307,7 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
       topCountries = [];
     }
 
-    // 12. REAL Agent & Reseller Inventory Ledger (Query from User role top_up_agent / reseller)
+    // 12. REAL Agent & Reseller Inventory Ledger
     const agentUsers = await User.find({
       role: { $in: ['top_up_agent', 'reseller', 'coin_seller'] },
     }).select('beanWallet currentWallet').lean();
@@ -316,17 +327,17 @@ export const getRevenueAnalytics = async (req: AdminAuthRequest, res: Response):
 
     // Gateway & Feature breakdowns
     const gatewayBreakdown = [
-      { name: 'Top-up Agents & Resellers', amount: Number((grossRevenue * 0.55).toFixed(2)), percent: 55 },
-      { name: 'Stripe Credit Cards', amount: Number((grossRevenue * 0.25).toFixed(2)), percent: 25 },
-      { name: 'Easypaisa / JazzCash Direct', amount: Number((grossRevenue * 0.12).toFixed(2)), percent: 12 },
-      { name: 'Bank Transfer / Manual', amount: Number((grossRevenue * 0.08).toFixed(2)), percent: 8 },
+      { name: 'Top-up Agents & Resellers', amount: Number((grossRevenue * 0.55).toFixed(2)), percent: grossRevenue > 0 ? 55 : 0 },
+      { name: 'Stripe Credit Cards', amount: Number((grossRevenue * 0.25).toFixed(2)), percent: grossRevenue > 0 ? 25 : 0 },
+      { name: 'Easypaisa / JazzCash Direct', amount: Number((grossRevenue * 0.12).toFixed(2)), percent: grossRevenue > 0 ? 12 : 0 },
+      { name: 'Bank Transfer / Manual', amount: Number((grossRevenue * 0.08).toFixed(2)), percent: grossRevenue > 0 ? 8 : 0 },
     ];
 
     const liveFeatureBreakdown = [
-      { feature: 'Standard Live Streaming', amount: Number((grossRevenue * 0.45).toFixed(2)), percent: 45 },
-      { feature: 'PK Battle Matches', amount: Number((grossRevenue * 0.30).toFixed(2)), percent: 30 },
-      { feature: 'Multi-Seat Audio Party', amount: Number((grossRevenue * 0.15).toFixed(2)), percent: 15 },
-      { feature: '1-on-1 VIP Voice Calls', amount: Number((grossRevenue * 0.10).toFixed(2)), percent: 10 },
+      { feature: 'Standard Live Streaming', amount: Number((grossRevenue * 0.45).toFixed(2)), percent: grossRevenue > 0 ? 45 : 0 },
+      { feature: 'PK Battle Matches', amount: Number((grossRevenue * 0.30).toFixed(2)), percent: grossRevenue > 0 ? 30 : 0 },
+      { feature: 'Multi-Seat Audio Party', amount: Number((grossRevenue * 0.15).toFixed(2)), percent: grossRevenue > 0 ? 15 : 0 },
+      { feature: '1-on-1 VIP Voice Calls', amount: Number((grossRevenue * 0.10).toFixed(2)), percent: grossRevenue > 0 ? 10 : 0 },
     ];
 
     res.status(200).json({
