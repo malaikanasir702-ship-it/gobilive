@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
+import fs from 'fs';
 import dotenv from 'dotenv';
 import { v2 as cloudinary } from 'cloudinary';
 import { httpLogger } from './core/middlewares/logger.middleware';
@@ -319,9 +320,9 @@ app.get('/health', (_req, res) => {
 });
 
 // SPA Fallback: serve React Admin Panel index.html for all non-API browser requests
-// This ensures /login, /dashboard, /revenue etc. all load the React app correctly
+// Handles /login, /dashboard, /revenue etc. — React Router takes over client-side
 app.get('*', (req, res, next) => {
-  // Pass through real API and file-serving routes
+  // Pass through real API and file-serving routes to next handlers
   if (
     req.path.startsWith('/api/') ||
     req.path.startsWith('/uploads/')
@@ -329,15 +330,16 @@ app.get('*', (req, res, next) => {
     return next();
   }
 
-  const indexPath = path.join(__dirname, '../public/admin/index.html');
-  res.sendFile(indexPath, { root: '/' }, (err) => {
-    if (err) {
-      // index.html not found — likely not built yet
-      res.status(503).send(
-        '<html><body><h2>Admin panel not deployed yet. Please run the build and redeploy.</h2></body></html>'
-      );
-    }
-  });
+  const indexPath = path.resolve(__dirname, '../public/admin/index.html');
+
+  // Check if the file actually exists before trying to send it
+  if (!fs.existsSync(indexPath)) {
+    return res.status(503).send(
+      '<!DOCTYPE html><html><body style="font-family:sans-serif;padding:2rem"><h2>Admin panel build not found.</h2><p>Please build the admin panel and redeploy.</p></body></html>'
+    );
+  }
+
+  res.sendFile(indexPath);
 });
 
 // 404 handler — only reached by unmatched /api/* routes
