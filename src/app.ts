@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
-import fs from 'fs';
 import dotenv from 'dotenv';
 import { v2 as cloudinary } from 'cloudinary';
 import { httpLogger } from './core/middlewares/logger.middleware';
@@ -237,16 +236,23 @@ app.get('/admin/manifest.json', (req, res) => {
 
 app.use('/admin', express.static(path.join(__dirname, '../public/admin')));
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-app.use(express.static(path.join(__dirname, '../public/admin')));
+
+// Serve landing page static assets (css, js if any)
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Smooth redirect from legacy /admin URLs to root clean URLs
-app.get(['/admin', '/admin/'], (_req, res) => {
-  res.redirect('/');
+// Landing page — root URL
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../public/index.html'));
 });
-app.get('/admin/*path', (req, res) => {
-  const targetPath = (req.params as any).path || '';
-  res.redirect('/' + targetPath);
+
+// SPA fallback — any /admin/* path that doesn't match a static file
+// serves index.html so React Router handles it client-side
+// Note: Express v5 requires named wildcard param — use '*path' not '*'
+app.get('/admin/*path', (_req, res) => {
+  const indexPath = path.join(__dirname, '../public/admin/index.html');
+  res.sendFile(indexPath, (err) => {
+    if (err) res.status(404).json({ success: false, message: 'Admin panel not built yet.' });
+  });
 });
 
 app.use('/api/upload', uploadRouter);
@@ -319,30 +325,7 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// SPA Fallback: serve React Admin Panel index.html for all non-API browser requests
-// Handles /login, /dashboard, /revenue etc. — React Router takes over client-side
-app.get('*', (req, res, next) => {
-  // Pass through real API and file-serving routes to next handlers
-  if (
-    req.path.startsWith('/api/') ||
-    req.path.startsWith('/uploads/')
-  ) {
-    return next();
-  }
-
-  const indexPath = path.resolve(__dirname, '../public/admin/index.html');
-
-  // Check if the file actually exists before trying to send it
-  if (!fs.existsSync(indexPath)) {
-    return res.status(503).send(
-      '<!DOCTYPE html><html><body style="font-family:sans-serif;padding:2rem"><h2>Admin panel build not found.</h2><p>Please build the admin panel and redeploy.</p></body></html>'
-    );
-  }
-
-  res.sendFile(indexPath);
-});
-
-// 404 handler — only reached by unmatched /api/* routes
+// 404 handler — catches unmatched routes before the error handler.
 app.use((_req, res) => {
   res.status(404).json({ success: false, message: 'Route not found.' });
 });
