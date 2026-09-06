@@ -318,18 +318,29 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// SPA Fallback: serve React Admin Panel index.html for any non-API web request
+// SPA Fallback: serve React Admin Panel index.html for all non-API browser requests
+// This ensures /login, /dashboard, /revenue etc. all load the React app correctly
 app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
+  // Pass through real API and file-serving routes
+  if (
+    req.path.startsWith('/api/') ||
+    req.path.startsWith('/uploads/')
+  ) {
     return next();
   }
+
   const indexPath = path.join(__dirname, '../public/admin/index.html');
-  res.sendFile(indexPath, (err) => {
-    if (err) next();
+  res.sendFile(indexPath, { root: '/' }, (err) => {
+    if (err) {
+      // index.html not found — likely not built yet
+      res.status(503).send(
+        '<html><body><h2>Admin panel not deployed yet. Please run the build and redeploy.</h2></body></html>'
+      );
+    }
   });
 });
 
-// 404 handler — catches unmatched API routes before the error handler.
+// 404 handler — only reached by unmatched /api/* routes
 app.use((_req, res) => {
   res.status(404).json({ success: false, message: 'Route not found.' });
 });
