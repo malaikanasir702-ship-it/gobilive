@@ -1,0 +1,1 @@
+fix: gifts catalog - show beans icon, add edit price feature for company admin
