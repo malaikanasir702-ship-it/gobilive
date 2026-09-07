@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User, UserRole } from '../auth/user.model';
+import { sendPasswordResetEmail } from '../../core/services/email.service';
 
 const ADMIN_ROLES: UserRole[] = [
   'company_admin',
@@ -300,6 +301,103 @@ export const adminChangePassword = async (req: Request, res: Response): Promise<
 
     res.status(200).json({ success: true, message: 'Password changed successfully. Please log in again.' });
   } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─── POST /api/admin-panel/v1/auth/forgot-password ───────────────────────────
+// Sends a 6-digit OTP to the admin's registered email address.
+export const adminForgotPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email } = req.body;
+    if (!email?.trim()) {
+      res.status(400).json({ success: false, message: 'Email is required.' });
+      return;
+    }
+
+    const user = await User.findOne({
+      email: email.toLowerCase().trim(),
+      role: { $in: ADMIN_ROLES },
+    }).select('email username role resetPasswordToken resetPasswordExpires');
+
+    // Always respond success to prevent email enumeration
+    if (!user) {
+      res.status(200).json({
+        success: true,
+        message: 'If this email is registered, a reset code has been sent.',
+      });
+      return;
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    (user as any).resetPasswordToken   = otp;
+    (user as any).resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+    await user.save({ validateModifiedOnly: true });
+
+    try {
+      await sendPasswordResetEmail({ to: user.email!, resetCode: otp });
+    } catch (emailErr) {
+      console.error('[adminForgotPassword] Email send failed:', emailErr);
+      // Still return success — OTP is stored; admin can try again
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'If this email is registered, a reset code has been sent.',
+    });
+  } catch (err: any) {
+    console.error('[adminForgotPassword]', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─── POST /api/admin-panel/v1/auth/reset-password ────────────────────────────
+// Verifies OTP and sets a new password for the admin account.
+export const adminVerifyOtpReset = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email?.trim() || !otp?.trim() || !newPassword) {
+      res.status(400).json({ success: false, message: 'email, otp, and newPassword are required.' });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      res.status(400).json({ success: false, message: 'Password must be at least 6 characters.' });
+      return;
+    }
+
+    const user = await User.findOne({
+      email: email.toLowerCase().trim(),
+      role: { $in: ADMIN_ROLES },
+    }).select('passwordHash resetPasswordToken resetPasswordExpires tokenVersion');
+
+    if (!user) {
+      res.status(400).json({ success: false, message: 'Invalid request.' });
+      return;
+    }
+
+    if (!(user as any).resetPasswordToken || (user as any).resetPasswordToken !== String(otp).trim()) {
+      res.status(400).json({ success: false, message: 'Invalid OTP. Please check and try again.' });
+      return;
+    }
+
+    if ((user as any).resetPasswordExpires && (user as any).resetPasswordExpires < new Date()) {
+      res.status(400).json({ success: false, message: 'OTP has expired. Please request a new one.' });
+      return;
+    }
+
+    // Set new password
+    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    (user as any).resetPasswordToken   = undefined;
+    (user as any).resetPasswordExpires = undefined;
+    user.tokenVersion = (user.tokenVersion || 0) + 1; // Invalidate all existing sessions
+    await user.save();
+
+    res.status(200).json({ success: true, message: 'Password reset successfully. Please log in with your new password.' });
+  } catch (err: any) {
+    console.error('[adminVerifyOtpReset]', err);
     res.status(500).json({ success: false, message: err.message });
   }
 };
