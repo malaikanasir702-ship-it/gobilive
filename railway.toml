@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm install && npx tsc --project tsconfig.json"
+buildCommand = "npm install && npx -p typescript tsc --project tsconfig.json"
 
 [deploy]
 startCommand = "npm start"
