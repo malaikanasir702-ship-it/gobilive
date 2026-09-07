@@ -338,18 +338,39 @@ async function requestDiamondWithdrawal(userId, diamondsAmount, payoutMethod, pa
     const settings = await getPlatformSettings();
     const beanDollarUsd = settings.beanDollarRateUsd || 1;
     const beanDollarBeans = settings.beanDollarRateBeans || 100;
-    const amountInUsd = (diamondsAmount / beanDollarBeans) * beanDollarUsd;
+    const grossAmountInUsd = (diamondsAmount / beanDollarBeans) * beanDollarUsd;
     const user = await user_model_1.User.findOneAndUpdate({ _id: userId, diamonds: { $gte: diamondsAmount } }, { $inc: { diamonds: -diamondsAmount } }, { new: true });
     if (!user) {
         throw new WalletServiceError('Insufficient Diamonds balance.');
     }
+    // Fetch Country Policy based on user's country or fallback to PK default
+    const { CountryPolicy } = await Promise.resolve().then(() => __importStar(require('../policy/country-policy.model')));
+    const userCountry = user.country ? user.country.toUpperCase() : 'PK';
+    let countryPolicy = await CountryPolicy.findOne({ countryCode: userCountry }).lean();
+    if (!countryPolicy) {
+        countryPolicy = await CountryPolicy.findOne({ isDefault: true }).lean();
+    }
+    const withdrawalChargePercent = countryPolicy?.withdrawalChargePercent ?? 2.0;
+    const taxPercent = countryPolicy?.taxPercent ?? 0.5;
+    const withdrawalChargeAmount = Number(((grossAmountInUsd * withdrawalChargePercent) / 100).toFixed(2));
+    const taxAmount = Number(((grossAmountInUsd * taxPercent) / 100).toFixed(2));
+    const netAmountInUsd = Number((grossAmountInUsd - withdrawalChargeAmount - taxAmount).toFixed(2));
+    const currencyCode = countryPolicy?.currency || 'USD';
+    const exchangeRate = countryPolicy?.inAppRate || 1;
+    const amountInLocalCurrency = currencyCode === 'USD' ? netAmountInUsd : Number((netAmountInUsd * exchangeRate).toFixed(2));
     const { WithdrawalRequest } = await Promise.resolve().then(() => __importStar(require('../withdrawal/withdrawal-request.model')));
     const withdrawal = await WithdrawalRequest.create({
         hostId: user._id,
         hostName: user.username,
         diamondsRequested: diamondsAmount,
-        amountInLocalCurrency: Number(amountInUsd.toFixed(2)),
-        currencyCode: 'USD',
+        grossAmountInUsd: Number(grossAmountInUsd.toFixed(2)),
+        withdrawalChargePercent,
+        withdrawalChargeAmount,
+        taxPercent,
+        taxAmount,
+        netAmountInUsd,
+        amountInLocalCurrency,
+        currencyCode,
         status: 'pending',
         requestedAt: new Date(),
     });
@@ -363,8 +384,20 @@ async function requestDiamondWithdrawal(userId, diamondsAmount, payoutMethod, pa
         diamondsBalance: user.diamonds,
         rcoinsBalance: user.beanWallet ?? 0,
         status: 'pending',
-        description: `Withdrawal request: ${diamondsAmount} 💎 ($${amountInUsd.toFixed(2)} USD via ${payoutMethod || 'Bank'})`,
-        metadata: { withdrawalRequestId: withdrawal._id, payoutMethod, payoutDetails },
+        description: `Withdrawal request: ${diamondsAmount} 💎 (Gross: $${grossAmountInUsd.toFixed(2)}, Fee [${withdrawalChargePercent}%]: -$${withdrawalChargeAmount.toFixed(2)}, Tax [${taxPercent}%]: -$${taxAmount.toFixed(2)}, Net: $${netAmountInUsd.toFixed(2)} ${currencyCode} via ${payoutMethod || 'Bank'})`,
+        metadata: {
+            withdrawalRequestId: withdrawal._id,
+            payoutMethod,
+            payoutDetails,
+            grossAmountInUsd,
+            withdrawalChargePercent,
+            withdrawalChargeAmount,
+            taxPercent,
+            taxAmount,
+            netAmountInUsd,
+            amountInLocalCurrency,
+            currencyCode,
+        },
     });
     return { withdrawal, ledger };
 }

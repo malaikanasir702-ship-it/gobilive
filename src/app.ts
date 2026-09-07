@@ -64,6 +64,14 @@ cloudinary.config({
 
 const app = express();
 
+// ── Trust Proxy ─────────────────────────────────────────────────────────────
+// Required for Railway (and any reverse-proxy deployment) so that Express
+// correctly reads the real client IP from X-Forwarded-For.  Without this,
+// express-rate-limit throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR and the
+// request pipeline breaks before reaching route handlers (causing 404s on
+// valid routes like /api/admin-panel/v1/auth/forgot-password).
+app.set('trust proxy', 1);
+
 // ── Security Headers (helmet) ───────────────────────────────────────────────
 // Must be first middleware. Relaxed CSP for admin panel SPA + Cloudinary images.
 app.use(

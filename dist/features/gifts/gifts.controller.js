@@ -429,12 +429,10 @@ const sendGiftToHost = async (req, res) => {
         let recipientId = room.hostId.toString();
         let recipientUsername = room.hostUsername;
         if (targetUserId && targetUserId !== req.user.id) {
-            // Validate that the target is actually in a seat in this room
-            const targetSeat = room.seats.find((s) => s.userId && s.userId.toString() === targetUserId);
-            if (targetSeat) {
-                recipientId = targetUserId;
-                const targetUser = await user_model_1.User.findById(targetUserId).select('username').lean();
-                recipientUsername = targetUser?.username ?? targetSeat.username ?? 'Unknown';
+            const targetUser = await user_model_1.User.findById(targetUserId).select('_id username').lean();
+            if (targetUser) {
+                recipientId = targetUser._id.toString();
+                recipientUsername = targetUser.username ?? 'Unknown';
             }
         }
         // ── Self-gifting prevention check ──────────────────────────────────────────

@@ -54,6 +54,7 @@ const dashboard_admin_route_1 = __importDefault(require("./features/admin/dashbo
 const reels_admin_route_1 = __importDefault(require("./features/admin/reels-admin.route"));
 const frames_route_1 = __importDefault(require("./features/frames/frames.route"));
 const country_policy_route_1 = __importDefault(require("./features/policy/country-policy.route"));
+const revenue_route_1 = __importDefault(require("./features/admin/revenue.route"));
 const wallet_controller_1 = require("./features/wallet/wallet.controller");
 // dotenv is loaded once in index.ts — this call is a safe no-op if already loaded.
 dotenv_1.default.config({ path: path_1.default.resolve(__dirname, '../.env') });
@@ -64,6 +65,13 @@ cloudinary_1.v2.config({
     api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 const app = (0, express_1.default)();
+// ── Trust Proxy ─────────────────────────────────────────────────────────────
+// Required for Railway (and any reverse-proxy deployment) so that Express
+// correctly reads the real client IP from X-Forwarded-For.  Without this,
+// express-rate-limit throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR and the
+// request pipeline breaks before reaching route handlers (causing 404s on
+// valid routes like /api/admin-panel/v1/auth/forgot-password).
+app.set('trust proxy', 1);
 // ── Security Headers (helmet) ───────────────────────────────────────────────
 // Must be first middleware. Relaxed CSP for admin panel SPA + Cloudinary images.
 app.use((0, helmet_1.default)({
@@ -288,6 +296,8 @@ app.use('/api/admin-panel/v1/dashboard', dashboard_admin_route_1.default);
 app.use('/api/admin-panel/v1/reels', reels_admin_route_1.default);
 app.use('/api/policy', country_policy_route_1.default);
 app.use('/api/admin-panel/v1/policy', country_policy_route_1.default);
+app.use('/api/revenue', revenue_route_1.default);
+app.use('/api/admin-panel/v1/revenue', revenue_route_1.default);
 app.use('/api/frames', frames_route_1.default);
 app.use('/api/admin-panel/v1/frames', frames_route_1.default);
 // Health Check — Railway uses this to verify the container is alive.
