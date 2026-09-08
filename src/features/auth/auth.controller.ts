@@ -864,14 +864,21 @@ export const forgotPassword = async (req: AuthRequest, res: Response): Promise<v
     user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
     await user.save({ validateModifiedOnly: true });
 
-    // Send reset email if user has an email address and RESEND_API_KEY is set
-    if (user.email && process.env.RESEND_API_KEY) {
-      try {
-        await sendPasswordResetEmail({ to: user.email, resetCode });
-        console.log(`[Auth] Password reset email sent to ${user.email}`);
-      } catch (emailErr: any) {
-        // Email failure is non-fatal — user still gets the code in the response
-        console.error('[Auth] Failed to send password reset email:', emailErr?.message);
+    // Send reset email if user has an email address
+    const resendKey = (process.env.RESEND_API_KEY || '').trim();
+    console.log(`[Auth] forgotPassword — email: ${user.email ? 'yes' : 'no'}, RESEND_API_KEY set: ${resendKey ? 'yes' : 'no'}`);
+
+    if (user.email) {
+      if (!resendKey) {
+        console.error('[Auth] RESEND_API_KEY is missing or empty in Railway Variables — email NOT sent');
+      } else {
+        try {
+          await sendPasswordResetEmail({ to: user.email, resetCode });
+          console.log(`[Auth] Password reset email sent to ${user.email}`);
+        } catch (emailErr: any) {
+          // Email failure is non-fatal — user still gets the code in the response
+          console.error('[Auth] Failed to send password reset email:', emailErr?.message || emailErr);
+        }
       }
     }
 

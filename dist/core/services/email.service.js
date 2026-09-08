@@ -5,22 +5,45 @@ exports.sendRejectionEmail = sendRejectionEmail;
 exports.sendPasswordResetEmail = sendPasswordResetEmail;
 const resend_1 = require("resend");
 // ── Resend transactional email ────────────────────────────────────────────
-// Set RESEND_API_KEY in Railway environment variables.
-// Get a free key from https://resend.com → Dashboard → API Keys
+// RESEND_API_KEY must be set in Railway Variables.
 //
-// From address:
-//   - Free plan (no domain): use "onboarding@resend.dev"
-//   - Custom domain: verify at resend.com → Domains, then use "noreply@globilive.com"
-// Set RESEND_FROM in Railway to override. Default: "GobiLive <noreply@globilive.com>"
+// From address rules (Resend):
+//   - If globilive.com is NOT verified in Resend dashboard:
+//     RESEND_FROM must be blank → uses "onboarding@resend.dev" (always works)
+//   - If globilive.com IS verified in Resend dashboard:
+//     Set RESEND_FROM=GobiLive <noreply@globilive.com> in Railway Variables
 function getResend() {
-    const apiKey = process.env.RESEND_API_KEY || '';
+    const apiKey = (process.env.RESEND_API_KEY || '').trim();
     if (!apiKey)
         throw new Error('RESEND_API_KEY is not set');
     return new resend_1.Resend(apiKey);
 }
-const FROM_ADDRESS = () => process.env.RESEND_FROM ||
-    process.env.SMTP_FROM ||
-    'GobiLive <noreply@globilive.com>';
+// Log env state once on first use (safe — no secrets printed)
+let _envLogged = false;
+function logEnvOnce() {
+    if (_envLogged)
+        return;
+    _envLogged = true;
+    console.log('[Email] ENV check —', {
+        hasResendKey: !!process.env.RESEND_API_KEY?.trim(),
+        resendKeyPrefix: process.env.RESEND_API_KEY?.trim().slice(0, 8) || '(none)',
+        resendFrom: process.env.RESEND_FROM || '(not set)',
+        smtpFrom: process.env.SMTP_FROM || '(not set)',
+        effectiveFrom: FROM_ADDRESS(),
+        nodeEnv: process.env.NODE_ENV,
+    });
+}
+// IMPORTANT: Only use a custom "from" address if globilive.com is verified in Resend.
+// Priority: RESEND_FROM → SMTP_FROM → onboarding@resend.dev
+const FROM_ADDRESS = () => {
+    const resendFrom = (process.env.RESEND_FROM || '').trim();
+    if (resendFrom)
+        return resendFrom;
+    const smtpFrom = (process.env.SMTP_FROM || '').trim();
+    if (smtpFrom)
+        return smtpFrom;
+    return 'GobiLive <onboarding@resend.dev>';
+};
 // ── Templates ─────────────────────────────────────────────────────────────
 function approvalEmailHtml(opts) {
     const roleLabel = opts.role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -158,11 +181,14 @@ async function sendRejectionEmail(opts) {
     console.log(`[Email] Rejection email sent to ${opts.to} — id: ${data?.id}`);
 }
 async function sendPasswordResetEmail(opts) {
+    logEnvOnce();
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
-        console.warn('[Email] RESEND_API_KEY not set — skipping password reset email');
+        console.error('[Email] RESEND_API_KEY not set — password reset email SKIPPED. Set it in Railway Variables.');
         return;
     }
+    const fromAddr = FROM_ADDRESS();
+    console.log(`[Email] Sending password reset to ${opts.to} from ${fromAddr}`);
     const resend = getResend();
     const html = `
 <!DOCTYPE html>
@@ -209,14 +235,14 @@ async function sendPasswordResetEmail(opts) {
 </body>
 </html>`.trim();
     const { data, error } = await resend.emails.send({
-        from: FROM_ADDRESS(),
+        from: fromAddr,
         to: [opts.to],
         subject: '🔐 Your GobiLive Password Reset Code',
         html,
     });
     if (error) {
-        console.error('[Email] Password reset email error:', error);
-        throw new Error(error.message);
+        console.error('[Email] Password reset email FAILED:', JSON.stringify(error));
+        throw new Error(error.message || JSON.stringify(error));
     }
     console.log(`[Email] Password reset email sent to ${opts.to} — id: ${data?.id}`);
 }
