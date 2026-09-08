@@ -284,12 +284,23 @@ export async function submitPublicRegistration(req: Request, res: Response) {
     if (files && files.length > 0) {
       for (const file of files) {
         try {
+          const isPdf = file.mimetype === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf');
           const result = await cloudinary.uploader.upload(file.path, {
             folder: 'gobilive_registrations',
-            resource_type: 'auto',
-            quality: 'auto:best',
+            resource_type: isPdf ? 'raw' : 'image',
+            // For PDFs use raw so the URL is directly downloadable/viewable
+            // For images apply quality optimization
+            ...(isPdf ? {} : { quality: 'auto:best' }),
+            // Store original filename for clarity
+            public_id: isPdf
+              ? `${Date.now()}_${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+              : undefined,
           });
-          documentUrls.push(result.secure_url);
+          // For raw PDFs, Cloudinary returns a URL without extension — append .pdf for browser compatibility
+          const finalUrl = isPdf && !result.secure_url.toLowerCase().endsWith('.pdf')
+            ? `${result.secure_url}.pdf`
+            : result.secure_url;
+          documentUrls.push(finalUrl);
         } catch (uploadErr: any) {
           console.error('[Registration] Cloudinary upload error:', uploadErr.message);
         } finally {
@@ -306,6 +317,11 @@ export async function submitPublicRegistration(req: Request, res: Response) {
 
     if (!fullName || (!email && !phone)) {
       return res.status(400).json({ success: false, message: 'fullName and email or phone are required' });
+    }
+
+    // Require at least one identity document
+    if (!documentUrls.length && (!files || files.length === 0)) {
+      return res.status(400).json({ success: false, message: 'At least one identity document (CNIC / Passport / Aadhaar) is required.' });
     }
 
     const request = await RegistrationRequest.create({
