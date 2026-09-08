@@ -159,8 +159,9 @@ export async function approveRegistration(req: Request, res: Response) {
         region:            request.formData.region    || undefined,
         bankName:          request.formData.bankName  || undefined,
         bankAccountNumber: request.formData.bankAccountNumber || undefined,
+        ibanNumber:        (request.formData as any).ibanNumber        || undefined,
+        accountHolderName: (request.formData as any).accountHolderName || undefined,
         idCardNumber:      request.formData.idCardNumber      || undefined,
-        cardNumber:        request.formData.cardNumber        || undefined,
         parentId:          resolvedParentId,
         agencyId:          resolvedAgencyId,
         idCardDocUrl:      request.documentUrls?.[0]          || undefined,
@@ -313,7 +314,7 @@ export async function submitPublicRegistration(req: Request, res: Response) {
     }
 
     const { fullName, email, phone, idCardNumber, region, country,
-            bankName, bankAccountNumber, cardNumber, agencyCode, parentId } = req.body;
+            bankName, accountHolderName, bankAccountNumber, ibanNumber, agencyCode, parentId } = req.body;
 
     if (!fullName || (!email && !phone)) {
       return res.status(400).json({ success: false, message: 'fullName and email or phone are required' });
@@ -326,7 +327,7 @@ export async function submitPublicRegistration(req: Request, res: Response) {
 
     const request = await RegistrationRequest.create({
       role,
-      formData: { fullName, email, phone, idCardNumber, region, country, bankName, bankAccountNumber, cardNumber, agencyCode, parentId },
+      formData: { fullName, email, phone, idCardNumber, region, country, bankName, accountHolderName, bankAccountNumber, ibanNumber, agencyCode, parentId },
       documentUrls,
     });
 

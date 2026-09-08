@@ -16,8 +16,9 @@ export interface IRegistrationFormData {
   region?: string;
   country?: string;
   bankName?: string;
+  accountHolderName?: string;
   bankAccountNumber?: string;
-  cardNumber?: string;
+  ibanNumber?: string;
   agencyCode?: string;
   parentId?: string;
 }
@@ -54,8 +55,9 @@ const RegistrationRequestSchema = new Schema<IRegistrationRequest>(
       region: { type: String },
       country: { type: String },
       bankName: { type: String },
+      accountHolderName: { type: String },
       bankAccountNumber: { type: String },
-      cardNumber: { type: String },
+      ibanNumber: { type: String },
       agencyCode: { type: String },
       parentId: { type: String },
     },
