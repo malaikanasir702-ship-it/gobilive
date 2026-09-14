@@ -32,6 +32,8 @@ export interface IRegistrationRequest extends Document {
   reviewedAt?: Date;
   rejectionReason?: string;
   generatedId?: string;
+  /** ID of the super_admin or sub_admin whose registration link was used */
+  parentAdminId?: Types.ObjectId;
   createdAt: Date;
 }
 
@@ -66,6 +68,7 @@ const RegistrationRequestSchema = new Schema<IRegistrationRequest>(
     reviewedAt: { type: Date },
     rejectionReason: { type: String },
     generatedId: { type: String },
+    parentAdminId: { type: Schema.Types.ObjectId, ref: 'User', sparse: true, index: true },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );

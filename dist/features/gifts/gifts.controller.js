@@ -58,9 +58,9 @@ function getIo() { return _getIo?.() ?? null; }
 /** Allows only company_admin and super_admin roles (via regular JWT auth). */
 const requireAdminJwt = (req, res, next) => {
     const role = req.user?.role;
-    const adminRoles = ['company_admin', 'super_admin'];
-    if (!role || !adminRoles.includes(role)) {
-        res.status(403).json({ success: false, message: 'Admin access required.' });
+    // Only company_admin can manage the gift catalog
+    if (role !== 'company_admin') {
+        res.status(403).json({ success: false, message: 'Company Admin access required.' });
         return;
     }
     next();

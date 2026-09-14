@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -18,11 +51,10 @@ const user_model_1 = require("../auth/user.model");
 async function listWithdrawals(req, res) {
     try {
         const { status, hostName, agencyId, page = 1, limit = 20, from, to } = req.query;
+        const adminUser = req.adminUser;
         const filter = {};
         if (status)
             filter.status = status;
-        if (agencyId)
-            filter.agencyId = agencyId;
         if (hostName)
             filter.hostName = new RegExp(hostName, 'i');
         if (from || to) {
@@ -31,6 +63,21 @@ async function listWithdrawals(req, res) {
                 filter.requestedAt.$gte = new Date(from);
             if (to)
                 filter.requestedAt.$lte = new Date(to);
+        }
+        // super_admin / sub_admin: scope to their own agencies' hosts
+        if (adminUser?.role === 'super_admin' || adminUser?.role === 'sub_admin') {
+            const agencyQuery = adminUser.role === 'super_admin'
+                ? { superAdminId: adminUser.id }
+                : { subAdminId: adminUser.id };
+            const myAgencies = await (await Promise.resolve().then(() => __importStar(require('../agency/agency.model')))).Agency.find(agencyQuery).select('_id').lean();
+            const agencyIds = myAgencies.map((a) => String(a._id));
+            if (!agencyIds.length) {
+                return res.json({ success: true, data: [], total: 0, page: Number(page), totalPages: 0 });
+            }
+            filter.agencyId = { $in: agencyIds };
+        }
+        else if (agencyId) {
+            filter.agencyId = agencyId;
         }
         const total = await withdrawal_request_model_1.WithdrawalRequest.countDocuments(filter);
         const docs = await withdrawal_request_model_1.WithdrawalRequest.find(filter)

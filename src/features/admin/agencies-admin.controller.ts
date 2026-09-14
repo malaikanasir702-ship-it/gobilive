@@ -19,13 +19,23 @@ export const listAgencies = async (req: AdminAuthRequest, res: Response): Promis
     if (search) { const re = new RegExp(search, 'i'); filter.$or = [{ name: re }, { agencyCode: re }, { ownerUsername: re }]; }
     if (status) filter.status = status;
     if (country) filter.countryCode = country.toUpperCase();
-    // super_admin sees: agencies assigned to them OR agencies with no superAdminId
-    // (legacy agencies created before ownership tracking was added)
-    if (req.adminUser!.role === 'super_admin') {
+
+    const role = req.adminUser!.role;
+
+    // super_admin sees: agencies assigned to them OR agencies with no superAdminId (legacy)
+    if (role === 'super_admin') {
       const saId = new Types.ObjectId(req.adminUser!.id);
       filter.$or = filter.$or
         ? [{ $and: [{ $or: filter.$or }, { $or: [{ superAdminId: saId }, { superAdminId: { $exists: false } }, { superAdminId: null }] }] }]
         : [{ superAdminId: saId }, { superAdminId: { $exists: false } }, { superAdminId: null }];
+    }
+
+    // sub_admin sees: only agencies they created / assigned to them
+    if (role === 'sub_admin') {
+      const saId = new Types.ObjectId(req.adminUser!.id);
+      filter.$or = filter.$or
+        ? [{ $and: [{ $or: filter.$or }, { subAdminId: saId }] }]
+        : [{ subAdminId: saId }];
     }
 
     const total = await Agency.countDocuments(filter);

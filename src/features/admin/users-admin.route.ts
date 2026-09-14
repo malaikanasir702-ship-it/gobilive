@@ -13,7 +13,7 @@ const router = Router();
 
 router.use(authenticateAdminPanel as any);
 
-const GUARD = requireRoles('company_admin', 'super_admin', 'sub_admin', 'agency', 'sub_agency') as any;
+const GUARD = requireRoles('company_admin', 'agency', 'sub_agency') as any;
 
 router.get('/', GUARD, listUsers as any);
 router.get('/export', GUARD, exportUsers as any);

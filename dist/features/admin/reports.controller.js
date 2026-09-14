@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -16,6 +49,7 @@ const notification_service_1 = require("../notifications/notification.service");
 async function listReports(req, res) {
     try {
         const { hostUsername, reporterUsername, page = 1, limit = 20, from, to } = req.query;
+        const adminUser = req.adminUser;
         const filter = {};
         if (hostUsername)
             filter.hostUsername = new RegExp(hostUsername, 'i');
@@ -27,6 +61,25 @@ async function listReports(req, res) {
                 filter.createdAt.$gte = new Date(from);
             if (to)
                 filter.createdAt.$lte = new Date(to);
+        }
+        // super_admin / sub_admin: scope reports to their agencies' hosts only
+        if (adminUser?.role === 'super_admin' || adminUser?.role === 'sub_admin') {
+            const { Agency } = await Promise.resolve().then(() => __importStar(require('../agency/agency.model')));
+            const agencyQuery = adminUser.role === 'super_admin'
+                ? { superAdminId: adminUser.id }
+                : { subAdminId: adminUser.id };
+            const myAgencies = await Agency.find(agencyQuery).select('_id agencyCode').lean();
+            if (!myAgencies.length) {
+                return res.json({ success: true, data: [], total: 0, page: Number(page), totalPages: 0 });
+            }
+            const { User } = await Promise.resolve().then(() => __importStar(require('../auth/user.model')));
+            const agencyRefs = myAgencies.flatMap((a) => [String(a._id), ...(a.agencyCode ? [a.agencyCode] : [])]);
+            const hosts = await User.find({ agencyId: { $in: agencyRefs } }).select('username').lean();
+            if (!hosts.length) {
+                return res.json({ success: true, data: [], total: 0, page: Number(page), totalPages: 0 });
+            }
+            const hostUsernames = hosts.map((h) => h.username);
+            filter.hostUsername = { $in: hostUsernames };
         }
         const total = await report_model_1.default.countDocuments(filter);
         const data = await report_model_1.default.find(filter)

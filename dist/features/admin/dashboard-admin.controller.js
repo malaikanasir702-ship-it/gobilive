@@ -96,17 +96,14 @@ async function companyAdminDashboard(res) {
 }
 // ── Super Admin Dashboard ─────────────────────────────────────────────────
 async function superAdminDashboard(adminId, res) {
-    const [subAdmins, agencies, resellers, withdrawals, admin, top10,] = await Promise.all([
-        user_model_1.User.find({ role: 'sub_admin' })
+    const [subAdmins, agencies, withdrawals, admin, top10,] = await Promise.all([
+        // Only sub_admins created via this super admin's registration link
+        user_model_1.User.find({ role: 'sub_admin', parentAdminId: new mongoose_1.Types.ObjectId(adminId) })
             .select('username email phone sharePercent beanWallet diamonds isBlocked createdAt')
             .limit(20)
             .lean(),
         agency_model_1.Agency.find({ superAdminId: new mongoose_1.Types.ObjectId(adminId) })
             .select('name agencyCode target targetAchieved sharePercent status streamerIds')
-            .limit(20)
-            .lean(),
-        user_model_1.User.find({ role: 'reseller' })
-            .select('username email beanWallet sharePercent diamonds isBlocked createdAt')
             .limit(20)
             .lean(),
         withdrawal_request_model_1.WithdrawalRequest.find({ superAdminId: adminId })
@@ -117,7 +114,8 @@ async function superAdminDashboard(adminId, res) {
         getTop10(),
     ]);
     const pendingWithdrawals = await withdrawal_request_model_1.WithdrawalRequest.countDocuments({ superAdminId: adminId, status: 'pending' });
-    const pendingRegistrations = await registration_request_model_1.RegistrationRequest.countDocuments({ status: 'pending' });
+    // Pending registrations linked to this super admin only
+    const pendingRegistrations = await registration_request_model_1.RegistrationRequest.countDocuments({ status: 'pending', parentAdminId: adminId });
     res.json({
         success: true,
         role: 'super_admin',
@@ -130,26 +128,37 @@ async function superAdminDashboard(adminId, res) {
         },
         subAdmins,
         agencies,
-        resellers,
         withdrawals,
         top10Agencies: top10,
     });
 }
 // ── Sub Admin Dashboard ───────────────────────────────────────────────────
 async function subAdminDashboard(adminId, res) {
-    const [agencies, withdrawals, admin, top10] = await Promise.all([
+    const [agencies, admin, top10] = await Promise.all([
         agency_model_1.Agency.find({ subAdminId: new mongoose_1.Types.ObjectId(adminId) })
             .select('name agencyCode target targetAchieved sharePercent status streamerIds')
-            .limit(20)
-            .lean(),
-        withdrawal_request_model_1.WithdrawalRequest.find({ superAdminId: adminId })
-            .sort({ requestedAt: -1 })
             .limit(20)
             .lean(),
         user_model_1.User.findById(adminId).select('sharePercent beanWallet diamonds').lean(),
         getTop10(),
     ]);
-    const pendingWithdrawals = await withdrawal_request_model_1.WithdrawalRequest.countDocuments({ superAdminId: adminId, status: 'pending' });
+    // Get host IDs from own agencies for scoped withdrawal count
+    const agencyIds = agencies.map((a) => String(a._id));
+    const pendingWithdrawals = agencyIds.length
+        ? await withdrawal_request_model_1.WithdrawalRequest.countDocuments({ agencyId: { $in: agencyIds }, status: 'pending' })
+        : 0;
+    // Pending registrations linked to this sub admin
+    const pendingRegistrations = await registration_request_model_1.RegistrationRequest.countDocuments({
+        status: 'pending',
+        parentAdminId: adminId,
+    });
+    // Recent withdrawals for own agencies
+    const withdrawals = agencyIds.length
+        ? await withdrawal_request_model_1.WithdrawalRequest.find({ agencyId: { $in: agencyIds } })
+            .sort({ requestedAt: -1 })
+            .limit(20)
+            .lean()
+        : [];
     res.json({
         success: true,
         role: 'sub_admin',
@@ -158,6 +167,7 @@ async function subAdminDashboard(adminId, res) {
             beanWallet: admin?.beanWallet ?? 0,
             diamonds: admin?.diamonds ?? 0,
             pendingWithdrawals,
+            pendingRegistrations,
         },
         agencies,
         withdrawals,

@@ -8,11 +8,26 @@ import { User } from '../auth/user.model';
 export async function listWithdrawals(req: Request, res: Response) {
   try {
     const { status, hostName, agencyId, page = 1, limit = 20, from, to } = req.query as any;
+    const adminUser = (req as any).adminUser;
     const filter: any = {};
     if (status) filter.status = status;
-    if (agencyId) filter.agencyId = agencyId;
     if (hostName) filter.hostName = new RegExp(hostName, 'i');
     if (from || to) { filter.requestedAt = {}; if (from) filter.requestedAt.$gte = new Date(from); if (to) filter.requestedAt.$lte = new Date(to); }
+
+    // super_admin / sub_admin: scope to their own agencies' hosts
+    if (adminUser?.role === 'super_admin' || adminUser?.role === 'sub_admin') {
+      const agencyQuery = adminUser.role === 'super_admin'
+        ? { superAdminId: adminUser.id }
+        : { subAdminId: adminUser.id };
+      const myAgencies = await (await import('../agency/agency.model')).Agency.find(agencyQuery as any).select('_id').lean();
+      const agencyIds = myAgencies.map((a: any) => String(a._id));
+      if (!agencyIds.length) {
+        return res.json({ success: true, data: [], total: 0, page: Number(page), totalPages: 0 });
+      }
+      filter.agencyId = { $in: agencyIds };
+    } else if (agencyId) {
+      filter.agencyId = agencyId;
+    }
 
     const total = await WithdrawalRequest.countDocuments(filter);
     const docs = await WithdrawalRequest.find(filter)

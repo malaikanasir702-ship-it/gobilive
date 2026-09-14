@@ -72,6 +72,26 @@ export const listHosts = async (req: AdminAuthRequest, res: Response): Promise<v
         return;
       }
       filter.agencyId = { $in: [String(ownAgency._id), ownAgency.agencyCode] };
+    } else if (role === 'super_admin') {
+      // super_admin sees only hosts belonging to their agencies
+      const myAgencies = await Agency.find({ superAdminId: req.adminUser!.id } as any).select('_id agencyCode').lean();
+      if (!myAgencies.length) {
+        res.status(200).json({ success: true, hosts: [], total: 0, page, totalPages: 0 });
+        return;
+      }
+      const agencyRefs: string[] = [];
+      for (const a of myAgencies) { agencyRefs.push(String(a._id)); if (a.agencyCode) agencyRefs.push(a.agencyCode); }
+      filter.agencyId = { $in: agencyRefs };
+    } else if (role === 'sub_admin') {
+      // sub_admin sees only hosts belonging to their agencies
+      const myAgencies = await Agency.find({ subAdminId: req.adminUser!.id } as any).select('_id agencyCode').lean();
+      if (!myAgencies.length) {
+        res.status(200).json({ success: true, hosts: [], total: 0, page, totalPages: 0 });
+        return;
+      }
+      const agencyRefs: string[] = [];
+      for (const a of myAgencies) { agencyRefs.push(String(a._id)); if (a.agencyCode) agencyRefs.push(a.agencyCode); }
+      filter.agencyId = { $in: agencyRefs };
     } else {
       if (agency) filter.agencyId = agency;
     }

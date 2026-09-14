@@ -31,18 +31,19 @@ router.get('/my-status', authenticateJWT as any, getMyRegistrationStatus as any)
 // ── Admin-protected routes ─────────────────────────────────────────────────
 router.use(authenticateAdminPanel as any);
 
-const COMPANY_OR_SUPER = requireRoles('company_admin', 'super_admin') as any;
+const COMPANY_OR_SUPER       = requireRoles('company_admin', 'super_admin') as any;
+const COMPANY_SUPER_OR_SUB   = requireRoles('company_admin', 'super_admin', 'sub_admin') as any;
 
-router.get('/', COMPANY_OR_SUPER, listRegistrationRequests as any);
-router.get('/export', COMPANY_OR_SUPER, exportRegistrations as any);
-router.get('/:id', COMPANY_OR_SUPER, getRegistrationRequest as any);
-router.post('/bulk-approve', COMPANY_OR_SUPER, bulkApproveRegistrations as any);
-router.post('/bulk-reject', COMPANY_OR_SUPER, bulkRejectRegistrations as any);
-router.post('/:id/approve', COMPANY_OR_SUPER, approveRegistration as any);
-router.post('/:id/reject', COMPANY_OR_SUPER, rejectRegistration as any);
+router.get('/', COMPANY_SUPER_OR_SUB, listRegistrationRequests as any);
+router.get('/export', COMPANY_SUPER_OR_SUB, exportRegistrations as any);
+router.get('/:id', COMPANY_SUPER_OR_SUB, getRegistrationRequest as any);
+router.post('/bulk-approve', COMPANY_SUPER_OR_SUB, bulkApproveRegistrations as any);
+router.post('/bulk-reject', COMPANY_SUPER_OR_SUB, bulkRejectRegistrations as any);
+router.post('/:id/approve', COMPANY_SUPER_OR_SUB, approveRegistration as any);
+router.post('/:id/reject', COMPANY_SUPER_OR_SUB, rejectRegistration as any);
 
 // ── Resend credentials email (for already-approved registrations) ────────
-router.post('/:id/resend-email', COMPANY_OR_SUPER, async (req: any, res: any) => {
+router.post('/:id/resend-email', COMPANY_SUPER_OR_SUB, async (req: any, res: any) => {
   try {
     const id = String(req.params.id);
     const request = await RegistrationRequest.findById(id).lean();

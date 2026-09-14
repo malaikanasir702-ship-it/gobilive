@@ -115,18 +115,15 @@ async function companyAdminDashboard(res: Response) {
 
 async function superAdminDashboard(adminId: string, res: Response) {
   const [
-    subAdmins, agencies, resellers, withdrawals, admin, top10,
+    subAdmins, agencies, withdrawals, admin, top10,
   ] = await Promise.all([
-    User.find({ role: 'sub_admin' })
+    // Only sub_admins created via this super admin's registration link
+    User.find({ role: 'sub_admin', parentAdminId: new Types.ObjectId(adminId) } as any)
       .select('username email phone sharePercent beanWallet diamonds isBlocked createdAt')
       .limit(20)
       .lean(),
     Agency.find({ superAdminId: new Types.ObjectId(adminId) } as any)
       .select('name agencyCode target targetAchieved sharePercent status streamerIds')
-      .limit(20)
-      .lean(),
-    User.find({ role: 'reseller' })
-      .select('username email beanWallet sharePercent diamonds isBlocked createdAt')
       .limit(20)
       .lean(),
     WithdrawalRequest.find({ superAdminId: adminId })
@@ -138,7 +135,8 @@ async function superAdminDashboard(adminId: string, res: Response) {
   ]);
 
   const pendingWithdrawals = await WithdrawalRequest.countDocuments({ superAdminId: adminId, status: 'pending' });
-  const pendingRegistrations = await RegistrationRequest.countDocuments({ status: 'pending' });
+  // Pending registrations linked to this super admin only
+  const pendingRegistrations = await RegistrationRequest.countDocuments({ status: 'pending', parentAdminId: adminId });
 
   res.json({
     success: true,
@@ -152,7 +150,6 @@ async function superAdminDashboard(adminId: string, res: Response) {
     },
     subAdmins,
     agencies,
-    resellers,
     withdrawals,
     top10Agencies: top10,
   });
@@ -161,20 +158,34 @@ async function superAdminDashboard(adminId: string, res: Response) {
 // ── Sub Admin Dashboard ───────────────────────────────────────────────────
 
 async function subAdminDashboard(adminId: string, res: Response) {
-  const [agencies, withdrawals, admin, top10] = await Promise.all([
+  const [agencies, admin, top10] = await Promise.all([
     Agency.find({ subAdminId: new Types.ObjectId(adminId) } as any)
       .select('name agencyCode target targetAchieved sharePercent status streamerIds')
-      .limit(20)
-      .lean(),
-    WithdrawalRequest.find({ superAdminId: adminId })
-      .sort({ requestedAt: -1 })
       .limit(20)
       .lean(),
     User.findById(adminId).select('sharePercent beanWallet diamonds').lean(),
     getTop10(),
   ]);
 
-  const pendingWithdrawals = await WithdrawalRequest.countDocuments({ superAdminId: adminId, status: 'pending' });
+  // Get host IDs from own agencies for scoped withdrawal count
+  const agencyIds = agencies.map((a: any) => String(a._id));
+  const pendingWithdrawals = agencyIds.length
+    ? await WithdrawalRequest.countDocuments({ agencyId: { $in: agencyIds }, status: 'pending' })
+    : 0;
+
+  // Pending registrations linked to this sub admin
+  const pendingRegistrations = await RegistrationRequest.countDocuments({
+    status: 'pending',
+    parentAdminId: adminId,
+  });
+
+  // Recent withdrawals for own agencies
+  const withdrawals = agencyIds.length
+    ? await WithdrawalRequest.find({ agencyId: { $in: agencyIds } })
+        .sort({ requestedAt: -1 })
+        .limit(20)
+        .lean()
+    : [];
 
   res.json({
     success: true,
@@ -184,6 +195,7 @@ async function subAdminDashboard(adminId: string, res: Response) {
       beanWallet: admin?.beanWallet ?? 0,
       diamonds: admin?.diamonds ?? 0,
       pendingWithdrawals,
+      pendingRegistrations,
     },
     agencies,
     withdrawals,

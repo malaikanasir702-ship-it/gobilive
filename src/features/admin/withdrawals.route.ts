@@ -14,7 +14,7 @@ import { authenticateAdminPanel, requireRoles } from '../../core/middlewares/rba
 const router = Router();
 router.use(authenticateAdminPanel as any);
 
-const COMPANY_OR_SUPER = requireRoles('company_admin', 'super_admin') as any;
+const COMPANY_OR_SUPER = requireRoles('company_admin', 'super_admin', 'sub_admin') as any;
 
 router.get('/', COMPANY_OR_SUPER, listWithdrawals as any);
 router.get('/:id', COMPANY_OR_SUPER, getWithdrawal as any);

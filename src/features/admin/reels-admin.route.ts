@@ -10,7 +10,7 @@ const router = Router();
 
 router.use(authenticateAdminPanel as any);
 
-const GUARD = requireRoles('company_admin', 'super_admin', 'sub_admin') as any;
+const GUARD = requireRoles('company_admin') as any;
 
 router.get('/',                    GUARD, listReels as any);
 router.post('/:id/delete',         GUARD, deleteReelByAdmin as any);

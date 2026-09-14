@@ -12,9 +12,15 @@ import { sendApprovalEmail, sendRejectionEmail } from '../../core/services/email
 export async function listRegistrationRequests(req: Request, res: Response) {
   try {
     const { role, status, page = 1, limit = 20 } = req.query as any;
+    const adminUser = (req as any).adminUser;
     const filter: any = {};
     if (role) filter.role = role;
     if (status) filter.status = status;
+
+    // super_admin and sub_admin only see registrations from their own link
+    if (adminUser?.role === 'super_admin' || adminUser?.role === 'sub_admin') {
+      filter.parentAdminId = adminUser.id;
+    }
 
     const total = await RegistrationRequest.countDocuments(filter);
     const data = await RegistrationRequest.find(filter)
@@ -188,9 +194,11 @@ export async function approveRegistration(req: Request, res: Response) {
 
       // Attach the approving admin's ID so the agency appears in their list.
       // super_admin  → superAdminId
-      // company_admin / sub_admin → no ownership filter applied on their list
+      // sub_admin    → subAdminId
       if (adminRole === 'super_admin' && adminId !== 'system') {
         agencyDoc.superAdminId = new Types.ObjectId(adminId);
+      } else if (adminRole === 'sub_admin' && adminId !== 'system') {
+        agencyDoc.subAdminId = new Types.ObjectId(adminId);
       }
 
       await Agency.create(agencyDoc);
@@ -325,10 +333,19 @@ export async function submitPublicRegistration(req: Request, res: Response) {
       return res.status(400).json({ success: false, message: 'At least one identity document (CNIC / Passport / Aadhaar) is required.' });
     }
 
+    // parentId in the URL query string tracks which admin's link was used
+    // This enables scoped registration list per super_admin / sub_admin
+    const parentAdminIdRaw = (req.query.parentId as string) || parentId;
+    const { Types: MTypes } = await import('mongoose');
+    const resolvedParentAdminId = parentAdminIdRaw && MTypes.ObjectId.isValid(String(parentAdminIdRaw))
+      ? String(parentAdminIdRaw)
+      : undefined;
+
     const request = await RegistrationRequest.create({
       role,
       formData: { fullName, email, phone, idCardNumber, region, country, bankName, accountHolderName, bankAccountNumber, ibanNumber, agencyCode, parentId },
       documentUrls,
+      ...(resolvedParentAdminId ? { parentAdminId: resolvedParentAdminId } : {}),
     });
 
     res.status(201).json({ success: true, message: 'Registration submitted. You will be notified upon approval.', requestId: request._id });
@@ -484,9 +501,15 @@ export async function bulkRejectRegistrations(req: Request, res: Response) {
 export async function exportRegistrations(req: Request, res: Response) {
   try {
     const { role, status } = req.query as any;
+    const adminUser = (req as any).adminUser;
     const filter: any = {};
     if (role) filter.role = role;
     if (status) filter.status = status;
+
+    // super_admin / sub_admin: only export their own registrations
+    if (adminUser?.role === 'super_admin' || adminUser?.role === 'sub_admin') {
+      filter.parentAdminId = adminUser.id;
+    }
 
     const docs = await RegistrationRequest.find(filter).sort({ createdAt: -1 }).limit(10000).lean();
 

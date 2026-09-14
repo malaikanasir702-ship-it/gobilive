@@ -21,8 +21,9 @@ const RegistrationRequestSchema = new mongoose_1.Schema({
         region: { type: String },
         country: { type: String },
         bankName: { type: String },
+        accountHolderName: { type: String },
         bankAccountNumber: { type: String },
-        cardNumber: { type: String },
+        ibanNumber: { type: String },
         agencyCode: { type: String },
         parentId: { type: String },
     },
@@ -31,6 +32,7 @@ const RegistrationRequestSchema = new mongoose_1.Schema({
     reviewedAt: { type: Date },
     rejectionReason: { type: String },
     generatedId: { type: String },
+    parentAdminId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', sparse: true, index: true },
 }, { timestamps: { createdAt: true, updatedAt: false } });
 RegistrationRequestSchema.index({ role: 1, status: 1, createdAt: -1 });
 exports.RegistrationRequest = (0, mongoose_1.model)('RegistrationRequest', RegistrationRequestSchema);

@@ -75,12 +75,12 @@ function approvalEmailHtml(opts) {
 <body>
   <div class="wrap">
     <div class="header">
-      <h1>GoLive Admin Portal</h1>
+      <h1>Globilive Admin Portal</h1>
       <p>Your registration has been approved</p>
     </div>
     <div class="body">
       <p>Hi <strong>${opts.fullName}</strong>,</p>
-      <p>Your <strong>${roleLabel}</strong> registration on GoLive has been approved. Use the credentials below to sign in.</p>
+      <p>Your <strong>${roleLabel}</strong> registration on Globilive has been approved. Use the credentials below to sign in.</p>
       <div class="creds">
         <div class="cred-row">
           <div class="cred-label">Username</div>
@@ -99,7 +99,7 @@ function approvalEmailHtml(opts) {
       <p class="note">Please change your password after your first login.</p>
     </div>
     <div class="footer">
-      <p>© ${new Date().getFullYear()} GoLive · Automated message, do not reply.</p>
+      <p>© ${new Date().getFullYear()} Globlive · Automated message, do not reply.</p>
     </div>
   </div>
 </body>
@@ -126,7 +126,7 @@ function rejectionEmailHtml(opts) {
 </head>
 <body>
   <div class="wrap">
-    <div class="header"><h1>GoLive Registration Update</h1></div>
+    <div class="header"><h1>Globilive Registration Update</h1></div>
     <div class="body">
       <p>Hi <strong>${opts.fullName}</strong>,</p>
       <p>Your <strong>${roleLabel}</strong> registration could not be approved at this time.</p>
@@ -134,7 +134,7 @@ function rejectionEmailHtml(opts) {
       <p style="margin-top:16px;">Please contact support or re-apply with the correct information.</p>
     </div>
     <div class="footer">
-      <p>© ${new Date().getFullYear()} GoLive · Automated message, do not reply.</p>
+      <p>© ${new Date().getFullYear()} Globilive · Automated message, do not reply.</p>
     </div>
   </div>
 </body>
@@ -152,7 +152,7 @@ async function sendApprovalEmail(opts) {
     const { data, error } = await resend.emails.send({
         from: FROM_ADDRESS(),
         to: [opts.to],
-        subject: '✅ Your GoLive registration has been approved',
+        subject: '✅ Your Globilive registration has been approved',
         html: approvalEmailHtml({ ...opts, loginUrl }),
     });
     if (error) {
@@ -171,7 +171,7 @@ async function sendRejectionEmail(opts) {
     const { data, error } = await resend.emails.send({
         from: FROM_ADDRESS(),
         to: [opts.to],
-        subject: 'Update on your GoLive registration request',
+        subject: 'Update on your Globilive registration request',
         html: rejectionEmailHtml(opts),
     });
     if (error) {
@@ -229,7 +229,7 @@ async function sendPasswordResetEmail(opts) {
       </div>
     </div>
     <div class="footer">
-      <p>© ${new Date().getFullYear()} GobiLive · Do not reply to this email.</p>
+      <p>© ${new Date().getFullYear()} globilive · Do not reply to this email.</p>
     </div>
   </div>
 </body>
@@ -237,7 +237,7 @@ async function sendPasswordResetEmail(opts) {
     const { data, error } = await resend.emails.send({
         from: fromAddr,
         to: [opts.to],
-        subject: '🔐 Your GobiLive Password Reset Code',
+        subject: '🔐 Your Globilive Password Reset Code',
         html,
     });
     if (error) {

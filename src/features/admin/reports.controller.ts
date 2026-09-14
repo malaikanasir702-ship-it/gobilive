@@ -8,6 +8,7 @@ import { sendToUser } from '../notifications/notification.service';
 export async function listReports(req: Request, res: Response) {
   try {
     const { hostUsername, reporterUsername, page = 1, limit = 20, from, to } = req.query as any;
+    const adminUser = (req as any).adminUser;
     const filter: any = {};
     if (hostUsername) filter.hostUsername = new RegExp(hostUsername, 'i');
     if (reporterUsername) filter.reporterUsername = new RegExp(reporterUsername, 'i');
@@ -15,6 +16,26 @@ export async function listReports(req: Request, res: Response) {
       filter.createdAt = {};
       if (from) filter.createdAt.$gte = new Date(from);
       if (to) filter.createdAt.$lte = new Date(to);
+    }
+
+    // super_admin / sub_admin: scope reports to their agencies' hosts only
+    if (adminUser?.role === 'super_admin' || adminUser?.role === 'sub_admin') {
+      const { Agency } = await import('../agency/agency.model');
+      const agencyQuery = adminUser.role === 'super_admin'
+        ? { superAdminId: adminUser.id }
+        : { subAdminId: adminUser.id };
+      const myAgencies = await Agency.find(agencyQuery as any).select('_id agencyCode').lean();
+      if (!myAgencies.length) {
+        return res.json({ success: true, data: [], total: 0, page: Number(page), totalPages: 0 });
+      }
+      const { User } = await import('../auth/user.model');
+      const agencyRefs = (myAgencies as any[]).flatMap((a: any) => [String(a._id), ...(a.agencyCode ? [a.agencyCode] : [])]);
+      const hosts = await User.find({ agencyId: { $in: agencyRefs } }).select('username').lean();
+      if (!hosts.length) {
+        return res.json({ success: true, data: [], total: 0, page: Number(page), totalPages: 0 });
+      }
+      const hostUsernames = hosts.map((h: any) => h.username);
+      filter.hostUsername = { $in: hostUsernames };
     }
 
     const total = await StreamReport.countDocuments(filter);

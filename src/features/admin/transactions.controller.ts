@@ -11,12 +11,33 @@ export async function listTransactions(req: Request, res: Response) {
   try {
     const { tab = 'beans', page = 1, limit = 20, userId, hostName, agencyCode, agencyName, from, to, status } = req.query as any;
     const skip = (Number(page) - 1) * Number(limit);
+    const adminUser = (req as any).adminUser;
+
+    // Helper: get host IDs scoped to super/sub admin's agencies
+    const getScopedHostIds = async (): Promise<string[] | null> => {
+      if (adminUser?.role !== 'super_admin' && adminUser?.role !== 'sub_admin') return null;
+      const { Agency } = await import('../agency/agency.model');
+      const agencyQuery = adminUser.role === 'super_admin'
+        ? { superAdminId: adminUser.id }
+        : { subAdminId: adminUser.id };
+      const myAgencies = await Agency.find(agencyQuery as any).select('_id agencyCode').lean();
+      if (!myAgencies.length) return [];
+      const { User } = await import('../auth/user.model');
+      const agencyRefs = myAgencies.flatMap((a: any) => [String(a._id), ...(a.agencyCode ? [a.agencyCode] : [])]);
+      const hosts = await User.find({ agencyId: { $in: agencyRefs } }).select('_id').lean();
+      return hosts.map((h: any) => String(h._id));
+    };
 
     if (tab === 'beans') {
       const filter: any = {};
       if (userId) filter.$or = [{ fromId: userId }, { toId: userId }];
       if (status) filter.status = status;
       if (from || to) { filter.createdAt = {}; if (from) filter.createdAt.$gte = new Date(from); if (to) filter.createdAt.$lte = new Date(to); }
+      const hostIds = await getScopedHostIds();
+      if (hostIds !== null) {
+        if (!hostIds.length) return res.json({ success: true, data: [], total: 0, page: Number(page), totalPages: 0 });
+        filter.$or = [{ fromId: { $in: hostIds } }, { toId: { $in: hostIds } }];
+      }
       const total = await BeanTransaction.countDocuments(filter);
       const data = await BeanTransaction.find(filter).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean();
       return res.json({ success: true, data, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });
@@ -28,6 +49,11 @@ export async function listTransactions(req: Request, res: Response) {
       if (agencyCode) filter.agencyCode = new RegExp(agencyCode, 'i');
       if (status) filter.status = status;
       if (from || to) { filter.requestedAt = {}; if (from) filter.requestedAt.$gte = new Date(from); if (to) filter.requestedAt.$lte = new Date(to); }
+      const hostIds = await getScopedHostIds();
+      if (hostIds !== null) {
+        if (!hostIds.length) return res.json({ success: true, data: [], total: 0, page: Number(page), totalPages: 0 });
+        filter.hostId = { $in: hostIds };
+      }
       const total = await WithdrawalRequest.countDocuments(filter);
       const data = await WithdrawalRequest.find(filter).sort({ requestedAt: -1 }).skip(skip).limit(Number(limit)).lean();
       return res.json({ success: true, data, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });
@@ -40,6 +66,11 @@ export async function listTransactions(req: Request, res: Response) {
     if (userId) filter.userId = userId;
     if (status) filter.status = status;
     if (from || to) { filter.createdAt = {}; if (from) filter.createdAt.$gte = new Date(from); if (to) filter.createdAt.$lte = new Date(to); }
+    const hostIds = await getScopedHostIds();
+    if (hostIds !== null) {
+      if (!hostIds.length) return res.json({ success: true, data: [], total: 0, page: Number(page), totalPages: 0 });
+      filter.userId = { $in: hostIds };
+    }
 
     const total = await WalletTransaction.countDocuments(filter);
     const data = await WalletTransaction.find(filter)
