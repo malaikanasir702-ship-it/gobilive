@@ -9,7 +9,14 @@ export const listSubAdmins = async (req: AdminAuthRequest, res: Response): Promi
   try {
     const page = Math.max(1, parseInt((req.query.page as string) || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || '20', 10)));
+
+    // super_admin: only see sub_admins registered via their link (parentAdminId)
+    // company_admin: see all sub_admins
     const filter: any = { role: 'sub_admin' };
+    if (req.adminUser!.role === 'super_admin') {
+      filter.parentAdminId = new Types.ObjectId(req.adminUser!.id);
+    }
+
     const total = await User.countDocuments(filter);
     const items = await User.find(filter)
       .select('username email phone isBlocked isSuspended createdAt agencyId sharePercent')
