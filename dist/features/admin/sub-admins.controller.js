@@ -9,7 +9,12 @@ const listSubAdmins = async (req, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page || '1', 10));
         const limit = Math.min(100, Math.max(1, parseInt(req.query.limit || '20', 10)));
+        // super_admin: only see sub_admins registered via their link (parentAdminId)
+        // company_admin: see all sub_admins
         const filter = { role: 'sub_admin' };
+        if (req.adminUser.role === 'super_admin') {
+            filter.parentAdminId = new mongoose_1.Types.ObjectId(req.adminUser.id);
+        }
         const total = await user_model_1.User.countDocuments(filter);
         const items = await user_model_1.User.find(filter)
             .select('username email phone isBlocked isSuspended createdAt agencyId sharePercent')

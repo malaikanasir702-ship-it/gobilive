@@ -27,12 +27,13 @@ const listAgencies = async (req, res) => {
         if (country)
             filter.countryCode = country.toUpperCase();
         const role = req.adminUser.role;
-        // super_admin sees: agencies assigned to them OR agencies with no superAdminId (legacy)
+        // super_admin sees ONLY agencies explicitly assigned to them (superAdminId = their ID)
+        // Legacy agencies without superAdminId are NOT shown — they belong to no one
         if (role === 'super_admin') {
             const saId = new mongoose_1.Types.ObjectId(req.adminUser.id);
             filter.$or = filter.$or
-                ? [{ $and: [{ $or: filter.$or }, { $or: [{ superAdminId: saId }, { superAdminId: { $exists: false } }, { superAdminId: null }] }] }]
-                : [{ superAdminId: saId }, { superAdminId: { $exists: false } }, { superAdminId: null }];
+                ? [{ $and: [{ $or: filter.$or }, { superAdminId: saId }] }]
+                : [{ superAdminId: saId }];
         }
         // sub_admin sees: only agencies they created / assigned to them
         if (role === 'sub_admin') {
