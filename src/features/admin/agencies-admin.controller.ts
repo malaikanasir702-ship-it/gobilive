@@ -41,7 +41,21 @@ export const listAgencies = async (req: AdminAuthRequest, res: Response): Promis
 
     const total = await Agency.countDocuments(filter);
     const agencies = await Agency.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
-    res.status(200).json({ success: true, agencies, total, page, totalPages: Math.ceil(total / limit) });
+
+    // Enrich with owner contact details (email + phone)
+    const ownerIds = agencies.map(a => a.ownerId).filter(Boolean);
+    const ownerUsers = ownerIds.length
+      ? await User.find({ _id: { $in: ownerIds } }).select('_id email phone').lean()
+      : [];
+    const ownerMap = new Map(ownerUsers.map(u => [String(u._id), u]));
+
+    const enriched = agencies.map(a => ({
+      ...a,
+      ownerEmail: (ownerMap.get(String(a.ownerId)) as any)?.email ?? null,
+      ownerPhone: (ownerMap.get(String(a.ownerId)) as any)?.phone ?? null,
+    }));
+
+    res.status(200).json({ success: true, agencies: enriched, total, page, totalPages: Math.ceil(total / limit) });
   } catch (err: any) { res.status(500).json({ success: false, message: err.message }); }
 };
 
