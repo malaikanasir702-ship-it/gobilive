@@ -23,24 +23,44 @@ interface SeedUser {
 }
 
 const SEED_USERS: SeedUser[] = [
-  { username: 'company_admin',  email: 'company_admin@gobilive.com',  password: 'Admin@1234',  role: 'company_admin'  },
-  { username: 'super_admin1',   email: 'super_admin@gobilive.com',    password: 'Admin@1234',  role: 'super_admin'    },
-  { username: 'sub_admin1',     email: 'sub_admin@gobilive.com',      password: 'Admin@1234',  role: 'sub_admin'      },
-  { username: 'agency1',        email: 'agency@gobilive.com',         password: 'Admin@1234',  role: 'agency'         },
-  { username: 'sub_agency1',    email: 'sub_agency@gobilive.com',     password: 'Admin@1234',  role: 'sub_agency'     },
-  { username: 'top_up_agent1',  email: 'topupagent@gobilive.com',     password: 'Admin@1234',  role: 'top_up_agent'   },
-  { username: 'reseller1',      email: 'reseller@gobilive.com',       password: 'Admin@1234',  role: 'reseller'       },
+  { username: 'company_admin',  email: 'company_admin@globilive.com',  password: 'CA#Gl0b!2025',   role: 'company_admin'  },
+  { username: 'super_admin1',   email: 'super_admin@globilive.com',    password: 'SA#Gl0b!2025',   role: 'super_admin'    },
+  { username: 'sub_admin1',     email: 'sub_admin@globilive.com',      password: 'SubA#Gl0b!2025', role: 'sub_admin'      },
+  { username: 'agency1',        email: 'agency@globilive.com',         password: 'Ag#Gl0b!2025',   role: 'agency'         },
+  { username: 'sub_agency1',    email: 'sub_agency@globilive.com',     password: 'SbAg#Gl0b!2025', role: 'sub_agency'     },
+  { username: 'top_up_agent1',  email: 'topupagent@globilive.com',     password: 'TUA#Gl0b!2025',  role: 'top_up_agent'   },
+  { username: 'reseller1',      email: 'reseller@globilive.com',       password: 'RS#Gl0b!2025',   role: 'reseller'       },
 ];
 
 (async () => {
   await connectDB();
 
-  console.log('\n🌱 Seeding admin users...\n');
+  console.log('\n🌱 Re-seeding admin users (delete old → create new)...\n');
+
+  const oldEmails = [
+    'company_admin@gobilive.com',
+    'super_admin@gobilive.com',
+    'sub_admin@gobilive.com',
+    'agency@gobilive.com',
+    'sub_agency@gobilive.com',
+    'topupagent@gobilive.com',
+    'reseller@gobilive.com',
+  ];
+
+  // Delete old seed accounts
+  const deleted = await User.deleteMany({ email: { $in: oldEmails } });
+  console.log(`🗑  Deleted ${deleted.deletedCount} old seed account(s)\n`);
 
   for (const u of SEED_USERS) {
     const exists = await User.findOne({ email: u.email });
     if (exists) {
-      console.log(`⏭  Skipped  [${u.role.padEnd(15)}] ${u.email} — already exists`);
+      // Update password + bump tokenVersion to invalidate all existing JWTs
+      const passwordHash = await bcrypt.hash(u.password, 10);
+      await User.findByIdAndUpdate(exists._id, {
+        passwordHash,
+        $inc: { tokenVersion: 1 },
+      });
+      console.log(`🔄 Updated  [${u.role.padEnd(15)}] ${u.email}  — password reset, sessions invalidated`);
       continue;
     }
 
@@ -55,7 +75,7 @@ const SEED_USERS: SeedUser[] = [
       isBlocked: false,
       isTerminated: false,
       isSuspended: false,
-      tokenVersion: 0,
+      tokenVersion: 1,
     });
 
     console.log(`✅ Created  [${u.role.padEnd(15)}] ${u.email}  password: ${u.password}`);
