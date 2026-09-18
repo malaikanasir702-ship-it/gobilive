@@ -18,8 +18,7 @@ const listSubAdmins = async (req, res) => {
         const total = await user_model_1.User.countDocuments(filter);
         const items = await user_model_1.User.find(filter)
             .select('username email phone isBlocked isSuspended createdAt agencyId sharePercent')
-            .sort({ createdAt: -1 })
-            .skip((page - 1) * limit)
+            .sort({ createdAt: -1 }).skip((page - 1) * limit)
             .limit(limit)
             .lean();
         res.status(200).json({ success: true, items, total, page, totalPages: Math.ceil(total / limit) });

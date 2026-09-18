@@ -20,8 +20,7 @@ export const listSubAdmins = async (req: AdminAuthRequest, res: Response): Promi
     const total = await User.countDocuments(filter);
     const items = await User.find(filter)
       .select('username email phone isBlocked isSuspended createdAt agencyId sharePercent')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
+      .sort({ createdAt: -1 })      .skip((page - 1) * limit)
       .limit(limit)
       .lean();
     res.status(200).json({ success: true, items, total, page, totalPages: Math.ceil(total / limit) });

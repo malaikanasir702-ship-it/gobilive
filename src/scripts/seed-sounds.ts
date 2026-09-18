@@ -6,6 +6,9 @@
  * Replace with your own Cloudinary/S3 URLs for production.
  */
 
+import dns from 'dns';
+dns.setServers(['8.8.8.8', '1.1.1.1']);
+
 import dotenv from 'dotenv';
 import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
@@ -89,9 +92,9 @@ const SOUNDS = [
 ];
 
 async function main() {
-  const mongoUri = process.env.MONGODB_URI;
+  const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
   if (!mongoUri) {
-    console.error('❌  MONGODB_URI not found in .env');
+    console.error('❌  MONGO_URI / MONGODB_URI not found in .env');
     process.exit(1);
   }
 

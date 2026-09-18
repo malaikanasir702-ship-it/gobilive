@@ -16,7 +16,8 @@
     "start": "NODE_ENV=production node dist/index.js",
     "test": "npm run build && node --test tests/*.test.mjs",
     "seed:live": "npx ts-node src/scripts/seed-live.ts",
-    "seed:admins": "npx ts-node src/scripts/seed-admin-users.ts"
+    "seed:admins": "npx ts-node src/scripts/seed-admin-users.ts",
+    "restore:users": "npx ts-node src/scripts/restore-users-from-firebase.ts"
   },
   "keywords": [],
   "author": "",
