@@ -424,9 +424,33 @@ export async function requestDiamondWithdrawal(
   const amountInLocalCurrency = currencyCode === 'USD' ? netAmountInUsd : Number((netAmountInUsd * exchangeRate).toFixed(2));
 
   const { WithdrawalRequest } = await import('../withdrawal/withdrawal-request.model');
+
+  // Resolve host's agency for proper admin scoping
+  let resolvedAgencyId: any = undefined;
+  if ((user as any).agencyId) {
+    resolvedAgencyId = (user as any).agencyId;
+  }
+
+  // Parse bank details from payoutDetails string "BankName | AccountNumber | AccountHolder"
+  let bankName = payoutMethod || '';
+  let bankAccountNumber = '';
+  let accountHolderName = '';
+  if (payoutDetails) {
+    const parts = payoutDetails.split('|').map((s: string) => s.trim());
+    bankName = parts[0] || payoutMethod || '';
+    bankAccountNumber = parts[1] || '';
+    accountHolderName = parts[2] || '';
+  }
+
   const withdrawal = await WithdrawalRequest.create({
     hostId: user._id,
     hostName: user.username,
+    agencyId: resolvedAgencyId,
+    payoutMethod,
+    payoutDetails,
+    bankName,
+    bankAccountNumber,
+    accountHolderName,
     diamondsRequested: diamondsAmount,
     grossAmountInUsd: Number(grossAmountInUsd.toFixed(2)),
     withdrawalChargePercent,

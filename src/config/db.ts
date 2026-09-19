@@ -29,9 +29,14 @@ export const connectDB = async (): Promise<void> => {
       socketTimeoutMS: 45000,
       // Aggressively retry initial connection (useful after Railway cold starts)
       connectTimeoutMS: 10000,
-      // Keep the pool lean for a single-instance Railway deployment
-      maxPoolSize: 10,
-      minPoolSize: 2,
+      // ── Scaled pool for 1000 concurrent users ───────────────────────────
+      // 1000 users × avg 3-5 simultaneous queries = need ~50-100 connections.
+      // MongoDB Atlas M10+ supports up to 1500 connections; M0/M2/M5 free tiers
+      // only support 500. Set according to your Atlas tier.
+      maxPoolSize: 100,
+      minPoolSize: 10,
+      // Wait up to 5s for a connection from the pool before throwing
+      waitQueueTimeoutMS: 5000,
     });
 
     // Run async sync for multi-role support

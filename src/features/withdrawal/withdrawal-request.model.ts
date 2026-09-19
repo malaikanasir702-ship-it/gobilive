@@ -7,6 +7,12 @@ export interface IWithdrawalRequest extends Document {
   hostName: string;
   agencyId?: Types.ObjectId;
   superAdminId?: Types.ObjectId;
+  // Bank / payout details (stored separately for admin visibility)
+  payoutMethod?: string;
+  payoutDetails?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  accountHolderName?: string;
   diamondsRequested: number;
   grossAmountInUsd?: number;
   withdrawalChargePercent?: number;
@@ -31,6 +37,12 @@ const WithdrawalRequestSchema = new Schema<IWithdrawalRequest>(
     hostName: { type: String, required: true },
     agencyId: { type: Schema.Types.ObjectId, ref: 'Agency', sparse: true },
     superAdminId: { type: Schema.Types.ObjectId, ref: 'User', sparse: true },
+    // Bank / payout details
+    payoutMethod: { type: String },
+    payoutDetails: { type: String },
+    bankName: { type: String },
+    bankAccountNumber: { type: String },
+    accountHolderName: { type: String },
     diamondsRequested: { type: Number, required: true, min: 1 },
     grossAmountInUsd: { type: Number, default: 0 },
     withdrawalChargePercent: { type: Number, default: 0 },

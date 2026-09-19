@@ -48,6 +48,7 @@ const withdrawal_request_model_1 = require("../withdrawal/withdrawal-request.mod
 const activity_log_service_1 = require("../activity-log/activity-log.service");
 const wallet_transaction_model_1 = __importDefault(require("../wallet/wallet.transaction.model"));
 const user_model_1 = require("../auth/user.model");
+const notification_service_1 = require("../notifications/notification.service");
 async function listWithdrawals(req, res) {
     try {
         const { status, hostName, agencyId, page = 1, limit = 20, from, to } = req.query;
@@ -116,6 +117,12 @@ async function approveWithdrawal(req, res) {
             actionType: 'approve_withdrawal', targetEntityType: 'WithdrawalRequest', targetEntityId: id,
             description: `Approved withdrawal of ${doc.diamondsRequested} diamonds for ${doc.hostName}`,
         });
+        // Notify host
+        (0, notification_service_1.sendToUser)(String(doc.hostId), {
+            title: '✅ Withdrawal Approved',
+            body: `Your withdrawal of ${doc.diamondsRequested} 💎 (${doc.amountInLocalCurrency} ${doc.currencyCode}) has been approved and will be processed soon.`,
+            data: { type: 'withdrawal_approved', withdrawalId: id },
+        }).catch(() => { });
         res.json({ success: true, data: doc });
     }
     catch (err) {
@@ -139,6 +146,12 @@ async function rejectWithdrawal(req, res) {
             actionType: 'reject_withdrawal', targetEntityType: 'WithdrawalRequest', targetEntityId: id,
             description: `Rejected withdrawal for ${doc.hostName}. Reason: ${reason || 'N/A'}`,
         });
+        // Notify host — diamonds restored
+        (0, notification_service_1.sendToUser)(String(doc.hostId), {
+            title: '❌ Withdrawal Rejected',
+            body: `Your withdrawal of ${doc.diamondsRequested} 💎 was rejected. ${reason ? `Reason: ${reason}` : ''} Your diamonds have been returned.`,
+            data: { type: 'withdrawal_rejected', withdrawalId: id },
+        }).catch(() => { });
         res.json({ success: true, data: doc });
     }
     catch (err) {
@@ -203,6 +216,12 @@ async function markWithdrawalDone(req, res) {
             description: `Completed withdrawal of ${withdrawal.diamondsRequested} diamonds for ${withdrawal.hostName}`,
             metadata: { slipUrl },
         });
+        // Notify host — payout done
+        (0, notification_service_1.sendToUser)(String(withdrawal.hostId), {
+            title: '💰 Payout Sent!',
+            body: `Your withdrawal of ${withdrawal.amountInLocalCurrency} ${withdrawal.currencyCode} has been sent to your bank. Transfer slip uploaded.`,
+            data: { type: 'withdrawal_done', withdrawalId: id, slipUrl: slipUrl ?? '' },
+        }).catch(() => { });
         res.json({ success: true, data: withdrawal });
     }
     catch (err) {

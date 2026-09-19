@@ -48,6 +48,7 @@ const gift_config_1 = require("./gift.config");
 const leveling_service_1 = require("../auth/leveling.service");
 const live_model_1 = __importDefault(require("../live/live.model"));
 const user_model_1 = require("../auth/user.model");
+const cache_service_1 = require("../../core/services/cache.service");
 // Lazy import to avoid circular deps — seat.controller exports _io via getIo
 let _getIo = null;
 function injectGiftIo(fn) {
@@ -109,21 +110,28 @@ async function seedGiftCatalogIfEmpty() {
 // ─── GET /api/gifts/catalog ──────────────────────────────────────────────────
 const getGiftCatalog = async (_req, res) => {
     try {
-        const gifts = await gift_model_1.Gift.find({ isActive: true }).sort({ sortOrder: 1, createdAt: 1 }).lean();
-        // Normalise _id → id for backwards-compat with Flutter (which uses gift['id'])
-        const normalised = gifts.map((g) => ({
-            id: g.id,
-            name: g.name,
-            emoji: g.emoji,
-            diamondCost: g.diamondCost,
-            rcoinEarned: g.rcoinEarned,
-            isVipOnly: g.isVipOnly,
-            animation: g.animation,
-            giftType: g.giftType,
-            svgaUrl: g.svgaUrl ?? null,
-            isActive: g.isActive,
-            sortOrder: g.sortOrder,
-        }));
+        // ── Stampede-safe cache (2 minute TTL) ───────────────────────────────────
+        // cacheGetOrLoad ensures only ONE MongoDB query runs even when 500 requests
+        // arrive simultaneously with an empty cache (thundering herd protection).
+        const normalised = await (0, cache_service_1.cacheGetOrLoad)('gifts:catalog', async () => {
+            const gifts = await gift_model_1.Gift.find({ isActive: true })
+                .sort({ sortOrder: 1, createdAt: 1 })
+                .lean();
+            return gifts.map((g) => ({
+                id: g.id,
+                name: g.name,
+                emoji: g.emoji,
+                diamondCost: g.diamondCost,
+                rcoinEarned: g.rcoinEarned,
+                isVipOnly: g.isVipOnly,
+                animation: g.animation,
+                giftType: g.giftType,
+                svgaUrl: g.svgaUrl ?? null,
+                isActive: g.isActive,
+                sortOrder: g.sortOrder,
+            }));
+        }, 120 // 2 minutes
+        );
         res.status(200).json({ success: true, gifts: normalised });
     }
     catch (err) {
@@ -231,6 +239,7 @@ const updateGift = async (req, res) => {
             res.status(404).json({ success: false, message: 'Gift not found.' });
             return;
         }
+        cache_service_1.AppCache.del('gifts:catalog'); // invalidate catalog cache on update
         res.status(200).json({ success: true, gift });
     }
     catch (err) {
@@ -247,6 +256,7 @@ const deleteGift = async (req, res) => {
             res.status(404).json({ success: false, message: 'Gift not found.' });
             return;
         }
+        cache_service_1.AppCache.del('gifts:catalog'); // invalidate catalog cache on delete
         res.status(200).json({ success: true, message: 'Gift permanently deleted.' });
     }
     catch (err) {

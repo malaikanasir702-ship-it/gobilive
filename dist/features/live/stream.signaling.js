@@ -62,6 +62,52 @@ const notification_service_1 = require("../notifications/notification.service");
 const seat_controller_1 = require("./seat.controller");
 const gifts_controller_1 = require("../gifts/gifts.controller");
 const live_controller_1 = require("./live.controller");
+const cache_service_1 = require("../../core/services/cache.service");
+// ─────────────────────────────────────────────
+// Seat DB-write debounce map
+// ─────────────────────────────────────────────
+// seat_audio_mute / seat_cam_mute fire on every mute toggle.
+// Writing to MongoDB on EVERY event causes excessive DB ops at scale.
+// Instead we buffer the final state per room and flush to DB after
+// a 2-second quiet period (debounce).
+//
+// Map key: roomId  →  { timer, pendingSeats }
+const seatPersistDebounce = {};
+function scheduleSeatPersist(io, roomId) {
+    const entry = seatPersistDebounce[roomId];
+    if (!entry)
+        return;
+    // Clear existing timer
+    clearTimeout(entry.timer);
+    // Re-schedule flush after 2 s of silence
+    entry.timer = setTimeout(async () => {
+        const pending = seatPersistDebounce[roomId]?.pendingSeats ?? [];
+        delete seatPersistDebounce[roomId];
+        if (pending.length === 0)
+            return;
+        try {
+            const room = await live_model_1.default.findOne({ channelName: roomId, isActive: true });
+            if (!room)
+                return;
+            for (const update of pending) {
+                const seat = room.seats.find((s) => s.seatIndex === update.seatIndex);
+                if (seat) {
+                    if (update.isMutedByHost !== undefined)
+                        seat.isMutedByHost = update.isMutedByHost;
+                    if (update.isAudioOnly !== undefined)
+                        seat.isAudioOnly = update.isAudioOnly;
+                }
+            }
+            room.markModified('seats');
+            await room.save();
+            // Broadcast final confirmed state to all clients
+            io.to(roomId).emit('seat_state_changed', { channelName: roomId, seats: room.seats });
+        }
+        catch (err) {
+            console.error('[seatPersistDebounce] flush error:', err);
+        }
+    }, 2000);
+}
 const roomViewers = {};
 const pkScores = {};
 const pkOpponents = {};
@@ -117,30 +163,42 @@ function handleLeaveRoom(io, socket, data) {
     }
 }
 async function handleSendComment(io, data) {
-    // Look up sender's role, profilePic, and active frame so badges+frames can be shown on client
+    // Look up sender's role, profilePic, and active frame so badges+frames can be shown on client.
+    // ── Cache user's display info for 60s — comments fire very frequently ────
+    // Without caching: 100 viewers × 10 comments/min = 1000 DB reads/min just for this.
     let role = data.role ?? 'user';
     let profilePic = data.profilePic ?? '';
     let activeFrameUrl = '';
     let activeFrameScale = 0.60;
     try {
-        const user = await user_model_1.User.findOne({ username: data.username })
-            .select('role profilePic activeFrameId')
-            .lean();
-        if (user) {
-            role = user.role ?? 'user';
-            profilePic = user.profilePic ?? profilePic;
-            // Populate frame data if user has an active frame
-            const activeFrameId = user.activeFrameId;
-            if (activeFrameId) {
-                try {
-                    const { Frame } = await Promise.resolve().then(() => __importStar(require('../frames/frame.model')));
-                    const frame = await Frame.findById(activeFrameId).select('imageUrl avatarScale').lean();
-                    if (frame) {
-                        activeFrameUrl = frame.imageUrl ?? '';
-                        activeFrameScale = frame.avatarScale ?? 0.60;
+        const userCacheKey = `comment_user:${data.username}`;
+        const cached = cache_service_1.AppCache.get(userCacheKey);
+        if (cached) {
+            role = cached.role;
+            profilePic = cached.profilePic || profilePic;
+            activeFrameUrl = cached.activeFrameUrl;
+            activeFrameScale = cached.activeFrameScale;
+        }
+        else {
+            const user = await user_model_1.User.findOne({ username: data.username })
+                .select('role profilePic activeFrameId')
+                .lean();
+            if (user) {
+                role = user.role ?? 'user';
+                profilePic = user.profilePic ?? profilePic;
+                const activeFrameId = user.activeFrameId;
+                if (activeFrameId) {
+                    try {
+                        const { Frame } = await Promise.resolve().then(() => __importStar(require('../frames/frame.model')));
+                        const frame = await Frame.findById(activeFrameId).select('imageUrl avatarScale').lean();
+                        if (frame) {
+                            activeFrameUrl = frame.imageUrl ?? '';
+                            activeFrameScale = frame.avatarScale ?? 0.60;
+                        }
                     }
+                    catch (_) { /* frame lookup non-critical */ }
                 }
-                catch (_) { /* frame lookup non-critical */ }
+                cache_service_1.AppCache.set(userCacheKey, { role, profilePic, activeFrameUrl, activeFrameScale }, 60);
             }
         }
     }
@@ -511,10 +569,15 @@ function registerStreamSignaling(io) {
     // Inject into live controller for live_ended broadcast
     (0, live_controller_1.injectLiveControllerIo)(io);
     io.on('connection', (socket) => {
-        console.log(`🔌 Socket Connected: ${socket.id}`);
+        // Only log connections in development — 1000 connections = 1000 log lines/sec in prod
+        if (process.env.NODE_ENV !== 'production') {
+            console.log(`🔌 Socket Connected: ${socket.id}`);
+        }
         // ── Existing event handlers (UNTOUCHED) ──────────────────────────────
         socket.on('join_room', (data) => {
-            console.log(`👤 ${data.username} joined room ${data.roomId}`);
+            if (process.env.NODE_ENV !== 'production') {
+                console.log(`👤 ${data.username} joined room ${data.roomId}`);
+            }
             handleJoinRoom(io, socket, data);
         });
         socket.on('leave_room', (data) => {
@@ -642,51 +705,72 @@ function registerStreamSignaling(io) {
         /**
          * seat_audio_mute — emitted by a seat occupant after they've locally
          * applied a mute command from the host.  Keeps the DB in sync.
+         * DB write is debounced — final state flushed after 2s of silence.
          */
-        socket.on('seat_audio_mute', async (data) => {
-            try {
-                const room = await live_model_1.default.findOne({ channelName: data.roomId, isActive: true });
-                if (!room)
-                    return;
-                const seat = room.seats.find((s) => s.seatIndex === data.seatIndex);
-                if (seat) {
-                    seat.isMutedByHost = data.muted;
-                    room.markModified('seats');
-                    await room.save();
-                }
-                // Re-broadcast so all clients reflect the confirmed state
-                io.to(data.roomId).emit('seat_state_changed', {
-                    channelName: data.roomId,
-                    seats: room.seats,
+        socket.on('seat_audio_mute', (data) => {
+            if (!data?.roomId)
+                return;
+            // Immediately re-broadcast to all room clients for real-time UI sync
+            io.to(data.roomId).emit('seat_audio_muted', {
+                roomId: data.roomId,
+                seatIndex: data.seatIndex,
+                agoraUid: data.agoraUid,
+                muted: data.muted,
+            });
+            // Buffer DB write — dedupes rapid toggles before persisting
+            if (!seatPersistDebounce[data.roomId]) {
+                seatPersistDebounce[data.roomId] = {
+                    timer: setTimeout(() => { }, 0),
+                    pendingSeats: [],
+                };
+            }
+            const existing = seatPersistDebounce[data.roomId].pendingSeats
+                .find((s) => s.seatIndex === data.seatIndex);
+            if (existing) {
+                existing.isMutedByHost = data.muted;
+            }
+            else {
+                seatPersistDebounce[data.roomId].pendingSeats.push({
+                    seatIndex: data.seatIndex,
+                    isMutedByHost: data.muted,
                 });
             }
-            catch (err) {
-                console.error('seat_audio_mute error:', err);
-            }
+            scheduleSeatPersist(io, data.roomId);
         });
         /**
          * seat_cam_mute — emitted by a seat occupant after they've locally
          * applied a camera grant/revoke command from the host.
+         * DB write is debounced — final state flushed after 2s of silence.
          */
-        socket.on('seat_cam_mute', async (data) => {
-            try {
-                const room = await live_model_1.default.findOne({ channelName: data.roomId, isActive: true });
-                if (!room)
-                    return;
-                const seat = room.seats.find((s) => s.seatIndex === data.seatIndex);
-                if (seat) {
-                    seat.isAudioOnly = data.muted; // muted video ↔ audio-only
-                    room.markModified('seats');
-                    await room.save();
-                }
-                io.to(data.roomId).emit('seat_state_changed', {
-                    channelName: data.roomId,
-                    seats: room.seats,
+        socket.on('seat_cam_mute', (data) => {
+            if (!data?.roomId)
+                return;
+            // Immediately re-broadcast for real-time UI sync
+            io.to(data.roomId).emit('seat_cam_muted', {
+                roomId: data.roomId,
+                seatIndex: data.seatIndex,
+                agoraUid: data.agoraUid,
+                muted: data.muted,
+            });
+            // Buffer DB write
+            if (!seatPersistDebounce[data.roomId]) {
+                seatPersistDebounce[data.roomId] = {
+                    timer: setTimeout(() => { }, 0),
+                    pendingSeats: [],
+                };
+            }
+            const existing = seatPersistDebounce[data.roomId].pendingSeats
+                .find((s) => s.seatIndex === data.seatIndex);
+            if (existing) {
+                existing.isAudioOnly = data.muted;
+            }
+            else {
+                seatPersistDebounce[data.roomId].pendingSeats.push({
+                    seatIndex: data.seatIndex,
+                    isAudioOnly: data.muted,
                 });
             }
-            catch (err) {
-                console.error('seat_cam_mute error:', err);
-            }
+            scheduleSeatPersist(io, data.roomId);
         });
         /**
          * seat_layout_change — host can dynamically resize the grid.
@@ -708,7 +792,9 @@ function registerStreamSignaling(io) {
         // ── Disconnect cleanup (untouched logic + seat cleanup) ──────────────
         socket.on('disconnect', () => {
             cleanupSocketRooms(socket);
-            console.log(`🔌 Socket Disconnected: ${socket.id}`);
+            if (process.env.NODE_ENV !== 'production') {
+                console.log(`🔌 Socket Disconnected: ${socket.id}`);
+            }
         });
     });
     console.log('📡 Stream signaling channel registered');

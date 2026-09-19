@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticateJWT } from '../../core/middlewares/auth.middleware';
+import { publicReadLimiter } from '../../core/middlewares/rate-limit.middleware';
 import {
   getGiftCatalog,
   sendGiftToHost,
@@ -15,7 +16,8 @@ import {
 const router = Router();
 
 // ── Public / authenticated ──────────────────────────────────────────────────
-router.get('/catalog', getGiftCatalog as any);
+// Catalog is cached + high-traffic: use generous publicReadLimiter
+router.get('/catalog', publicReadLimiter as any, getGiftCatalog as any);
 router.post('/send', authenticateJWT as any, sendGiftToHost as any);
 router.post('/purchase', authenticateJWT as any, purchaseGiftItem as any);
 

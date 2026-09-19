@@ -22,6 +22,14 @@ dotenv_1.default.config({ path: path_1.default.resolve(__dirname, '../.env') });
 const PORT = parseInt(process.env.PORT || '5000', 10);
 // --- HTTP Server ---
 const server = http_1.default.createServer(app_1.default);
+// ── Tune HTTP server for 1000 concurrent users ────────────────────────────
+// Node.js default keepAlive is OFF — each request opens a new TCP connection.
+// At 1000 concurrent users this exhausts OS ephemeral ports and causes
+// "fetch failed" / ECONNRESET errors under burst load.
+// keepAlive reuses existing TCP connections, dramatically cutting overhead.
+server.keepAliveTimeout = 65000; // must be > Railway/nginx's 60s idle timeout
+server.headersTimeout = 66000; // slightly above keepAliveTimeout
+server.maxConnections = 2000; // safety cap (default is Infinity)
 // --- Socket.IO Server ---
 // Origin config mirrors the Express CORS policy in app.ts.
 const allowedOrigins = process.env.ALLOWED_ORIGINS

@@ -110,6 +110,20 @@ const UserSchema = new mongoose_1.Schema({
     // values that were added to the enum later.
     validateModifiedOnly: true,
 });
+// ─────────────────────────────────────────────
+// Performance Indexes — 1000 concurrent users
+// ─────────────────────────────────────────────
+// NOTE: username already has `unique: true` which auto-creates an index.
+// email and phone use `sparse: true` in schema field def — that also creates
+// an index. We add COMPOUND indexes here for query patterns not covered above.
+// Fast agency & host resolution
+UserSchema.index({ role: 1, isBlocked: 1, isSuspended: 1, isTerminated: 1 }, { background: true });
+UserSchema.index({ agencyId: 1 }, { sparse: true, background: true });
+// Social graph leaderboard sort
+UserSchema.index({ followersCount: -1, level: -1 }, { background: true });
+// Admin panel filters
+UserSchema.index({ createdAt: -1 }, { background: true });
+UserSchema.index({ beanWallet: 1 }, { background: true });
 UserSchema.pre('save', function () {
     if (!this.referralCode) {
         this.referralCode = `GB${this.username.slice(0, 4).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;

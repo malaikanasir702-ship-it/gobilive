@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { Message, Conversation } from './chat.model';
+import { AppCache } from '../../core/services/cache.service';
 
 interface ChatJoinPayload {
   conversationId: string;
@@ -33,8 +34,20 @@ export function registerChatSignaling(io: Server) {
     if (!user) return;
 
     socket.on('join_conversation', async (data: ChatJoinPayload) => {
-      const conv = await Conversation.findById(data.conversationId);
-      if (!conv || !conv.participants.map(String).includes(user.id)) return;
+      // Cache conversation participant check for 60 seconds to avoid
+      // a DB lookup on every join (room rejoins after reconnect are common)
+      const cacheKey = `conv:${data.conversationId}:participants`;
+      let participants = AppCache.get<string[]>(cacheKey);
+
+      if (!participants) {
+        const conv = await Conversation.findById(data.conversationId)
+          .select('participants').lean();
+        if (!conv) return;
+        participants = conv.participants.map(String);
+        AppCache.set(cacheKey, participants, 60);
+      }
+
+      if (!participants.includes(user.id)) return;
       socket.join(`chat_${data.conversationId}`);
     });
 
@@ -43,8 +56,18 @@ export function registerChatSignaling(io: Server) {
     });
 
     socket.on('chat_message', async (data: ChatMessagePayload) => {
-      const conv = await Conversation.findById(data.conversationId);
-      if (!conv || data.senderId !== user.id) return;
+      // Validate participant from cache first, fall back to DB
+      const cacheKey = `conv:${data.conversationId}:participants`;
+      let participants = AppCache.get<string[]>(cacheKey);
+      if (!participants) {
+        const conv = await Conversation.findById(data.conversationId)
+          .select('participants').lean();
+        if (!conv) return;
+        participants = conv.participants.map(String);
+        AppCache.set(cacheKey, participants, 60);
+      }
+      if (!participants.includes(user.id)) return;
+      if (data.senderId !== user.id) return;
 
       const message = await Message.create({
         conversationId: data.conversationId,
@@ -54,9 +77,14 @@ export function registerChatSignaling(io: Server) {
         status: 'sent',
       });
 
-      conv.lastMessage = data.text;
-      conv.lastMessageAt = new Date();
-      await conv.save();
+      // Update conversation lastMessage without re-fetching the whole document
+      await Conversation.updateOne(
+        { _id: data.conversationId },
+        { $set: { lastMessage: data.text, lastMessageAt: new Date() } }
+      );
+
+      // Invalidate cached participants on message (in case conv was modified)
+      // Actually participants don't change on message, so keep cache intact
 
       io.to(`chat_${data.conversationId}`).emit('chat_message_received', {
         ...message.toObject(),

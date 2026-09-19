@@ -35,10 +35,12 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const auth_middleware_1 = require("../../core/middlewares/auth.middleware");
+const rate_limit_middleware_1 = require("../../core/middlewares/rate-limit.middleware");
 const gifts_controller_1 = require("./gifts.controller");
 const router = (0, express_1.Router)();
 // ── Public / authenticated ──────────────────────────────────────────────────
-router.get('/catalog', gifts_controller_1.getGiftCatalog);
+// Catalog is cached + high-traffic: use generous publicReadLimiter
+router.get('/catalog', rate_limit_middleware_1.publicReadLimiter, gifts_controller_1.getGiftCatalog);
 router.post('/send', auth_middleware_1.authenticateJWT, gifts_controller_1.sendGiftToHost);
 router.post('/purchase', auth_middleware_1.authenticateJWT, gifts_controller_1.purchaseGiftItem);
 // ── Admin-only gift management ───────────────────────────────────────────────

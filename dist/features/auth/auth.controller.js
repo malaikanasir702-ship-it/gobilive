@@ -45,6 +45,7 @@ const google_auth_service_1 = require("./google-auth.service");
 const registration_request_model_1 = require("../registration/registration-request.model");
 const agency_model_1 = require("../agency/agency.model");
 const email_service_1 = require("../../core/services/email.service");
+const cache_service_1 = require("../../core/services/cache.service");
 // Helpers to generate tokens
 const generateToken = (userId, username, tokenVersion = 0) => {
     return jsonwebtoken_1.default.sign({ id: userId, username, tokenVersion }, process.env.JWT_SECRET || 'super_secret_gobilive_token_key_123!', { expiresIn: '30d' } // Extended expiration for mobile devices
@@ -52,32 +53,43 @@ const generateToken = (userId, username, tokenVersion = 0) => {
 };
 const getSafeUser = async (userId) => {
     const user = await user_model_1.User.findById(userId).select('-passwordHash').lean({ virtuals: true });
-    // Real-time calculated social counts (Followers, Following, Friends)
+    // ── Social counts: use DB-cached fields for fast path ───────────────────
+    // countDocuments() on every profile load kills performance at 1000 users.
+    // The cached fields (followersCount, followingCount, friendsCount) are kept
+    // in sync by follow/unfollow operations. We only run a background re-sync
+    // when the cached value is stale (i.e. on first load or after a long gap).
     try {
         const { Follow } = await Promise.resolve().then(() => __importStar(require('./follow.model')));
         const uId = user._id.toString();
-        const [realFollowers, realFollowing] = await Promise.all([
-            Follow.countDocuments({ followingId: uId }),
-            Follow.countDocuments({ followerId: uId }),
-        ]);
-        const myFollowingDocs = await Follow.find({ followerId: uId }).select('followingId').lean();
-        const myFollowingIds = myFollowingDocs.map((f) => f.followingId);
-        let realFriends = 0;
-        if (myFollowingIds.length > 0) {
-            realFriends = await Follow.countDocuments({
-                followerId: { $in: myFollowingIds },
-                followingId: uId,
-            });
+        // Use cached counts directly — they are updated atomically on follow/unfollow
+        user.followersCount = user.followersCount ?? 0;
+        user.followingCount = user.followingCount ?? 0;
+        user.friendsCount = user.friendsCount ?? 0;
+        // Background re-sync (fire-and-forget, non-blocking) — runs at most once
+        // per 5 minutes per user so the cache heals without impacting request latency
+        const syncKey = `follow_sync:${uId}`;
+        if (!cache_service_1.AppCache.get(syncKey)) {
+            cache_service_1.AppCache.set(syncKey, true, 300); // 5-minute cooldown
+            Promise.all([
+                Follow.countDocuments({ followingId: uId }),
+                Follow.countDocuments({ followerId: uId }),
+            ]).then(async ([realFollowers, realFollowing]) => {
+                const myFollowingDocs = await Follow.find({ followerId: uId }).select('followingId').lean();
+                const myFollowingIds = myFollowingDocs.map((f) => f.followingId);
+                let realFriends = 0;
+                if (myFollowingIds.length > 0) {
+                    realFriends = await Follow.countDocuments({
+                        followerId: { $in: myFollowingIds },
+                        followingId: uId,
+                    });
+                }
+                user_model_1.User.findByIdAndUpdate(uId, {
+                    followersCount: realFollowers,
+                    followingCount: realFollowing,
+                    friendsCount: realFriends,
+                }).catch(() => { });
+            }).catch(() => { });
         }
-        user.followersCount = realFollowers;
-        user.followingCount = realFollowing;
-        user.friendsCount = realFriends;
-        // Self-heal DB cached fields if out of sync
-        user_model_1.User.findByIdAndUpdate(uId, {
-            followersCount: realFollowers,
-            followingCount: realFollowing,
-            friendsCount: realFriends,
-        }).catch(() => { });
     }
     catch (_) { }
     const rolesSet = new Set();

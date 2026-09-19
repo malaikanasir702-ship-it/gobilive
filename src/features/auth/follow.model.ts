@@ -15,5 +15,8 @@ const FollowSchema = new Schema<IFollow>(
 );
 
 FollowSchema.index({ followerId: 1, followingId: 1 }, { unique: true });
+// Individual indexes for countDocuments queries in background sync
+FollowSchema.index({ followerId: 1 }, { background: true });
+FollowSchema.index({ followingId: 1 }, { background: true });
 
 export const Follow = model<IFollow>('Follow', FollowSchema);

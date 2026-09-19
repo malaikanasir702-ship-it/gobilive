@@ -7,6 +7,12 @@ const WithdrawalRequestSchema = new mongoose_1.Schema({
     hostName: { type: String, required: true },
     agencyId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Agency', sparse: true },
     superAdminId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', sparse: true },
+    // Bank / payout details
+    payoutMethod: { type: String },
+    payoutDetails: { type: String },
+    bankName: { type: String },
+    bankAccountNumber: { type: String },
+    accountHolderName: { type: String },
     diamondsRequested: { type: Number, required: true, min: 1 },
     grossAmountInUsd: { type: Number, default: 0 },
     withdrawalChargePercent: { type: Number, default: 0 },

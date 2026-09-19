@@ -4,6 +4,7 @@ import { WithdrawalRequest } from '../withdrawal/withdrawal-request.model';
 import { logActivity } from '../activity-log/activity-log.service';
 import WalletTransaction from '../wallet/wallet.transaction.model';
 import { User } from '../auth/user.model';
+import { sendToUser } from '../notifications/notification.service';
 
 export async function listWithdrawals(req: Request, res: Response) {
   try {
@@ -71,6 +72,13 @@ export async function approveWithdrawal(req: Request, res: Response) {
       description: `Approved withdrawal of ${doc.diamondsRequested} diamonds for ${doc.hostName}`,
     });
 
+    // Notify host
+    sendToUser(String(doc.hostId), {
+      title: '✅ Withdrawal Approved',
+      body: `Your withdrawal of ${doc.diamondsRequested} 💎 (${doc.amountInLocalCurrency} ${doc.currencyCode}) has been approved and will be processed soon.`,
+      data: { type: 'withdrawal_approved', withdrawalId: id },
+    }).catch(() => {});
+
     res.json({ success: true, data: doc });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
@@ -102,6 +110,13 @@ export async function rejectWithdrawal(req: Request, res: Response) {
       actionType: 'reject_withdrawal', targetEntityType: 'WithdrawalRequest', targetEntityId: id,
       description: `Rejected withdrawal for ${doc.hostName}. Reason: ${reason || 'N/A'}`,
     });
+
+    // Notify host — diamonds restored
+    sendToUser(String(doc.hostId), {
+      title: '❌ Withdrawal Rejected',
+      body: `Your withdrawal of ${doc.diamondsRequested} 💎 was rejected. ${reason ? `Reason: ${reason}` : ''} Your diamonds have been returned.`,
+      data: { type: 'withdrawal_rejected', withdrawalId: id },
+    }).catch(() => {});
 
     res.json({ success: true, data: doc });
   } catch (err: any) {
@@ -163,6 +178,13 @@ export async function markWithdrawalDone(req: Request, res: Response) {
       description: `Completed withdrawal of ${withdrawal.diamondsRequested} diamonds for ${withdrawal.hostName}`,
       metadata: { slipUrl },
     });
+
+    // Notify host — payout done
+    sendToUser(String(withdrawal.hostId), {
+      title: '💰 Payout Sent!',
+      body: `Your withdrawal of ${withdrawal.amountInLocalCurrency} ${withdrawal.currencyCode} has been sent to your bank. Transfer slip uploaded.`,
+      data: { type: 'withdrawal_done', withdrawalId: id, slipUrl: slipUrl ?? '' },
+    }).catch(() => {});
 
     res.json({ success: true, data: withdrawal });
   } catch (err: any) {
