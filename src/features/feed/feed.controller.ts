@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { Types } from 'mongoose';
 import { Post } from './post.model';
 import { Comment } from './comment.model';
+import { CommentLike } from './comment_like.model';
 import { PostLike } from './post_like.model';
 import { PostSave } from './post_save.model';
 import { User } from '../auth/user.model';
@@ -271,7 +272,11 @@ export const likePost = async (req: AuthRequest, res: Response): Promise<void> =
 // GET /feed/:id/comments
 export const getComments = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const comments = await Comment.find({ postId: new Types.ObjectId(req.params.id as string) })
+    // Only fetch top-level comments (no parentCommentId)
+    const comments = await Comment.find({
+      postId: new Types.ObjectId(req.params.id as string),
+      parentCommentId: null,
+    })
       .sort({ createdAt: -1 })
       .limit(50)
       .populate('userId', 'profilePic username activeFrameId')
@@ -299,10 +304,30 @@ export const getComments = async (req: AuthRequest, res: Response): Promise<void
           } catch (_) { /* non-critical — frame data optional */ }
         }
       }
+      // Attach reply count
+      c.repliesCount = await Comment.countDocuments({ parentCommentId: c._id ?? comment._id });
       return c;
     }));
 
-    res.status(200).json({ success: true, comments: enrichedComments });
+    // Attach current user's reactions if authenticated
+    let reactionMap: Record<string, string> = {};
+    if (req.user && enrichedComments.length > 0) {
+      const commentIds = enrichedComments.map((c: any) => c._id);
+      const reactions = await CommentLike.find({
+        commentId: { $in: commentIds },
+        userId: new Types.ObjectId(req.user.id),
+      }).select('commentId reaction').lean();
+      for (const r of reactions) {
+        reactionMap[r.commentId.toString()] = r.reaction;
+      }
+    }
+
+    const final = enrichedComments.map((c: any) => ({
+      ...c,
+      myReaction: reactionMap[String(c._id)] ?? null,
+    }));
+
+    res.status(200).json({ success: true, comments: final });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -364,7 +389,11 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
       text,
     });
 
-    await Post.findByIdAndUpdate(new Types.ObjectId(req.params.id as string), { $inc: { commentsCount: 1 } });
+    const updatedPost = await Post.findByIdAndUpdate(
+      new Types.ObjectId(req.params.id as string),
+      { $inc: { commentsCount: 1 } },
+      { new: true }
+    ).select('commentsCount').lean();
 
     // Resolve commenter's active frame for the response
     let activeFrameUrl = '';
@@ -380,8 +409,6 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
         }
       } catch (_) {}
     }
-
-    await Post.findByIdAndUpdate(new Types.ObjectId(req.params.id as string), { $inc: { commentsCount: 1 } });
 
     // ── Notify post owner (skip self-comments) ──
     const parentPost = await Post.findById(req.params.id).select('userId').lean();
@@ -424,6 +451,7 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
 
     res.status(201).json({
       success: true,
+      commentsCount: (updatedPost as any)?.commentsCount ?? 0,
       comment: {
         ...((comment as any).toObject?.() ?? comment),
         activeFrameUrl,
@@ -828,3 +856,157 @@ export const unpinPost = async (req: AuthRequest, res: Response): Promise<void> 
   }
 };
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /feed/:id/comments/:commentId/react  — like or dislike a comment
+// body: { reaction: 'like' | 'dislike' }
+// ─────────────────────────────────────────────────────────────────────────────
+export const reactToComment = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+
+    const { commentId } = req.params;
+    const { reaction } = req.body as { reaction?: string };
+    if (reaction !== 'like' && reaction !== 'dislike') {
+      res.status(400).json({ success: false, message: "reaction must be 'like' or 'dislike'" });
+      return;
+    }
+
+    const commentObjId  = new Types.ObjectId(commentId as string);
+    const userObjId     = new Types.ObjectId(req.user.id);
+
+    const comment = await Comment.findById(commentObjId);
+    if (!comment) { res.status(404).json({ success: false, message: 'Comment not found' }); return; }
+
+    const existing = await CommentLike.findOne({ commentId: commentObjId, userId: userObjId });
+
+    if (existing) {
+      if (existing.reaction === reaction) {
+        // Toggle off — remove the reaction
+        await CommentLike.deleteOne({ _id: existing._id });
+        const field = reaction === 'like' ? 'likesCount' : 'dislikesCount';
+        await Comment.findByIdAndUpdate(commentObjId, { $inc: { [field]: -1 } });
+        const updated = await Comment.findById(commentObjId).select('likesCount dislikesCount').lean();
+        res.status(200).json({ success: true, reaction: null, ...updated });
+      } else {
+        // Switch reaction
+        const oldField = existing.reaction === 'like' ? 'likesCount' : 'dislikesCount';
+        const newField = reaction === 'like' ? 'likesCount' : 'dislikesCount';
+        existing.reaction = reaction;
+        await existing.save();
+        await Comment.findByIdAndUpdate(commentObjId, {
+          $inc: { [oldField]: -1, [newField]: 1 },
+        });
+        const updated = await Comment.findById(commentObjId).select('likesCount dislikesCount').lean();
+        res.status(200).json({ success: true, reaction, ...updated });
+      }
+    } else {
+      // New reaction
+      await CommentLike.create({ commentId: commentObjId, userId: userObjId, reaction });
+      const field = reaction === 'like' ? 'likesCount' : 'dislikesCount';
+      await Comment.findByIdAndUpdate(commentObjId, { $inc: { [field]: 1 } });
+      const updated = await Comment.findById(commentObjId).select('likesCount dislikesCount').lean();
+      res.status(200).json({ success: true, reaction, ...updated });
+    }
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /feed/:id/comments/:commentId/replies  — reply to a comment
+// body: { text: string }
+// ─────────────────────────────────────────────────────────────────────────────
+export const replyToComment = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+
+    const { text } = req.body;
+    if (!text) { res.status(400).json({ success: false, message: 'text is required' }); return; }
+
+    const { commentId } = req.params;
+    const parent = await Comment.findById(commentId);
+    if (!parent) { res.status(404).json({ success: false, message: 'Parent comment not found' }); return; }
+
+    const user = await User.findById(req.user.id).select('username profilePic activeFrameId');
+    if (!user) { res.status(404).json({ success: false, message: 'User not found' }); return; }
+
+    const reply = await Comment.create({
+      postId:          parent.postId,
+      userId:          new Types.ObjectId(req.user.id),
+      username:        user.username,
+      userProfilePic:  user.profilePic,
+      text,
+      parentCommentId: parent._id,
+    });
+
+    // Increment the post's commentsCount for replies too
+    await Post.findByIdAndUpdate(parent.postId, { $inc: { commentsCount: 1 } });
+
+    // Resolve active frame
+    let activeFrameUrl = '';
+    let activeFrameScale = 0.60;
+    const activeFrameId = (user as any).activeFrameId;
+    if (activeFrameId) {
+      try {
+        const { Frame } = await import('../frames/frame.model');
+        const frame = await Frame.findById(activeFrameId).select('imageUrl avatarScale').lean();
+        if (frame) {
+          activeFrameUrl = (frame as any).imageUrl ?? '';
+          activeFrameScale = (frame as any).avatarScale ?? 0.60;
+        }
+      } catch (_) {}
+    }
+
+    res.status(201).json({
+      success: true,
+      reply: {
+        ...((reply as any).toObject?.() ?? reply),
+        activeFrameUrl,
+        activeFrameScale,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /feed/:id/comments/:commentId/replies  — fetch replies for a comment
+// ─────────────────────────────────────────────────────────────────────────────
+export const getReplies = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { commentId } = req.params;
+    const page  = parseInt(req.query.page  as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const skip  = (page - 1) * limit;
+
+    const replies = await Comment.find({ parentCommentId: new Types.ObjectId(commentId as string) })
+      .sort({ createdAt: 1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    // Attach user's reactions if authenticated
+    let reactionMap: Record<string, string> = {};
+    if (req.user) {
+      const replyIds = replies.map((r: any) => r._id);
+      const reactions = await CommentLike.find({
+        commentId: { $in: replyIds },
+        userId: new Types.ObjectId(req.user.id),
+      }).select('commentId reaction').lean();
+      for (const r of reactions) {
+        reactionMap[r.commentId.toString()] = r.reaction;
+      }
+    }
+
+    const enriched = replies.map((r: any) => ({
+      ...r,
+      myReaction: reactionMap[r._id.toString()] ?? null,
+    }));
+
+    res.status(200).json({ success: true, replies: enriched });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
