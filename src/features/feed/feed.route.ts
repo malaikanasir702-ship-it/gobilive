@@ -28,6 +28,13 @@ import {
   markNotInterested,
   getPromotionPackages,
   promotePost,
+  getAdminPromotionPackages,
+  createAdminPromotionPackage,
+  updateAdminPromotionPackage,
+  deleteAdminPromotionPackage,
+  getAdminPromotionCampaigns,
+  updateAdminCampaignStatus,
+  getAdminPromotionStats,
 } from './feed.controller';
 import { downloadWithWatermark } from './feed.download.controller';
 import { authenticateJWT } from '../../core/middlewares/auth.middleware';
@@ -39,6 +46,16 @@ router.get('/public',           getPublicFeed        as any);
 router.get('/archived',        authenticateJWT as any, getArchivedPosts    as any);
 router.get('/saved',           authenticateJWT as any, getSavedPosts       as any);
 router.get('/promote/packages', authenticateJWT as any, getPromotionPackages as any);
+router.get('/promotion-packages', authenticateJWT as any, getPromotionPackages as any);
+
+// Company Admin Promotion Management
+router.get('/admin/promotions/packages',         authenticateJWT as any, getAdminPromotionPackages as any);
+router.post('/admin/promotions/packages',        authenticateJWT as any, createAdminPromotionPackage as any);
+router.put('/admin/promotions/packages/:id',     authenticateJWT as any, updateAdminPromotionPackage as any);
+router.delete('/admin/promotions/packages/:id',  authenticateJWT as any, deleteAdminPromotionPackage as any);
+router.get('/admin/promotions/campaigns',        authenticateJWT as any, getAdminPromotionCampaigns as any);
+router.patch('/admin/promotions/campaigns/:id/status', authenticateJWT as any, updateAdminCampaignStatus as any);
+router.get('/admin/promotions/stats',            authenticateJWT as any, getAdminPromotionStats as any);
 
 // Feed CRUD
 router.get('/',                authenticateJWT as any, getFeed             as any);

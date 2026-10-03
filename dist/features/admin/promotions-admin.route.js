@@ -1,0 +1,16 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const feed_controller_1 = require("../feed/feed.controller");
+const rbac_middleware_1 = require("../../core/middlewares/rbac.middleware");
+const router = (0, express_1.Router)();
+router.use(rbac_middleware_1.authenticateAdminPanel);
+const GUARD = (0, rbac_middleware_1.requireRoles)('company_admin');
+router.get('/stats', GUARD, feed_controller_1.getAdminPromotionStats);
+router.get('/packages', GUARD, feed_controller_1.getAdminPromotionPackages);
+router.post('/packages', GUARD, feed_controller_1.createAdminPromotionPackage);
+router.put('/packages/:id', GUARD, feed_controller_1.updateAdminPromotionPackage);
+router.delete('/packages/:id', GUARD, feed_controller_1.deleteAdminPromotionPackage);
+router.get('/campaigns', GUARD, feed_controller_1.getAdminPromotionCampaigns);
+router.patch('/campaigns/:id/status', GUARD, feed_controller_1.updateAdminCampaignStatus);
+exports.default = router;

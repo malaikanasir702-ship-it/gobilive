@@ -10,6 +10,15 @@ router.get('/public', feed_controller_1.getPublicFeed);
 router.get('/archived', auth_middleware_1.authenticateJWT, feed_controller_1.getArchivedPosts);
 router.get('/saved', auth_middleware_1.authenticateJWT, feed_controller_1.getSavedPosts);
 router.get('/promote/packages', auth_middleware_1.authenticateJWT, feed_controller_1.getPromotionPackages);
+router.get('/promotion-packages', auth_middleware_1.authenticateJWT, feed_controller_1.getPromotionPackages);
+// Company Admin Promotion Management
+router.get('/admin/promotions/packages', auth_middleware_1.authenticateJWT, feed_controller_1.getAdminPromotionPackages);
+router.post('/admin/promotions/packages', auth_middleware_1.authenticateJWT, feed_controller_1.createAdminPromotionPackage);
+router.put('/admin/promotions/packages/:id', auth_middleware_1.authenticateJWT, feed_controller_1.updateAdminPromotionPackage);
+router.delete('/admin/promotions/packages/:id', auth_middleware_1.authenticateJWT, feed_controller_1.deleteAdminPromotionPackage);
+router.get('/admin/promotions/campaigns', auth_middleware_1.authenticateJWT, feed_controller_1.getAdminPromotionCampaigns);
+router.patch('/admin/promotions/campaigns/:id/status', auth_middleware_1.authenticateJWT, feed_controller_1.updateAdminCampaignStatus);
+router.get('/admin/promotions/stats', auth_middleware_1.authenticateJWT, feed_controller_1.getAdminPromotionStats);
 // Feed CRUD
 router.get('/', auth_middleware_1.authenticateJWT, feed_controller_1.getFeed);
 router.post('/', auth_middleware_1.authenticateJWT, feed_controller_1.createPost);

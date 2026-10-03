@@ -27,3 +27,36 @@ const PromotionCampaignSchema = new Schema<IPromotionCampaign>(
 PromotionCampaignSchema.index({ status: 1, postId: 1 });
 
 export const PromotionCampaign = model<IPromotionCampaign>('PromotionCampaign', PromotionCampaignSchema);
+
+export interface IPromotionPackage extends Document {
+  name: string;
+  goal: 'views' | 'followers' | 'visits';
+  beansCost: number;
+  estimatedReach: number;
+  durationDays: number;
+  badgeText?: string;
+  description?: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const PromotionPackageSchema = new Schema<IPromotionPackage>(
+  {
+    name: { type: String, required: true },
+    goal: { type: String, enum: ['views', 'followers', 'visits'], default: 'views' },
+    beansCost: { type: Number, required: true },
+    estimatedReach: { type: Number, required: true },
+    durationDays: { type: Number, default: 1 },
+    badgeText: { type: String, default: '' },
+    description: { type: String, default: '' },
+    isActive: { type: Boolean, default: true },
+    sortOrder: { type: Number, default: 0 },
+  },
+  { timestamps: true }
+);
+
+PromotionPackageSchema.index({ isActive: 1, sortOrder: 1 });
+
+export const PromotionPackage = model<IPromotionPackage>('PromotionPackage', PromotionPackageSchema);

@@ -10,7 +10,7 @@ import { Follow } from '../auth/follow.model';
 import { AuthRequest } from '../../core/middlewares/auth.middleware';
 import { createAndSend, NotificationTriggers } from '../notifications/notification.service';
 import { createActivity, removeActivity } from '../activity/activity.service';
-import { PromotionCampaign } from './promotion.model';
+import { PromotionCampaign, PromotionPackage } from './promotion.model';
 
 // GET /feed?page=1&limit=10&userId=xxx&likedBy=xxx
 export const getFeed = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -1272,17 +1272,77 @@ export const markNotInterested = async (req: AuthRequest, res: Response): Promis
   }
 };
 
-// ── Promotion Packages Endpoint ──────────────────────────────────────────────
+// ── Promotion Packages Endpoint (User / App) ──────────────────────────────────
 export const getPromotionPackages = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const user = req.user ? await User.findById(req.user.id).select('beanWallet').lean() as any : null;
     const currentBeans = user?.beanWallet ?? 0;
 
-    const packages = [
-      { id: 'pkg_100', beans: 100, views: 1000, label: 'Starter Boost', description: '~ 1,000 views' },
-      { id: 'pkg_500', beans: 500, views: 6000, label: 'Popular Boost', description: '~ 6,000 views' },
-      { id: 'pkg_1000', beans: 1000, views: 15000, label: 'Superstar Boost', description: '~ 15,000 views' },
-    ];
+    // Auto-seed default packages if none exist yet in DB
+    const count = await PromotionPackage.countDocuments();
+    if (count === 0) {
+      await PromotionPackage.insertMany([
+        {
+          name: 'Starter Boost',
+          goal: 'views',
+          beansCost: 100,
+          estimatedReach: 1000,
+          durationDays: 1,
+          badgeText: 'Quick Test',
+          description: '~ 1,000 targeted views in 24 hours',
+          isActive: true,
+          sortOrder: 1,
+        },
+        {
+          name: 'Growing Creator',
+          goal: 'views',
+          beansCost: 300,
+          estimatedReach: 3500,
+          durationDays: 2,
+          badgeText: 'Trending',
+          description: '~ 3,500 targeted views in 48 hours',
+          isActive: true,
+          sortOrder: 2,
+        },
+        {
+          name: 'Popular Boost',
+          goal: 'views',
+          beansCost: 500,
+          estimatedReach: 6000,
+          durationDays: 3,
+          badgeText: 'Most Popular',
+          description: '~ 6,000 views + algorithm priority feed',
+          isActive: true,
+          sortOrder: 3,
+        },
+        {
+          name: 'Superstar Boost',
+          goal: 'views',
+          beansCost: 1000,
+          estimatedReach: 15000,
+          durationDays: 5,
+          badgeText: 'Best Value',
+          description: '~ 15,000 high-engagement video views',
+          isActive: true,
+          sortOrder: 4,
+        },
+        {
+          name: 'Viral Mega Boost',
+          goal: 'views',
+          beansCost: 2500,
+          estimatedReach: 40000,
+          durationDays: 7,
+          badgeText: 'VIP Spotlight',
+          description: '~ 40,000 views + top trending feed recommendation',
+          isActive: true,
+          sortOrder: 5,
+        },
+      ]);
+    }
+
+    const packages = await PromotionPackage.find({ isActive: true })
+      .sort({ sortOrder: 1, beansCost: 1 })
+      .lean();
 
     res.status(200).json({
       success: true,
@@ -1302,8 +1362,26 @@ export const promotePost = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
     const { id } = req.params;
-    const { goal = 'views', beans = 500 } = req.body;
-    const beansCost = Number(beans) || 500;
+    const { packageId, goal = 'views', beans = 500 } = req.body;
+
+    let beansCost = Number(beans) || 500;
+    let targetCount = beansCost * 10;
+    let selectedGoal = goal;
+
+    if (packageId) {
+      const pkg = await PromotionPackage.findById(packageId);
+      if (pkg) {
+        beansCost = pkg.beansCost;
+        targetCount = pkg.estimatedReach;
+        selectedGoal = pkg.goal;
+      }
+    } else {
+      if (beansCost >= 2500) targetCount = 40000;
+      else if (beansCost >= 1000) targetCount = 15000;
+      else if (beansCost >= 500) targetCount = 6000;
+      else if (beansCost >= 300) targetCount = 3500;
+      else targetCount = 1000;
+    }
 
     const user = await User.findById(req.user.id);
     if (!user || ((user as any).beanWallet ?? 0) < beansCost) {
@@ -1324,16 +1402,10 @@ export const promotePost = async (req: AuthRequest, res: Response): Promise<void
     (user as any).beanWallet = ((user as any).beanWallet ?? 0) - beansCost;
     await user.save();
 
-    // Map beans to target views
-    let targetCount = beansCost * 10;
-    if (beansCost >= 1000) targetCount = 15000;
-    else if (beansCost >= 500) targetCount = 6000;
-    else targetCount = 1000;
-
     const campaign = await PromotionCampaign.create({
       promoterId: req.user.id,
       postId: post._id,
-      goal,
+      goal: selectedGoal,
       beansCost,
       targetCount,
       deliveredCount: 0,
@@ -1341,7 +1413,7 @@ export const promotePost = async (req: AuthRequest, res: Response): Promise<void
     });
 
     post.isPromoted = true;
-    post.promotionBoost = (post.promotionBoost || 0) + 10;
+    post.promotionBoost = (post.promotionBoost || 0) + 15;
     await post.save();
 
     res.status(200).json({
@@ -1349,6 +1421,164 @@ export const promotePost = async (req: AuthRequest, res: Response): Promise<void
       message: 'Video promotion campaign activated successfully!',
       campaign,
       remainingBeans: (user as any).beanWallet,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ── Company Admin Promotion Endpoints ─────────────────────────────────────────
+
+// GET /api/feed/admin/promotions/packages
+export const getAdminPromotionPackages = async (_req: any, res: Response): Promise<void> => {
+  try {
+    const packages = await PromotionPackage.find().sort({ sortOrder: 1, beansCost: 1 }).lean();
+    res.status(200).json({ success: true, packages });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/feed/admin/promotions/packages
+export const createAdminPromotionPackage = async (req: any, res: Response): Promise<void> => {
+  try {
+    const { name, goal, beansCost, estimatedReach, durationDays, badgeText, description, isActive, sortOrder } = req.body;
+    if (!name || beansCost == null || estimatedReach == null) {
+      res.status(400).json({ success: false, message: 'name, beansCost, and estimatedReach are required.' });
+      return;
+    }
+    const pkg = await PromotionPackage.create({
+      name,
+      goal: goal || 'views',
+      beansCost: Number(beansCost),
+      estimatedReach: Number(estimatedReach),
+      durationDays: Number(durationDays) || 1,
+      badgeText: badgeText || '',
+      description: description || '',
+      isActive: isActive !== false,
+      sortOrder: Number(sortOrder) || 0,
+    });
+    res.status(201).json({ success: true, package: pkg });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PUT /api/feed/admin/promotions/packages/:id
+export const updateAdminPromotionPackage = async (req: any, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const pkg = await PromotionPackage.findByIdAndUpdate(id, { $set: req.body }, { new: true });
+    if (!pkg) {
+      res.status(404).json({ success: false, message: 'Promotion package not found.' });
+      return;
+    }
+    res.status(200).json({ success: true, package: pkg });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// DELETE /api/feed/admin/promotions/packages/:id
+export const deleteAdminPromotionPackage = async (req: any, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    await PromotionPackage.findByIdAndDelete(id);
+    res.status(200).json({ success: true, message: 'Promotion package deleted successfully.' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/feed/admin/promotions/campaigns
+export const getAdminPromotionCampaigns = async (req: any, res: Response): Promise<void> => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const skip = (page - 1) * limit;
+
+    const filter: any = {};
+    if (req.query.status && req.query.status !== 'all') {
+      filter.status = req.query.status;
+    }
+
+    const [campaigns, total] = await Promise.all([
+      PromotionCampaign.find(filter)
+        .populate('promoterId', 'username displayName profilePic email')
+        .populate('postId', 'caption videoUrl thumbnailUrl viewsCount likesCount isPromoted')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      PromotionCampaign.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      campaigns,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PATCH /api/feed/admin/promotions/campaigns/:id/status
+export const updateAdminCampaignStatus = async (req: any, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!['active', 'paused', 'completed'].includes(status)) {
+      res.status(400).json({ success: false, message: 'Invalid status value.' });
+      return;
+    }
+    const campaign = await PromotionCampaign.findByIdAndUpdate(id, { $set: { status } }, { new: true });
+    if (!campaign) {
+      res.status(404).json({ success: false, message: 'Campaign not found.' });
+      return;
+    }
+    res.status(200).json({ success: true, campaign });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/feed/admin/promotions/stats
+export const getAdminPromotionStats = async (_req: any, res: Response): Promise<void> => {
+  try {
+    const [totalCampaigns, activeCampaigns, aggregates, totalPackages] = await Promise.all([
+      PromotionCampaign.countDocuments(),
+      PromotionCampaign.countDocuments({ status: 'active' }),
+      PromotionCampaign.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalBeansSpent: { $sum: '$beansCost' },
+            totalDeliveredViews: { $sum: '$deliveredCount' },
+            totalTargetReach: { $sum: '$targetCount' },
+          },
+        },
+      ]),
+      PromotionPackage.countDocuments({ isActive: true }),
+    ]);
+
+    const agg = aggregates[0] || { totalBeansSpent: 0, totalDeliveredViews: 0, totalTargetReach: 0 };
+
+    res.status(200).json({
+      success: true,
+      stats: {
+        totalCampaigns,
+        activeCampaigns,
+        totalBeansSpent: agg.totalBeansSpent,
+        totalDeliveredViews: agg.totalDeliveredViews,
+        totalTargetReach: agg.totalTargetReach,
+        totalPackages,
+      },
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

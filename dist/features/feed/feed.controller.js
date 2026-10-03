@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.promotePost = exports.getPromotionPackages = exports.markNotInterested = exports.deleteRepost = exports.getReposts = exports.getReplies = exports.replyToComment = exports.reactToComment = exports.unpinPost = exports.pinPost = exports.repostPost = exports.getPublicFeed = exports.appealPost = exports.reportPost = exports.getSavedPosts = exports.savePost = exports.getArchivedPosts = exports.editPost = exports.restorePost = exports.archivePost = exports.deletePost = exports.addComment = exports.viewPost = exports.sharePost = exports.getComments = exports.likePost = exports.createPost = exports.getFeed = void 0;
+exports.getAdminPromotionStats = exports.updateAdminCampaignStatus = exports.getAdminPromotionCampaigns = exports.deleteAdminPromotionPackage = exports.updateAdminPromotionPackage = exports.createAdminPromotionPackage = exports.getAdminPromotionPackages = exports.promotePost = exports.getPromotionPackages = exports.markNotInterested = exports.deleteRepost = exports.getReposts = exports.getReplies = exports.replyToComment = exports.reactToComment = exports.unpinPost = exports.pinPost = exports.repostPost = exports.getPublicFeed = exports.appealPost = exports.reportPost = exports.getSavedPosts = exports.savePost = exports.getArchivedPosts = exports.editPost = exports.restorePost = exports.archivePost = exports.deletePost = exports.addComment = exports.viewPost = exports.sharePost = exports.getComments = exports.likePost = exports.createPost = exports.getFeed = void 0;
 const mongoose_1 = require("mongoose");
 const post_model_1 = require("./post.model");
 const comment_model_1 = require("./comment.model");
@@ -1286,16 +1286,75 @@ const markNotInterested = async (req, res) => {
     }
 };
 exports.markNotInterested = markNotInterested;
-// ── Promotion Packages Endpoint ──────────────────────────────────────────────
+// ── Promotion Packages Endpoint (User / App) ──────────────────────────────────
 const getPromotionPackages = async (req, res) => {
     try {
         const user = req.user ? await user_model_1.User.findById(req.user.id).select('beanWallet').lean() : null;
         const currentBeans = user?.beanWallet ?? 0;
-        const packages = [
-            { id: 'pkg_100', beans: 100, views: 1000, label: 'Starter Boost', description: '~ 1,000 views' },
-            { id: 'pkg_500', beans: 500, views: 6000, label: 'Popular Boost', description: '~ 6,000 views' },
-            { id: 'pkg_1000', beans: 1000, views: 15000, label: 'Superstar Boost', description: '~ 15,000 views' },
-        ];
+        // Auto-seed default packages if none exist yet in DB
+        const count = await promotion_model_1.PromotionPackage.countDocuments();
+        if (count === 0) {
+            await promotion_model_1.PromotionPackage.insertMany([
+                {
+                    name: 'Starter Boost',
+                    goal: 'views',
+                    beansCost: 100,
+                    estimatedReach: 1000,
+                    durationDays: 1,
+                    badgeText: 'Quick Test',
+                    description: '~ 1,000 targeted views in 24 hours',
+                    isActive: true,
+                    sortOrder: 1,
+                },
+                {
+                    name: 'Growing Creator',
+                    goal: 'views',
+                    beansCost: 300,
+                    estimatedReach: 3500,
+                    durationDays: 2,
+                    badgeText: 'Trending',
+                    description: '~ 3,500 targeted views in 48 hours',
+                    isActive: true,
+                    sortOrder: 2,
+                },
+                {
+                    name: 'Popular Boost',
+                    goal: 'views',
+                    beansCost: 500,
+                    estimatedReach: 6000,
+                    durationDays: 3,
+                    badgeText: 'Most Popular',
+                    description: '~ 6,000 views + algorithm priority feed',
+                    isActive: true,
+                    sortOrder: 3,
+                },
+                {
+                    name: 'Superstar Boost',
+                    goal: 'views',
+                    beansCost: 1000,
+                    estimatedReach: 15000,
+                    durationDays: 5,
+                    badgeText: 'Best Value',
+                    description: '~ 15,000 high-engagement video views',
+                    isActive: true,
+                    sortOrder: 4,
+                },
+                {
+                    name: 'Viral Mega Boost',
+                    goal: 'views',
+                    beansCost: 2500,
+                    estimatedReach: 40000,
+                    durationDays: 7,
+                    badgeText: 'VIP Spotlight',
+                    description: '~ 40,000 views + top trending feed recommendation',
+                    isActive: true,
+                    sortOrder: 5,
+                },
+            ]);
+        }
+        const packages = await promotion_model_1.PromotionPackage.find({ isActive: true })
+            .sort({ sortOrder: 1, beansCost: 1 })
+            .lean();
         res.status(200).json({
             success: true,
             currentBeans,
@@ -1315,8 +1374,30 @@ const promotePost = async (req, res) => {
             return;
         }
         const { id } = req.params;
-        const { goal = 'views', beans = 500 } = req.body;
-        const beansCost = Number(beans) || 500;
+        const { packageId, goal = 'views', beans = 500 } = req.body;
+        let beansCost = Number(beans) || 500;
+        let targetCount = beansCost * 10;
+        let selectedGoal = goal;
+        if (packageId) {
+            const pkg = await promotion_model_1.PromotionPackage.findById(packageId);
+            if (pkg) {
+                beansCost = pkg.beansCost;
+                targetCount = pkg.estimatedReach;
+                selectedGoal = pkg.goal;
+            }
+        }
+        else {
+            if (beansCost >= 2500)
+                targetCount = 40000;
+            else if (beansCost >= 1000)
+                targetCount = 15000;
+            else if (beansCost >= 500)
+                targetCount = 6000;
+            else if (beansCost >= 300)
+                targetCount = 3500;
+            else
+                targetCount = 1000;
+        }
         const user = await user_model_1.User.findById(req.user.id);
         if (!user || (user.beanWallet ?? 0) < beansCost) {
             res.status(400).json({
@@ -1333,25 +1414,17 @@ const promotePost = async (req, res) => {
         // Deduct beans from user beanWallet
         user.beanWallet = (user.beanWallet ?? 0) - beansCost;
         await user.save();
-        // Map beans to target views
-        let targetCount = beansCost * 10;
-        if (beansCost >= 1000)
-            targetCount = 15000;
-        else if (beansCost >= 500)
-            targetCount = 6000;
-        else
-            targetCount = 1000;
         const campaign = await promotion_model_1.PromotionCampaign.create({
             promoterId: req.user.id,
             postId: post._id,
-            goal,
+            goal: selectedGoal,
             beansCost,
             targetCount,
             deliveredCount: 0,
             status: 'active',
         });
         post.isPromoted = true;
-        post.promotionBoost = (post.promotionBoost || 0) + 10;
+        post.promotionBoost = (post.promotionBoost || 0) + 15;
         await post.save();
         res.status(200).json({
             success: true,
@@ -1365,3 +1438,162 @@ const promotePost = async (req, res) => {
     }
 };
 exports.promotePost = promotePost;
+// ── Company Admin Promotion Endpoints ─────────────────────────────────────────
+// GET /api/feed/admin/promotions/packages
+const getAdminPromotionPackages = async (_req, res) => {
+    try {
+        const packages = await promotion_model_1.PromotionPackage.find().sort({ sortOrder: 1, beansCost: 1 }).lean();
+        res.status(200).json({ success: true, packages });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.getAdminPromotionPackages = getAdminPromotionPackages;
+// POST /api/feed/admin/promotions/packages
+const createAdminPromotionPackage = async (req, res) => {
+    try {
+        const { name, goal, beansCost, estimatedReach, durationDays, badgeText, description, isActive, sortOrder } = req.body;
+        if (!name || beansCost == null || estimatedReach == null) {
+            res.status(400).json({ success: false, message: 'name, beansCost, and estimatedReach are required.' });
+            return;
+        }
+        const pkg = await promotion_model_1.PromotionPackage.create({
+            name,
+            goal: goal || 'views',
+            beansCost: Number(beansCost),
+            estimatedReach: Number(estimatedReach),
+            durationDays: Number(durationDays) || 1,
+            badgeText: badgeText || '',
+            description: description || '',
+            isActive: isActive !== false,
+            sortOrder: Number(sortOrder) || 0,
+        });
+        res.status(201).json({ success: true, package: pkg });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.createAdminPromotionPackage = createAdminPromotionPackage;
+// PUT /api/feed/admin/promotions/packages/:id
+const updateAdminPromotionPackage = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const pkg = await promotion_model_1.PromotionPackage.findByIdAndUpdate(id, { $set: req.body }, { new: true });
+        if (!pkg) {
+            res.status(404).json({ success: false, message: 'Promotion package not found.' });
+            return;
+        }
+        res.status(200).json({ success: true, package: pkg });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.updateAdminPromotionPackage = updateAdminPromotionPackage;
+// DELETE /api/feed/admin/promotions/packages/:id
+const deleteAdminPromotionPackage = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await promotion_model_1.PromotionPackage.findByIdAndDelete(id);
+        res.status(200).json({ success: true, message: 'Promotion package deleted successfully.' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.deleteAdminPromotionPackage = deleteAdminPromotionPackage;
+// GET /api/feed/admin/promotions/campaigns
+const getAdminPromotionCampaigns = async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
+        const filter = {};
+        if (req.query.status && req.query.status !== 'all') {
+            filter.status = req.query.status;
+        }
+        const [campaigns, total] = await Promise.all([
+            promotion_model_1.PromotionCampaign.find(filter)
+                .populate('promoterId', 'username displayName profilePic email')
+                .populate('postId', 'caption videoUrl thumbnailUrl viewsCount likesCount isPromoted')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            promotion_model_1.PromotionCampaign.countDocuments(filter),
+        ]);
+        res.status(200).json({
+            success: true,
+            campaigns,
+            pagination: {
+                page,
+                limit,
+                total,
+                pages: Math.ceil(total / limit),
+            },
+        });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.getAdminPromotionCampaigns = getAdminPromotionCampaigns;
+// PATCH /api/feed/admin/promotions/campaigns/:id/status
+const updateAdminCampaignStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        if (!['active', 'paused', 'completed'].includes(status)) {
+            res.status(400).json({ success: false, message: 'Invalid status value.' });
+            return;
+        }
+        const campaign = await promotion_model_1.PromotionCampaign.findByIdAndUpdate(id, { $set: { status } }, { new: true });
+        if (!campaign) {
+            res.status(404).json({ success: false, message: 'Campaign not found.' });
+            return;
+        }
+        res.status(200).json({ success: true, campaign });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.updateAdminCampaignStatus = updateAdminCampaignStatus;
+// GET /api/feed/admin/promotions/stats
+const getAdminPromotionStats = async (_req, res) => {
+    try {
+        const [totalCampaigns, activeCampaigns, aggregates, totalPackages] = await Promise.all([
+            promotion_model_1.PromotionCampaign.countDocuments(),
+            promotion_model_1.PromotionCampaign.countDocuments({ status: 'active' }),
+            promotion_model_1.PromotionCampaign.aggregate([
+                {
+                    $group: {
+                        _id: null,
+                        totalBeansSpent: { $sum: '$beansCost' },
+                        totalDeliveredViews: { $sum: '$deliveredCount' },
+                        totalTargetReach: { $sum: '$targetCount' },
+                    },
+                },
+            ]),
+            promotion_model_1.PromotionPackage.countDocuments({ isActive: true }),
+        ]);
+        const agg = aggregates[0] || { totalBeansSpent: 0, totalDeliveredViews: 0, totalTargetReach: 0 };
+        res.status(200).json({
+            success: true,
+            stats: {
+                totalCampaigns,
+                activeCampaigns,
+                totalBeansSpent: agg.totalBeansSpent,
+                totalDeliveredViews: agg.totalDeliveredViews,
+                totalTargetReach: agg.totalTargetReach,
+                totalPackages,
+            },
+        });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.getAdminPromotionStats = getAdminPromotionStats;
