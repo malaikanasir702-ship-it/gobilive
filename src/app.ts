@@ -51,6 +51,7 @@ import framesRouter from './features/frames/frames.route';
 import countryPolicyRouter from './features/policy/country-policy.route';
 import revenueRouter from './features/admin/revenue.route';
 import { stripeWebhook } from './features/wallet/wallet.controller';
+import activityRouter from './features/activity/activity.route';
 
 // dotenv is loaded once in index.ts — this call is a safe no-op if already loaded.
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -322,6 +323,7 @@ app.use('/api/revenue', revenueRouter);
 app.use('/api/admin-panel/v1/revenue', revenueRouter);
 app.use('/api/frames', framesRouter);
 app.use('/api/admin-panel/v1/frames', framesRouter);
+app.use('/api/activity', activityRouter);
 
 // Health Check — Railway uses this to verify the container is alive.
 app.get('/health', (_req, res) => {

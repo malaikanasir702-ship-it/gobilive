@@ -23,6 +23,8 @@ import {
   reactToComment,
   replyToComment,
   getReplies,
+  getReposts,
+  deleteRepost,
 } from './feed.controller';
 import { downloadWithWatermark } from './feed.download.controller';
 import { authenticateJWT } from '../../core/middlewares/auth.middleware';
@@ -60,6 +62,10 @@ router.post('/:id/unpin',    authenticateJWT as any, unpinPost        as any);
 router.post('/:id/comments/:commentId/react',   authenticateJWT as any, reactToComment as any);
 router.post('/:id/comments/:commentId/replies', authenticateJWT as any, replyToComment as any);
 router.get('/:id/comments/:commentId/replies',  authenticateJWT as any, getReplies     as any);
+
+// Reposts with notes
+router.get('/:id/reposts',              authenticateJWT as any, getReposts    as any);
+router.delete('/:id/reposts/:repostId', authenticateJWT as any, deleteRepost  as any);
 
 // Watermarked video download — server-side FFmpeg
 router.get('/:id/download',  authenticateJWT as any, downloadWithWatermark as any);

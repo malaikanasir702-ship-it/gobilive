@@ -11,6 +11,7 @@ import { addXpFromDiamondSpend } from '../auth/leveling.service';
 import LiveRoom from '../live/live.model';
 import { User } from '../auth/user.model';
 import { AppCache, cacheGetOrLoad } from '../../core/services/cache.service';
+import { createActivity } from '../activity/activity.service';
 
 // Lazy import to avoid circular deps — seat.controller exports _io via getIo
 let _getIo: (() => import('socket.io').Server | null) | null = null;
@@ -505,6 +506,21 @@ export const sendGiftToHost = async (req: AuthRequest, res: Response): Promise<v
       io.to(channelName).emit('bean_balance_update', balanceUpdatePayload);
       io.to(channelName).emit('diamond_balance_update', balanceUpdatePayload);
     }
+
+    // ── Activity inbox: notify recipient about the gift ────────────────────
+    createActivity({
+      recipientId,
+      actorId: req.user.id,
+      type: 'live_gift',
+      metadata: {
+        giftId: gift.id,
+        giftName: gift.name,
+        giftEmoji: gift.emoji,
+        count: safeCount,
+        totalCost,
+        channelName,
+      },
+    }).catch(() => {});
 
     res.status(200).json({
       success: true,

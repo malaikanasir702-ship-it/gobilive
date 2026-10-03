@@ -4,6 +4,7 @@ import app from './app';
 import { connectDB } from './config/db';
 import { registerStreamSignaling } from './features/live/stream.signaling';
 import { registerChatSignaling } from './features/chat/chat.signaling';
+import { registerActivitySignaling } from './features/activity/activity.signaling';
 import { initFirebase } from './config/firebase';
 import { ensureLiveDiscoverySeed } from './features/live/live.seed';
 import { seedGiftCatalogIfEmpty } from './features/gifts/gifts.controller';
@@ -52,6 +53,7 @@ const io = new Server(server, {
 
 registerStreamSignaling(io);
 registerChatSignaling(io);
+registerActivitySignaling(io);
 
 // --- Startup Sequence ---
 const startServer = async () => {

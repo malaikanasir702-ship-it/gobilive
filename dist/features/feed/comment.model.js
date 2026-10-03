@@ -9,7 +9,9 @@ const CommentSchema = new mongoose_1.Schema({
     userProfilePic: { type: String, default: '' },
     text: { type: String, required: true, trim: true },
     likesCount: { type: Number, default: 0 },
+    dislikesCount: { type: Number, default: 0 },
+    parentCommentId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Comment', default: null },
     createdAt: { type: Date, default: Date.now },
 });
-CommentSchema.index({ postId: 1, createdAt: -1 });
+CommentSchema.index({ postId: 1, parentCommentId: 1, createdAt: -1 });
 exports.Comment = (0, mongoose_1.model)('Comment', CommentSchema);

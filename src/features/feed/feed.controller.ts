@@ -9,6 +9,7 @@ import { User } from '../auth/user.model';
 import { Follow } from '../auth/follow.model';
 import { AuthRequest } from '../../core/middlewares/auth.middleware';
 import { createAndSend, NotificationTriggers } from '../notifications/notification.service';
+import { createActivity, removeActivity } from '../activity/activity.service';
 
 // GET /feed?page=1&limit=10&userId=xxx&likedBy=xxx
 export const getFeed = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -224,6 +225,13 @@ export const likePost = async (req: AuthRequest, res: Response): Promise<void> =
       // Decrement post owner's total likes count
       if (updated?.userId) {
         await User.findByIdAndUpdate(updated.userId, { $inc: { likesCount: -1 } });
+        // Remove activity on unlike
+        removeActivity({
+          type: 'like_post',
+          actorId: req.user!.id,
+          recipientId: updated.userId.toString(),
+          postId: String(postId),
+        }).catch(() => {});
       }
       isLiked = false;
     } else {
@@ -244,7 +252,7 @@ export const likePost = async (req: AuthRequest, res: Response): Promise<void> =
         // ── Notify post owner (skip self-likes) ──
         const ownerId = updated?.userId?.toString();
         if (ownerId && ownerId !== req.user!.id) {
-          const actor = await User.findById(req.user!.id).select('username profilePic').lean();
+          const actor = await User.findById(req.user!.id).select('username profilePic thumbnailUrl').lean() as any;
           createAndSend({
             recipientId: ownerId,
             actorId: req.user!.id,
@@ -254,6 +262,15 @@ export const likePost = async (req: AuthRequest, res: Response): Promise<void> =
             payload: NotificationTriggers.postLiked(actor?.username ?? req.user!.username),
             referenceId: String(postId),
           }).catch(() => {}); // fire-and-forget
+          // ── Activity inbox ──
+          const postDoc = await Post.findById(postId).select('thumbnailUrl videoUrl').lean() as any;
+          createActivity({
+            recipientId: ownerId,
+            actorId: req.user!.id,
+            type: 'like_post',
+            postId: String(postId),
+            postThumbnailUrl: postDoc?.thumbnailUrl || postDoc?.videoUrl || '',
+          }).catch(() => {});
         }
       } catch (e: any) {
         // In case of race condition: treat as already liked
@@ -411,7 +428,7 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
     }
 
     // ── Notify post owner (skip self-comments) ──
-    const parentPost = await Post.findById(req.params.id).select('userId').lean();
+    const parentPost = await Post.findById(req.params.id).select('userId thumbnailUrl videoUrl').lean() as any;
     const ownerId = parentPost?.userId?.toString();
     if (ownerId && ownerId !== req.user.id) {
       createAndSend({
@@ -422,6 +439,15 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
         type: 'post_comment',
         payload: NotificationTriggers.postCommented(user.username, text),
         referenceId: req.params.id as string,
+      }).catch(() => {});
+      // ── Activity inbox ──
+      createActivity({
+        recipientId: ownerId,
+        actorId: req.user.id,
+        type: 'comment_post',
+        postId: req.params.id as string,
+        postThumbnailUrl: parentPost?.thumbnailUrl || parentPost?.videoUrl || '',
+        commentText: text.slice(0, 150),
       }).catch(() => {});
     }
 
@@ -444,6 +470,14 @@ export const addComment = async (req: AuthRequest, res: Response): Promise<void>
               data: { type: 'user_mention', postId: req.params.id as string },
             },
             referenceId: req.params.id as string,
+          }).catch(() => {});
+          // ── Activity inbox ──
+          createActivity({
+            recipientId: u._id.toString(),
+            actorId: req.user.id,
+            type: 'mention',
+            postId: req.params.id as string,
+            commentText: text.slice(0, 150),
           }).catch(() => {});
         }
       }
@@ -597,12 +631,22 @@ export const savePost = async (req: AuthRequest, res: Response): Promise<void> =
     if (existing) {
       await PostSave.deleteOne({ _id: existing._id });
       isSaved = false;
+      // Remove save activity on unsave
+      const unsavedPost = await Post.findById(postId).select('userId').lean();
+      if (unsavedPost?.userId && String(unsavedPost.userId) !== req.user!.id) {
+        removeActivity({
+          type: 'save_post',
+          actorId: req.user!.id,
+          recipientId: String(unsavedPost.userId),
+          postId: String(postId),
+        }).catch(() => {});
+      }
     } else {
       await PostSave.create({ postId, userId });
       isSaved = true;
 
       // ── Notify post owner (skip self-saves) ──
-      const savedPost = await Post.findById(postId).select('userId').lean();
+      const savedPost = await Post.findById(postId).select('userId thumbnailUrl videoUrl').lean() as any;
       const ownerId = savedPost?.userId?.toString();
       if (ownerId && ownerId !== req.user!.id) {
         const actor = await User.findById(req.user!.id).select('username profilePic').lean();
@@ -614,6 +658,14 @@ export const savePost = async (req: AuthRequest, res: Response): Promise<void> =
           type: 'post_save',
           payload: NotificationTriggers.postSaved(actor?.username ?? ''),
           referenceId: String(postId),
+        }).catch(() => {});
+        // ── Activity inbox ──
+        createActivity({
+          recipientId: ownerId,
+          actorId: req.user!.id,
+          type: 'save_post',
+          postId: String(postId),
+          postThumbnailUrl: savedPost?.thumbnailUrl || savedPost?.videoUrl || '',
         }).catch(() => {});
       }
     }
@@ -782,6 +834,7 @@ export const getPublicFeed = async (req: any, res: Response): Promise<void> => {
 };
 
 // POST /feed/:id/repost — Repost video to current user profile feed
+// body: { note?: string }
 export const repostPost = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
@@ -795,8 +848,16 @@ export const repostPost = async (req: AuthRequest, res: Response): Promise<void>
     const user = await User.findById(req.user.id).select('username profilePic');
     if (!user) { res.status(404).json({ success: false, message: 'User not found' }); return; }
 
+    // Optional note attached to the repost
+    const note: string = (req.body?.note as string | undefined)?.trim() ?? '';
+
     // Increment share/repost count on original
     await Post.findByIdAndUpdate(req.params.id, { $inc: { sharesCount: 1 } });
+
+    // Build caption: if note provided use it, otherwise default label
+    const caption = note
+      ? note
+      : `Reposted from @${originalPost.username}: ${originalPost.caption}`;
 
     // Create a repost under the current user's account
     const reposted = await Post.create({
@@ -809,14 +870,31 @@ export const repostPost = async (req: AuthRequest, res: Response): Promise<void>
       thumbnailUrl: originalPost.thumbnailUrl,
       blurHash: originalPost.blurHash,
       aspectRatio: originalPost.aspectRatio,
-      caption: `Reposted from @${originalPost.username}: ${originalPost.caption}`,
+      caption,
       tags: originalPost.tags,
       duration: originalPost.duration,
       isPublic: true,
       originalPostId: originalPost._id,
     });
 
-    res.status(201).json({ success: true, message: 'Post reposted to your profile', post: reposted });
+    // ── Activity inbox: notify original post owner ──
+    const originalOwnerId = originalPost.userId?.toString();
+    if (originalOwnerId && originalOwnerId !== req.user!.id) {
+      createActivity({
+        recipientId: originalOwnerId,
+        actorId: req.user!.id,
+        type: 'repost_post',
+        postId: String(originalPost._id),
+        postThumbnailUrl: originalPost.thumbnailUrl || originalPost.videoUrl || '',
+      }).catch(() => {});
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Post reposted to your profile',
+      post: reposted,
+      note,
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -906,6 +984,19 @@ export const reactToComment = async (req: AuthRequest, res: Response): Promise<v
       const field = reaction === 'like' ? 'likesCount' : 'dislikesCount';
       await Comment.findByIdAndUpdate(commentObjId, { $inc: { [field]: 1 } });
       const updated = await Comment.findById(commentObjId).select('likesCount dislikesCount').lean();
+      // ── Activity inbox: notify comment author on like (not dislike) ──
+      if (reaction === 'like') {
+        const commentAuthorId = comment.userId?.toString();
+        if (commentAuthorId && commentAuthorId !== req.user.id) {
+          createActivity({
+            recipientId: commentAuthorId,
+            actorId: req.user.id,
+            type: 'like_comment',
+            commentId: String(commentObjId),
+            commentText: comment.text?.slice(0, 150) ?? '',
+          }).catch(() => {});
+        }
+      }
       res.status(200).json({ success: true, reaction, ...updated });
     }
   } catch (err: any) {
@@ -958,6 +1049,19 @@ export const replyToComment = async (req: AuthRequest, res: Response): Promise<v
       } catch (_) {}
     }
 
+    // ── Activity inbox: notify parent comment author on reply ──
+    const parentAuthorId = parent.userId?.toString();
+    if (parentAuthorId && parentAuthorId !== req.user.id) {
+      createActivity({
+        recipientId: parentAuthorId,
+        actorId: req.user.id,
+        type: 'reply_comment',
+        postId: String(parent.postId),
+        commentId: String(parent._id),
+        commentText: text.slice(0, 150),
+      }).catch(() => {});
+    }
+
     res.status(201).json({
       success: true,
       reply: {
@@ -1006,6 +1110,101 @@ export const getReplies = async (req: AuthRequest, res: Response): Promise<void>
     }));
 
     res.status(200).json({ success: true, replies: enriched });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /feed/:id/reposts  — fetch all reposts (with notes) for a post
+// ─────────────────────────────────────────────────────────────────────────────
+export const getReposts = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const postId = req.params.id as string;
+    const page  = parseInt(req.query.page  as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const skip  = (page - 1) * limit;
+
+    // All posts that are reposts of this original
+    const reposts = await Post.find({
+      originalPostId: new Types.ObjectId(postId),
+      isDeleted: { $ne: true },
+    })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select('userId username userProfilePic caption createdAt likesCount')
+      .lean();
+
+    const total = await Post.countDocuments({
+      originalPostId: new Types.ObjectId(postId),
+      isDeleted: { $ne: true },
+    });
+
+    // Attach isLiked for current user if authenticated
+    let likedSet = new Set<string>();
+    if (req.user && reposts.length > 0) {
+      const repostIds = reposts.map((r: any) => r._id);
+      const likes = await (await import('./post_like.model')).PostLike
+        .find({ userId: new Types.ObjectId(req.user.id), postId: { $in: repostIds } })
+        .select('postId')
+        .lean();
+      likedSet = new Set(likes.map((l: any) => String(l.postId)));
+    }
+
+    // Check if viewer follows these users
+    let followingSet = new Set<string>();
+    if (req.user && reposts.length > 0) {
+      const { Follow } = await import('../auth/follow.model');
+      const follows = await Follow.find({
+        followerId: new Types.ObjectId(req.user.id),
+        followingId: { $in: reposts.map((r: any) => r.userId) },
+      }).select('followingId').lean();
+      followingSet = new Set(follows.map((f: any) => String(f.followingId)));
+    }
+
+    const enriched = reposts.map((r: any) => ({
+      repostId: String(r._id),
+      userId: String(r.userId),
+      username: r.username,
+      userProfilePic: r.userProfilePic,
+      // caption IS the note for reposts (see repostPost logic)
+      note: r.caption?.startsWith('Reposted from') ? '' : (r.caption ?? ''),
+      createdAt: r.createdAt,
+      likesCount: r.likesCount ?? 0,
+      isLiked: likedSet.has(String(r._id)),
+      isFollowing: followingSet.has(String(r.userId)),
+      isOwn: req.user ? String(r.userId) === req.user.id : false,
+    }));
+
+    res.status(200).json({ success: true, reposts: enriched, total });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /feed/:id/reposts/:repostId  — delete own repost note
+// ─────────────────────────────────────────────────────────────────────────────
+export const deleteRepost = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+
+    const { repostId } = req.params;
+    const repost = await Post.findById(repostId);
+    if (!repost) { res.status(404).json({ success: false, message: 'Repost not found' }); return; }
+    if (String(repost.userId) !== req.user.id) {
+      res.status(403).json({ success: false, message: 'Not authorized' });
+      return;
+    }
+
+    // Decrement sharesCount on original
+    if (repost.originalPostId) {
+      await Post.findByIdAndUpdate(repost.originalPostId, { $inc: { sharesCount: -1 } });
+    }
+
+    await Post.findByIdAndDelete(repostId);
+    res.status(200).json({ success: true, message: 'Repost deleted' });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }

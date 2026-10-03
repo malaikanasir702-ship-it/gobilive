@@ -102,6 +102,8 @@ export interface IUser extends Document {
   activeFrameId?: string;      // The currently equipped frame _id (null = no frame)
   displayName?: string;        // User-set display name shown in UI instead of username
   receivedGiftBadges?: Array<{giftName: string; emoji: string; fromHost: string; receivedAt: Date}>;
+  /** Controls profile-view activity: true = others can see you visited, false = private */
+  profileViewsVisible?: boolean;
 }
 
 const UserSchema = new Schema<IUser>({
@@ -206,6 +208,8 @@ const UserSchema = new Schema<IUser>({
   displayName: { type: String, default: '' },
   // Gifts received from hosts during live streams — shown as badges on profile
   receivedGiftBadges: { type: [{ giftName: String, emoji: String, fromHost: String, receivedAt: Date }], default: [] },
+  // Profile view privacy: true (default) = viewer activity is recorded for profile owner
+  profileViewsVisible: { type: Boolean, default: true },
 }, {
   // Only validate fields that were actually modified — prevents full-document
   // validation errors on old documents that have role='host' or other

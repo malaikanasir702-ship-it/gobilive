@@ -29,6 +29,10 @@ router.post('/:id/repost', auth_middleware_1.authenticateJWT, feed_controller_1.
 router.post('/:id/pin', auth_middleware_1.authenticateJWT, feed_controller_1.pinPost);
 router.delete('/:id/pin', auth_middleware_1.authenticateJWT, feed_controller_1.unpinPost);
 router.post('/:id/unpin', auth_middleware_1.authenticateJWT, feed_controller_1.unpinPost);
+// Comment reactions & replies
+router.post('/:id/comments/:commentId/react', auth_middleware_1.authenticateJWT, feed_controller_1.reactToComment);
+router.post('/:id/comments/:commentId/replies', auth_middleware_1.authenticateJWT, feed_controller_1.replyToComment);
+router.get('/:id/comments/:commentId/replies', auth_middleware_1.authenticateJWT, feed_controller_1.getReplies);
 // Watermarked video download — server-side FFmpeg
 router.get('/:id/download', auth_middleware_1.authenticateJWT, feed_download_controller_1.downloadWithWatermark);
 exports.default = router;

@@ -5,6 +5,7 @@ import { FollowRequest } from './follow-request.model';
 import { AuthRequest } from '../../core/middlewares/auth.middleware';
 import { createAndSend, NotificationTriggers } from '../notifications/notification.service';
 import Notification from '../notifications/notification.model';
+import { createActivity } from '../activity/activity.service';
 
 export const updateProfile = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -316,6 +317,14 @@ export const followUser = async (req: AuthRequest, res: Response): Promise<void>
         }).catch(() => {});
       }
 
+      // ── Activity inbox ──
+      createActivity({
+        recipientId: targetId,
+        actorId: req.user.id,
+        type: 'follow_request',
+        metadata: { followRequestId: followReqId },
+      }).catch(() => {});
+
       res.status(200).json({ success: true, message: 'Follow request sent.', requestSent: true });
       return;
     }
@@ -336,6 +345,13 @@ export const followUser = async (req: AuthRequest, res: Response): Promise<void>
         referenceId: req.user.id,
       }).catch(() => {});
     }
+
+    // ── Activity inbox ──
+    createActivity({
+      recipientId: targetId,
+      actorId: req.user.id,
+      type: 'follow',
+    }).catch(() => {});
 
     res.status(200).json({ success: true, message: 'Followed successfully.' });
   } catch (error: any) {
@@ -520,6 +536,13 @@ export const acceptFollowRequest = async (req: AuthRequest, res: Response): Prom
       type: 'follow_request_accepted',
       payload: NotificationTriggers.followRequestAccepted(acceptor?.username ?? ''),
       referenceId: toId,
+    }).catch(() => {});
+
+    // ── Activity inbox: requester gets a "accepted your follow request" activity ──
+    createActivity({
+      recipientId: fromId,
+      actorId: toId,
+      type: 'follow_request_accepted',
     }).catch(() => {});
 
     res.status(200).json({ success: true, message: 'Follow request accepted.' });
