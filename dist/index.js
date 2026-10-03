@@ -9,6 +9,7 @@ const app_1 = __importDefault(require("./app"));
 const db_1 = require("./config/db");
 const stream_signaling_1 = require("./features/live/stream.signaling");
 const chat_signaling_1 = require("./features/chat/chat.signaling");
+const activity_signaling_1 = require("./features/activity/activity.signaling");
 const firebase_1 = require("./config/firebase");
 const live_seed_1 = require("./features/live/live.seed");
 const gifts_controller_1 = require("./features/gifts/gifts.controller");
@@ -50,6 +51,7 @@ const io = new socket_io_1.Server(server, {
 });
 (0, stream_signaling_1.registerStreamSignaling)(io);
 (0, chat_signaling_1.registerChatSignaling)(io);
+(0, activity_signaling_1.registerActivitySignaling)(io);
 // --- Startup Sequence ---
 const startServer = async () => {
     try {

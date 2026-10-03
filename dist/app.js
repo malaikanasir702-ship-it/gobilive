@@ -56,6 +56,7 @@ const frames_route_1 = __importDefault(require("./features/frames/frames.route")
 const country_policy_route_1 = __importDefault(require("./features/policy/country-policy.route"));
 const revenue_route_1 = __importDefault(require("./features/admin/revenue.route"));
 const wallet_controller_1 = require("./features/wallet/wallet.controller");
+const activity_route_1 = __importDefault(require("./features/activity/activity.route"));
 // dotenv is loaded once in index.ts — this call is a safe no-op if already loaded.
 dotenv_1.default.config({ path: path_1.default.resolve(__dirname, '../.env') });
 // --- Cloudinary Configuration ---
@@ -300,6 +301,7 @@ app.use('/api/revenue', revenue_route_1.default);
 app.use('/api/admin-panel/v1/revenue', revenue_route_1.default);
 app.use('/api/frames', frames_route_1.default);
 app.use('/api/admin-panel/v1/frames', frames_route_1.default);
+app.use('/api/activity', activity_route_1.default);
 // Health Check — Railway uses this to verify the container is alive.
 app.get('/health', (_req, res) => {
     res.status(200).json({

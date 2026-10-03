@@ -40,6 +40,8 @@ const PostSchema = new mongoose_1.Schema({
     appealedAt: { type: Date },
     isPinned: { type: Boolean, default: false },
     originalPostId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Post' },
+    isPromoted: { type: Boolean, default: false },
+    promotionBoost: { type: Number, default: 0 },
     createdAt: { type: Date, default: Date.now },
 });
 // Index for fast chronological feed queries & moderation queries

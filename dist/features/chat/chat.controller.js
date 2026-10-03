@@ -1,9 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteConversation = exports.markMessagesRead = exports.unsendMessage = exports.sendMessage = exports.getMessages = exports.startConversation = exports.getConversations = void 0;
+exports.deleteConversation = exports.markMessagesRead = exports.unsendMessage = exports.createGroupConversation = exports.sendMessage = exports.getMessages = exports.startConversation = exports.getConversations = void 0;
+const mongoose_1 = require("mongoose");
 const chat_model_1 = require("./chat.model");
 const user_model_1 = require("../auth/user.model");
 const notification_service_1 = require("../notifications/notification.service");
+const chat_signaling_1 = require("./chat.signaling");
 const getConversations = async (req, res) => {
     try {
         if (!req.user) {
@@ -97,7 +99,7 @@ const sendMessage = async (req, res) => {
             res.status(401).json({ success: false, message: 'Unauthorized.' });
             return;
         }
-        const { conversationId, text, mediaUrl, mediaType } = req.body;
+        const { conversationId, text, mediaUrl, mediaType, thumbnailUrl, postId } = req.body;
         const conversation = await chat_model_1.Conversation.findById(conversationId);
         if (!conversation || !conversation.participants.map(String).includes(req.user.id)) {
             res.status(403).json({ success: false, message: 'Access denied.' });
@@ -110,12 +112,25 @@ const sendMessage = async (req, res) => {
             senderUsername: me?.username ?? 'User',
             text: text || '',
             mediaUrl,
+            thumbnailUrl,
+            postId: postId ? new mongoose_1.Types.ObjectId(postId) : undefined,
             mediaType,
             status: 'sent',
         });
-        conversation.lastMessage = text || (mediaType ? `[${mediaType}]` : '');
+        const lastMsgText = text || (mediaType === 'video' || mediaType === 'post' ? 'Shared a video' : mediaType ? `[${mediaType}]` : '');
+        conversation.lastMessage = lastMsgText;
         conversation.lastMessageAt = new Date();
         await conversation.save();
+        // Broadcast to conversation room and user rooms via socket
+        const io = (0, chat_signaling_1.getChatIO)();
+        if (io) {
+            const msgObj = message.toObject();
+            io.to(`chat_${conversationId}`).emit('chat_message_received', msgObj);
+            conversation.participants.forEach((pId) => {
+                io.to(`user_${pId.toString()}`).emit('chat_message_received', msgObj);
+                io.to(`chat_user_${pId.toString()}`).emit('chat_message_received', msgObj);
+            });
+        }
         const userId = req.user.id;
         const recipientId = conversation.participants
             .map(String)
@@ -123,7 +138,7 @@ const sendMessage = async (req, res) => {
         if (recipientId) {
             const recipient = await user_model_1.User.findById(recipientId);
             if (recipient?.notificationPrefs?.messages !== false) {
-                (0, notification_service_1.sendToUser)(recipientId, notification_service_1.NotificationTriggers.newMessage(me?.username ?? 'Someone', text || 'New message')).catch(() => { });
+                (0, notification_service_1.sendToUser)(recipientId, notification_service_1.NotificationTriggers.newMessage(me?.username ?? 'Someone', lastMsgText || 'New message')).catch(() => { });
             }
         }
         res.status(201).json({ success: true, message });
@@ -133,6 +148,32 @@ const sendMessage = async (req, res) => {
     }
 };
 exports.sendMessage = sendMessage;
+const createGroupConversation = async (req, res) => {
+    try {
+        if (!req.user) {
+            res.status(401).json({ success: false, message: 'Unauthorized.' });
+            return;
+        }
+        const { name, memberIds } = req.body;
+        const rawIds = Array.isArray(memberIds) ? memberIds : [];
+        const participantIds = Array.from(new Set([req.user.id, ...rawIds])).map((id) => new mongoose_1.Types.ObjectId(id));
+        const users = await user_model_1.User.find({ _id: { $in: participantIds } }).select('username');
+        const conversation = await chat_model_1.Conversation.create({
+            participants: participantIds,
+            participantUsernames: users.map(u => u.username),
+            isGroup: true,
+            groupName: name || 'Group Chat',
+            groupAdmin: new mongoose_1.Types.ObjectId(req.user.id),
+            lastMessage: 'Group created',
+            lastMessageAt: new Date(),
+        });
+        res.status(201).json({ success: true, conversation });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.createGroupConversation = createGroupConversation;
 const unsendMessage = async (req, res) => {
     try {
         if (!req.user) {

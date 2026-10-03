@@ -8,7 +8,9 @@ const MessageSchema = new mongoose_1.Schema({
     senderUsername: { type: String, required: true },
     text: { type: String, default: '' },
     mediaUrl: { type: String },
-    mediaType: { type: String, enum: ['image', 'sticker'] },
+    thumbnailUrl: { type: String },
+    postId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Post' },
+    mediaType: { type: String, enum: ['image', 'sticker', 'video', 'post'] },
     status: { type: String, enum: ['sent', 'delivered', 'read'], default: 'sent' },
     isUnsent: { type: Boolean, default: false },
 }, { timestamps: true });
@@ -16,6 +18,9 @@ exports.Message = (0, mongoose_1.model)('Message', MessageSchema);
 const ConversationSchema = new mongoose_1.Schema({
     participants: [{ type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true }],
     participantUsernames: [{ type: String }],
+    isGroup: { type: Boolean, default: false },
+    groupName: { type: String },
+    groupAdmin: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User' },
     lastMessage: { type: String },
     lastMessageAt: { type: Date },
 }, { timestamps: true });

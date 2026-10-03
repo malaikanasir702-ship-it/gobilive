@@ -10,6 +10,7 @@ import { Follow } from '../auth/follow.model';
 import { AuthRequest } from '../../core/middlewares/auth.middleware';
 import { createAndSend, NotificationTriggers } from '../notifications/notification.service';
 import { createActivity, removeActivity } from '../activity/activity.service';
+import { PromotionCampaign } from './promotion.model';
 
 // GET /feed?page=1&limit=10&userId=xxx&likedBy=xxx
 export const getFeed = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -72,6 +73,21 @@ export const getFeed = async (req: AuthRequest, res: Response): Promise<void> =>
       }
     }
 
+    // Exclude posts & authors marked as 'not interested' by viewer
+    if (req.user) {
+      const viewer = await User.findById(req.user.id).select('notInterestedPosts notInterestedAuthors').lean() as any;
+      if (viewer?.notInterestedPosts?.length) {
+        filter._id = filter._id ? { ...filter._id, $nin: viewer.notInterestedPosts } : { $nin: viewer.notInterestedPosts };
+      }
+      if (viewer?.notInterestedAuthors?.length) {
+        if (!filter.userId) {
+          filter.userId = { $nin: viewer.notInterestedAuthors };
+        } else if (filter.userId.$nin) {
+          filter.userId.$nin = [...filter.userId.$nin, ...viewer.notInterestedAuthors];
+        }
+      }
+    }
+
     const sortOptions: any = tab === 'trending'
       ? { likesCount: -1, viewsCount: -1, createdAt: -1 }
       : { createdAt: -1 };
@@ -82,6 +98,27 @@ export const getFeed = async (req: AuthRequest, res: Response): Promise<void> =>
       .limit(limit)
       .populate('userId', 'profilePic activeFrameId')
       .lean() as any[];
+
+    // Real Promotion Distribution: inject active promoted post into page 1 for 'forYou' feed
+    if (page === 1 && tab === 'forYou') {
+      try {
+        const activeCampaign = await PromotionCampaign.findOne({ status: 'active' }).populate('postId');
+        if (activeCampaign && activeCampaign.postId) {
+          const rawPromoted = (activeCampaign.postId as any).toObject ? (activeCampaign.postId as any).toObject() : activeCampaign.postId;
+          if (rawPromoted && !posts.some(p => String(p._id) === String(rawPromoted._id))) {
+            rawPromoted.isPromoted = true;
+            posts.splice(1, 0, rawPromoted);
+          }
+          activeCampaign.deliveredCount = (activeCampaign.deliveredCount || 0) + 1;
+          if (activeCampaign.deliveredCount >= activeCampaign.targetCount) {
+            activeCampaign.status = 'completed';
+            await Post.updateOne({ _id: activeCampaign.postId }, { $set: { isPromoted: false } });
+          }
+          await activeCampaign.save();
+          await Post.updateOne({ _id: activeCampaign.postId }, { $inc: { viewsCount: 1 } });
+        }
+      } catch (_) { /* non-critical */ }
+    }
 
     // Enrich each post with profilePic + active frame data
     const enrichedPosts = await Promise.all(posts.map(async (post) => {
@@ -1207,5 +1244,113 @@ export const deleteRepost = async (req: AuthRequest, res: Response): Promise<voi
     res.status(200).json({ success: true, message: 'Repost deleted' });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ── Not Interested Endpoint ──────────────────────────────────────────────────
+export const markNotInterested = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Unauthorized.' });
+      return;
+    }
+    const { id } = req.params;
+    const post = await Post.findById(id).select('userId');
+    if (!post) {
+      res.status(404).json({ success: false, message: 'Post not found.' });
+      return;
+    }
+    await User.findByIdAndUpdate(req.user.id, {
+      $addToSet: {
+        notInterestedPosts: post._id,
+        notInterestedAuthors: post.userId,
+      },
+    });
+    res.status(200).json({ success: true, message: 'Post marked as not interested.' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ── Promotion Packages Endpoint ──────────────────────────────────────────────
+export const getPromotionPackages = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const user = req.user ? await User.findById(req.user.id).select('beanWallet').lean() as any : null;
+    const currentBeans = user?.beanWallet ?? 0;
+
+    const packages = [
+      { id: 'pkg_100', beans: 100, views: 1000, label: 'Starter Boost', description: '~ 1,000 views' },
+      { id: 'pkg_500', beans: 500, views: 6000, label: 'Popular Boost', description: '~ 6,000 views' },
+      { id: 'pkg_1000', beans: 1000, views: 15000, label: 'Superstar Boost', description: '~ 15,000 views' },
+    ];
+
+    res.status(200).json({
+      success: true,
+      currentBeans,
+      packages,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ── Promote Post Endpoint ────────────────────────────────────────────────────
+export const promotePost = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Unauthorized.' });
+      return;
+    }
+    const { id } = req.params;
+    const { goal = 'views', beans = 500 } = req.body;
+    const beansCost = Number(beans) || 500;
+
+    const user = await User.findById(req.user.id);
+    if (!user || ((user as any).beanWallet ?? 0) < beansCost) {
+      res.status(400).json({
+        success: false,
+        message: `Insufficient Beans balance (${(user as any)?.beanWallet ?? 0}). Need at least ${beansCost} Beans.`,
+      });
+      return;
+    }
+
+    const post = await Post.findById(id);
+    if (!post) {
+      res.status(404).json({ success: false, message: 'Post not found.' });
+      return;
+    }
+
+    // Deduct beans from user beanWallet
+    (user as any).beanWallet = ((user as any).beanWallet ?? 0) - beansCost;
+    await user.save();
+
+    // Map beans to target views
+    let targetCount = beansCost * 10;
+    if (beansCost >= 1000) targetCount = 15000;
+    else if (beansCost >= 500) targetCount = 6000;
+    else targetCount = 1000;
+
+    const campaign = await PromotionCampaign.create({
+      promoterId: req.user.id,
+      postId: post._id,
+      goal,
+      beansCost,
+      targetCount,
+      deliveredCount: 0,
+      status: 'active',
+    });
+
+    post.isPromoted = true;
+    post.promotionBoost = (post.promotionBoost || 0) + 10;
+    await post.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Video promotion campaign activated successfully!',
+      campaign,
+      remainingBeans: (user as any).beanWallet,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };

@@ -40,6 +40,8 @@ export interface IPost extends Document {
   appealedAt?: Date;
   isPinned?: boolean;
   originalPostId?: Types.ObjectId;
+  isPromoted?: boolean;
+  promotionBoost?: number;
   createdAt: Date;
 }
 
@@ -81,6 +83,8 @@ const PostSchema = new Schema<IPost>({
   appealedAt:       { type: Date },
   isPinned:         { type: Boolean, default: false },
   originalPostId:   { type: Schema.Types.ObjectId, ref: 'Post' },
+  isPromoted:       { type: Boolean, default: false },
+  promotionBoost:   { type: Number, default: 0 },
   createdAt:        { type: Date, default: Date.now },
 });
 

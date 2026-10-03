@@ -9,6 +9,7 @@ const follow_model_1 = require("./follow.model");
 const follow_request_model_1 = require("./follow-request.model");
 const notification_service_1 = require("../notifications/notification.service");
 const notification_model_1 = __importDefault(require("../notifications/notification.model"));
+const activity_service_1 = require("../activity/activity.service");
 const updateProfile = async (req, res) => {
     try {
         if (!req.user) {
@@ -285,6 +286,13 @@ const followUser = async (req, res) => {
                     referenceId: followReqId, // ← FollowRequest _id (not actorId)
                 }).catch(() => { });
             }
+            // ── Activity inbox ──
+            (0, activity_service_1.createActivity)({
+                recipientId: targetId,
+                actorId: req.user.id,
+                type: 'follow_request',
+                metadata: { followRequestId: followReqId },
+            }).catch(() => { });
             res.status(200).json({ success: true, message: 'Follow request sent.', requestSent: true });
             return;
         }
@@ -303,6 +311,12 @@ const followUser = async (req, res) => {
                 referenceId: req.user.id,
             }).catch(() => { });
         }
+        // ── Activity inbox ──
+        (0, activity_service_1.createActivity)({
+            recipientId: targetId,
+            actorId: req.user.id,
+            type: 'follow',
+        }).catch(() => { });
         res.status(200).json({ success: true, message: 'Followed successfully.' });
     }
     catch (error) {
@@ -473,6 +487,12 @@ const acceptFollowRequest = async (req, res) => {
             type: 'follow_request_accepted',
             payload: notification_service_1.NotificationTriggers.followRequestAccepted(acceptor?.username ?? ''),
             referenceId: toId,
+        }).catch(() => { });
+        // ── Activity inbox: requester gets a "accepted your follow request" activity ──
+        (0, activity_service_1.createActivity)({
+            recipientId: fromId,
+            actorId: toId,
+            type: 'follow_request_accepted',
         }).catch(() => { });
         res.status(200).json({ success: true, message: 'Follow request accepted.' });
     }

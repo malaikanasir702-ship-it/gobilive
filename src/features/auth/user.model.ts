@@ -1,4 +1,4 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
 
 export interface INotificationPrefs {
   messages: boolean;
@@ -104,6 +104,8 @@ export interface IUser extends Document {
   receivedGiftBadges?: Array<{giftName: string; emoji: string; fromHost: string; receivedAt: Date}>;
   /** Controls profile-view activity: true = others can see you visited, false = private */
   profileViewsVisible?: boolean;
+  notInterestedPosts?: Types.ObjectId[];
+  notInterestedAuthors?: Types.ObjectId[];
 }
 
 const UserSchema = new Schema<IUser>({
@@ -210,6 +212,9 @@ const UserSchema = new Schema<IUser>({
   receivedGiftBadges: { type: [{ giftName: String, emoji: String, fromHost: String, receivedAt: Date }], default: [] },
   // Profile view privacy: true (default) = viewer activity is recorded for profile owner
   profileViewsVisible: { type: Boolean, default: true },
+  // Not interested algorithmic filters
+  notInterestedPosts: { type: [{ type: Schema.Types.ObjectId, ref: 'Post' }], default: [] },
+  notInterestedAuthors: { type: [{ type: Schema.Types.ObjectId, ref: 'User' }], default: [] },
 }, {
   // Only validate fields that were actually modified — prevents full-document
   // validation errors on old documents that have role='host' or other

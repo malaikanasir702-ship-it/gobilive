@@ -1,8 +1,10 @@
 import { Response } from 'express';
+import { Types } from 'mongoose';
 import { Conversation, Message } from './chat.model';
 import { User } from '../auth/user.model';
 import { AuthRequest } from '../../core/middlewares/auth.middleware';
 import { sendToUser, NotificationTriggers } from '../notifications/notification.service';
+import { getChatIO } from './chat.signaling';
 
 export const getConversations = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -108,7 +110,7 @@ export const sendMessage = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    const { conversationId, text, mediaUrl, mediaType } = req.body;
+    const { conversationId, text, mediaUrl, mediaType, thumbnailUrl, postId } = req.body;
     const conversation = await Conversation.findById(conversationId);
     if (!conversation || !conversation.participants.map(String).includes(req.user.id)) {
       res.status(403).json({ success: false, message: 'Access denied.' });
@@ -122,13 +124,27 @@ export const sendMessage = async (req: AuthRequest, res: Response): Promise<void
       senderUsername: me?.username ?? 'User',
       text: text || '',
       mediaUrl,
+      thumbnailUrl,
+      postId: postId ? new Types.ObjectId(postId) : undefined,
       mediaType,
       status: 'sent',
     });
 
-    conversation.lastMessage = text || (mediaType ? `[${mediaType}]` : '');
+    const lastMsgText = text || (mediaType === 'video' || mediaType === 'post' ? 'Shared a video' : mediaType ? `[${mediaType}]` : '');
+    conversation.lastMessage = lastMsgText;
     conversation.lastMessageAt = new Date();
     await conversation.save();
+
+    // Broadcast to conversation room and user rooms via socket
+    const io = getChatIO();
+    if (io) {
+      const msgObj = message.toObject();
+      io.to(`chat_${conversationId}`).emit('chat_message_received', msgObj);
+      conversation.participants.forEach((pId: any) => {
+        io.to(`user_${pId.toString()}`).emit('chat_message_received', msgObj);
+        io.to(`chat_user_${pId.toString()}`).emit('chat_message_received', msgObj);
+      });
+    }
 
     const userId = req.user!.id;
     const recipientId = conversation.participants
@@ -140,12 +156,40 @@ export const sendMessage = async (req: AuthRequest, res: Response): Promise<void
       if (recipient?.notificationPrefs?.messages !== false) {
         sendToUser(
           recipientId,
-          NotificationTriggers.newMessage(me?.username ?? 'Someone', text || 'New message')
+          NotificationTriggers.newMessage(me?.username ?? 'Someone', lastMsgText || 'New message')
         ).catch(() => {});
       }
     }
 
     res.status(201).json({ success: true, message });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const createGroupConversation = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, message: 'Unauthorized.' });
+      return;
+    }
+
+    const { name, memberIds } = req.body;
+    const rawIds = Array.isArray(memberIds) ? memberIds : [];
+    const participantIds = Array.from(new Set([req.user.id, ...rawIds])).map((id: string) => new Types.ObjectId(id));
+
+    const users = await User.find({ _id: { $in: participantIds } }).select('username');
+    const conversation = await Conversation.create({
+      participants: participantIds,
+      participantUsernames: users.map(u => u.username),
+      isGroup: true,
+      groupName: name || 'Group Chat',
+      groupAdmin: new Types.ObjectId(req.user.id),
+      lastMessage: 'Group created',
+      lastMessageAt: new Date(),
+    });
+
+    res.status(201).json({ success: true, conversation });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getChatIO = void 0;
 exports.registerChatSignaling = registerChatSignaling;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const chat_model_1 = require("./chat.model");
@@ -19,11 +20,17 @@ function verifySocketToken(socket) {
         return null;
     }
 }
+let _chatIO = null;
+const getChatIO = () => _chatIO;
+exports.getChatIO = getChatIO;
 function registerChatSignaling(io) {
+    _chatIO = io;
     io.on('connection', (socket) => {
         const user = verifySocketToken(socket);
         if (!user)
             return;
+        socket.join(`user_${user.id}`);
+        socket.join(`chat_user_${user.id}`);
         socket.on('join_conversation', async (data) => {
             // Cache conversation participant check for 60 seconds to avoid
             // a DB lookup on every join (room rejoins after reconnect are common)

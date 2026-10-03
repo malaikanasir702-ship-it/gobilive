@@ -9,9 +9,13 @@ const router = (0, express_1.Router)();
 router.get('/public', feed_controller_1.getPublicFeed);
 router.get('/archived', auth_middleware_1.authenticateJWT, feed_controller_1.getArchivedPosts);
 router.get('/saved', auth_middleware_1.authenticateJWT, feed_controller_1.getSavedPosts);
+router.get('/promote/packages', auth_middleware_1.authenticateJWT, feed_controller_1.getPromotionPackages);
 // Feed CRUD
 router.get('/', auth_middleware_1.authenticateJWT, feed_controller_1.getFeed);
 router.post('/', auth_middleware_1.authenticateJWT, feed_controller_1.createPost);
+// Per-post actions
+router.post('/:id/not-interested', auth_middleware_1.authenticateJWT, feed_controller_1.markNotInterested);
+router.post('/:id/promote', auth_middleware_1.authenticateJWT, feed_controller_1.promotePost);
 // Per-post actions
 router.delete('/:id', auth_middleware_1.authenticateJWT, feed_controller_1.deletePost);
 router.patch('/:id', auth_middleware_1.authenticateJWT, feed_controller_1.editPost);
@@ -33,6 +37,9 @@ router.post('/:id/unpin', auth_middleware_1.authenticateJWT, feed_controller_1.u
 router.post('/:id/comments/:commentId/react', auth_middleware_1.authenticateJWT, feed_controller_1.reactToComment);
 router.post('/:id/comments/:commentId/replies', auth_middleware_1.authenticateJWT, feed_controller_1.replyToComment);
 router.get('/:id/comments/:commentId/replies', auth_middleware_1.authenticateJWT, feed_controller_1.getReplies);
+// Reposts with notes
+router.get('/:id/reposts', auth_middleware_1.authenticateJWT, feed_controller_1.getReposts);
+router.delete('/:id/reposts/:repostId', auth_middleware_1.authenticateJWT, feed_controller_1.deleteRepost);
 // Watermarked video download — server-side FFmpeg
 router.get('/:id/download', auth_middleware_1.authenticateJWT, feed_download_controller_1.downloadWithWatermark);
 exports.default = router;

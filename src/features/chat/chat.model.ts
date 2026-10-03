@@ -6,7 +6,9 @@ export interface IMessage extends Document {
   senderUsername: string;
   text: string;
   mediaUrl?: string;
-  mediaType?: 'image' | 'sticker';
+  thumbnailUrl?: string;
+  postId?: Types.ObjectId;
+  mediaType?: 'image' | 'sticker' | 'video' | 'post';
   status: 'sent' | 'delivered' | 'read';
   isUnsent: boolean;
   createdAt: Date;
@@ -19,7 +21,9 @@ const MessageSchema = new Schema<IMessage>(
     senderUsername: { type: String, required: true },
     text: { type: String, default: '' },
     mediaUrl: { type: String },
-    mediaType: { type: String, enum: ['image', 'sticker'] },
+    thumbnailUrl: { type: String },
+    postId: { type: Schema.Types.ObjectId, ref: 'Post' },
+    mediaType: { type: String, enum: ['image', 'sticker', 'video', 'post'] },
     status: { type: String, enum: ['sent', 'delivered', 'read'], default: 'sent' },
     isUnsent: { type: Boolean, default: false },
   },
@@ -31,6 +35,9 @@ export const Message = model<IMessage>('Message', MessageSchema);
 export interface IConversation extends Document {
   participants: Types.ObjectId[];
   participantUsernames: string[];
+  isGroup?: boolean;
+  groupName?: string;
+  groupAdmin?: Types.ObjectId;
   lastMessage?: string;
   lastMessageAt?: Date;
   createdAt: Date;
@@ -40,6 +47,9 @@ const ConversationSchema = new Schema<IConversation>(
   {
     participants: [{ type: Schema.Types.ObjectId, ref: 'User', required: true }],
     participantUsernames: [{ type: String }],
+    isGroup: { type: Boolean, default: false },
+    groupName: { type: String },
+    groupAdmin: { type: Schema.Types.ObjectId, ref: 'User' },
     lastMessage: { type: String },
     lastMessageAt: { type: Date },
   },

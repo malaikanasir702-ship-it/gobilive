@@ -28,10 +28,16 @@ function verifySocketToken(socket: Socket): { id: string; username: string } | n
   }
 }
 
+let _chatIO: Server | null = null;
+export const getChatIO = (): Server | null => _chatIO;
+
 export function registerChatSignaling(io: Server) {
+  _chatIO = io;
   io.on('connection', (socket) => {
     const user = verifySocketToken(socket);
     if (!user) return;
+    socket.join(`user_${user.id}`);
+    socket.join(`chat_user_${user.id}`);
 
     socket.on('join_conversation', async (data: ChatJoinPayload) => {
       // Cache conversation participant check for 60 seconds to avoid

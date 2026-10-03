@@ -25,6 +25,9 @@ import {
   getReplies,
   getReposts,
   deleteRepost,
+  markNotInterested,
+  getPromotionPackages,
+  promotePost,
 } from './feed.controller';
 import { downloadWithWatermark } from './feed.download.controller';
 import { authenticateJWT } from '../../core/middlewares/auth.middleware';
@@ -32,13 +35,18 @@ import { authenticateJWT } from '../../core/middlewares/auth.middleware';
 const router = Router();
 
 // Static routes FIRST (before /:id to avoid conflicts)
-router.get('/public',         getPublicFeed     as any);
-router.get('/archived',      authenticateJWT as any, getArchivedPosts as any);
-router.get('/saved',         authenticateJWT as any, getSavedPosts    as any);
+router.get('/public',           getPublicFeed        as any);
+router.get('/archived',        authenticateJWT as any, getArchivedPosts    as any);
+router.get('/saved',           authenticateJWT as any, getSavedPosts       as any);
+router.get('/promote/packages', authenticateJWT as any, getPromotionPackages as any);
 
 // Feed CRUD
-router.get('/',              authenticateJWT as any, getFeed          as any);
-router.post('/',             authenticateJWT as any, createPost       as any);
+router.get('/',                authenticateJWT as any, getFeed             as any);
+router.post('/',               authenticateJWT as any, createPost          as any);
+
+// Per-post actions
+router.post('/:id/not-interested', authenticateJWT as any, markNotInterested as any);
+router.post('/:id/promote',        authenticateJWT as any, promotePost        as any);
 
 // Per-post actions
 router.delete('/:id',        authenticateJWT as any, deletePost       as any);

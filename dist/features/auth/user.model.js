@@ -104,6 +104,11 @@ const UserSchema = new mongoose_1.Schema({
     displayName: { type: String, default: '' },
     // Gifts received from hosts during live streams — shown as badges on profile
     receivedGiftBadges: { type: [{ giftName: String, emoji: String, fromHost: String, receivedAt: Date }], default: [] },
+    // Profile view privacy: true (default) = viewer activity is recorded for profile owner
+    profileViewsVisible: { type: Boolean, default: true },
+    // Not interested algorithmic filters
+    notInterestedPosts: { type: [{ type: mongoose_1.Schema.Types.ObjectId, ref: 'Post' }], default: [] },
+    notInterestedAuthors: { type: [{ type: mongoose_1.Schema.Types.ObjectId, ref: 'User' }], default: [] },
 }, {
     // Only validate fields that were actually modified — prevents full-document
     // validation errors on old documents that have role='host' or other

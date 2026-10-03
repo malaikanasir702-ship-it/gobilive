@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReplies = exports.replyToComment = exports.reactToComment = exports.unpinPost = exports.pinPost = exports.repostPost = exports.getPublicFeed = exports.appealPost = exports.reportPost = exports.getSavedPosts = exports.savePost = exports.getArchivedPosts = exports.editPost = exports.restorePost = exports.archivePost = exports.deletePost = exports.addComment = exports.viewPost = exports.sharePost = exports.getComments = exports.likePost = exports.createPost = exports.getFeed = void 0;
+exports.promotePost = exports.getPromotionPackages = exports.markNotInterested = exports.deleteRepost = exports.getReposts = exports.getReplies = exports.replyToComment = exports.reactToComment = exports.unpinPost = exports.pinPost = exports.repostPost = exports.getPublicFeed = exports.appealPost = exports.reportPost = exports.getSavedPosts = exports.savePost = exports.getArchivedPosts = exports.editPost = exports.restorePost = exports.archivePost = exports.deletePost = exports.addComment = exports.viewPost = exports.sharePost = exports.getComments = exports.likePost = exports.createPost = exports.getFeed = void 0;
 const mongoose_1 = require("mongoose");
 const post_model_1 = require("./post.model");
 const comment_model_1 = require("./comment.model");
@@ -43,6 +43,8 @@ const post_save_model_1 = require("./post_save.model");
 const user_model_1 = require("../auth/user.model");
 const follow_model_1 = require("../auth/follow.model");
 const notification_service_1 = require("../notifications/notification.service");
+const activity_service_1 = require("../activity/activity.service");
+const promotion_model_1 = require("./promotion.model");
 // GET /feed?page=1&limit=10&userId=xxx&likedBy=xxx
 const getFeed = async (req, res) => {
     try {
@@ -103,6 +105,21 @@ const getFeed = async (req, res) => {
                 filter.userId = { $nin: privateIds.map(id => new mongoose_1.Types.ObjectId(id)) };
             }
         }
+        // Exclude posts & authors marked as 'not interested' by viewer
+        if (req.user) {
+            const viewer = await user_model_1.User.findById(req.user.id).select('notInterestedPosts notInterestedAuthors').lean();
+            if (viewer?.notInterestedPosts?.length) {
+                filter._id = filter._id ? { ...filter._id, $nin: viewer.notInterestedPosts } : { $nin: viewer.notInterestedPosts };
+            }
+            if (viewer?.notInterestedAuthors?.length) {
+                if (!filter.userId) {
+                    filter.userId = { $nin: viewer.notInterestedAuthors };
+                }
+                else if (filter.userId.$nin) {
+                    filter.userId.$nin = [...filter.userId.$nin, ...viewer.notInterestedAuthors];
+                }
+            }
+        }
         const sortOptions = tab === 'trending'
             ? { likesCount: -1, viewsCount: -1, createdAt: -1 }
             : { createdAt: -1 };
@@ -112,6 +129,27 @@ const getFeed = async (req, res) => {
             .limit(limit)
             .populate('userId', 'profilePic activeFrameId')
             .lean();
+        // Real Promotion Distribution: inject active promoted post into page 1 for 'forYou' feed
+        if (page === 1 && tab === 'forYou') {
+            try {
+                const activeCampaign = await promotion_model_1.PromotionCampaign.findOne({ status: 'active' }).populate('postId');
+                if (activeCampaign && activeCampaign.postId) {
+                    const rawPromoted = activeCampaign.postId.toObject ? activeCampaign.postId.toObject() : activeCampaign.postId;
+                    if (rawPromoted && !posts.some(p => String(p._id) === String(rawPromoted._id))) {
+                        rawPromoted.isPromoted = true;
+                        posts.splice(1, 0, rawPromoted);
+                    }
+                    activeCampaign.deliveredCount = (activeCampaign.deliveredCount || 0) + 1;
+                    if (activeCampaign.deliveredCount >= activeCampaign.targetCount) {
+                        activeCampaign.status = 'completed';
+                        await post_model_1.Post.updateOne({ _id: activeCampaign.postId }, { $set: { isPromoted: false } });
+                    }
+                    await activeCampaign.save();
+                    await post_model_1.Post.updateOne({ _id: activeCampaign.postId }, { $inc: { viewsCount: 1 } });
+                }
+            }
+            catch (_) { /* non-critical */ }
+        }
         // Enrich each post with profilePic + active frame data
         const enrichedPosts = await Promise.all(posts.map(async (post) => {
             const p = { ...post };
@@ -236,6 +274,13 @@ const likePost = async (req, res) => {
             // Decrement post owner's total likes count
             if (updated?.userId) {
                 await user_model_1.User.findByIdAndUpdate(updated.userId, { $inc: { likesCount: -1 } });
+                // Remove activity on unlike
+                (0, activity_service_1.removeActivity)({
+                    type: 'like_post',
+                    actorId: req.user.id,
+                    recipientId: updated.userId.toString(),
+                    postId: String(postId),
+                }).catch(() => { });
             }
             isLiked = false;
         }
@@ -252,7 +297,7 @@ const likePost = async (req, res) => {
                 // ── Notify post owner (skip self-likes) ──
                 const ownerId = updated?.userId?.toString();
                 if (ownerId && ownerId !== req.user.id) {
-                    const actor = await user_model_1.User.findById(req.user.id).select('username profilePic').lean();
+                    const actor = await user_model_1.User.findById(req.user.id).select('username profilePic thumbnailUrl').lean();
                     (0, notification_service_1.createAndSend)({
                         recipientId: ownerId,
                         actorId: req.user.id,
@@ -262,6 +307,15 @@ const likePost = async (req, res) => {
                         payload: notification_service_1.NotificationTriggers.postLiked(actor?.username ?? req.user.username),
                         referenceId: String(postId),
                     }).catch(() => { }); // fire-and-forget
+                    // ── Activity inbox ──
+                    const postDoc = await post_model_1.Post.findById(postId).select('thumbnailUrl videoUrl').lean();
+                    (0, activity_service_1.createActivity)({
+                        recipientId: ownerId,
+                        actorId: req.user.id,
+                        type: 'like_post',
+                        postId: String(postId),
+                        postThumbnailUrl: postDoc?.thumbnailUrl || postDoc?.videoUrl || '',
+                    }).catch(() => { });
                 }
             }
             catch (e) {
@@ -411,7 +465,7 @@ const addComment = async (req, res) => {
             catch (_) { }
         }
         // ── Notify post owner (skip self-comments) ──
-        const parentPost = await post_model_1.Post.findById(req.params.id).select('userId').lean();
+        const parentPost = await post_model_1.Post.findById(req.params.id).select('userId thumbnailUrl videoUrl').lean();
         const ownerId = parentPost?.userId?.toString();
         if (ownerId && ownerId !== req.user.id) {
             (0, notification_service_1.createAndSend)({
@@ -422,6 +476,15 @@ const addComment = async (req, res) => {
                 type: 'post_comment',
                 payload: notification_service_1.NotificationTriggers.postCommented(user.username, text),
                 referenceId: req.params.id,
+            }).catch(() => { });
+            // ── Activity inbox ──
+            (0, activity_service_1.createActivity)({
+                recipientId: ownerId,
+                actorId: req.user.id,
+                type: 'comment_post',
+                postId: req.params.id,
+                postThumbnailUrl: parentPost?.thumbnailUrl || parentPost?.videoUrl || '',
+                commentText: text.slice(0, 150),
             }).catch(() => { });
         }
         // ── Notify mentioned users ──
@@ -443,6 +506,14 @@ const addComment = async (req, res) => {
                             data: { type: 'user_mention', postId: req.params.id },
                         },
                         referenceId: req.params.id,
+                    }).catch(() => { });
+                    // ── Activity inbox ──
+                    (0, activity_service_1.createActivity)({
+                        recipientId: u._id.toString(),
+                        actorId: req.user.id,
+                        type: 'mention',
+                        postId: req.params.id,
+                        commentText: text.slice(0, 150),
                     }).catch(() => { });
                 }
             }
@@ -610,12 +681,22 @@ const savePost = async (req, res) => {
         if (existing) {
             await post_save_model_1.PostSave.deleteOne({ _id: existing._id });
             isSaved = false;
+            // Remove save activity on unsave
+            const unsavedPost = await post_model_1.Post.findById(postId).select('userId').lean();
+            if (unsavedPost?.userId && String(unsavedPost.userId) !== req.user.id) {
+                (0, activity_service_1.removeActivity)({
+                    type: 'save_post',
+                    actorId: req.user.id,
+                    recipientId: String(unsavedPost.userId),
+                    postId: String(postId),
+                }).catch(() => { });
+            }
         }
         else {
             await post_save_model_1.PostSave.create({ postId, userId });
             isSaved = true;
             // ── Notify post owner (skip self-saves) ──
-            const savedPost = await post_model_1.Post.findById(postId).select('userId').lean();
+            const savedPost = await post_model_1.Post.findById(postId).select('userId thumbnailUrl videoUrl').lean();
             const ownerId = savedPost?.userId?.toString();
             if (ownerId && ownerId !== req.user.id) {
                 const actor = await user_model_1.User.findById(req.user.id).select('username profilePic').lean();
@@ -627,6 +708,14 @@ const savePost = async (req, res) => {
                     type: 'post_save',
                     payload: notification_service_1.NotificationTriggers.postSaved(actor?.username ?? ''),
                     referenceId: String(postId),
+                }).catch(() => { });
+                // ── Activity inbox ──
+                (0, activity_service_1.createActivity)({
+                    recipientId: ownerId,
+                    actorId: req.user.id,
+                    type: 'save_post',
+                    postId: String(postId),
+                    postThumbnailUrl: savedPost?.thumbnailUrl || savedPost?.videoUrl || '',
                 }).catch(() => { });
             }
         }
@@ -783,6 +872,7 @@ const getPublicFeed = async (req, res) => {
 };
 exports.getPublicFeed = getPublicFeed;
 // POST /feed/:id/repost — Repost video to current user profile feed
+// body: { note?: string }
 const repostPost = async (req, res) => {
     try {
         if (!req.user) {
@@ -799,8 +889,14 @@ const repostPost = async (req, res) => {
             res.status(404).json({ success: false, message: 'User not found' });
             return;
         }
+        // Optional note attached to the repost
+        const note = req.body?.note?.trim() ?? '';
         // Increment share/repost count on original
         await post_model_1.Post.findByIdAndUpdate(req.params.id, { $inc: { sharesCount: 1 } });
+        // Build caption: if note provided use it, otherwise default label
+        const caption = note
+            ? note
+            : `Reposted from @${originalPost.username}: ${originalPost.caption}`;
         // Create a repost under the current user's account
         const reposted = await post_model_1.Post.create({
             userId: new mongoose_1.Types.ObjectId(req.user.id),
@@ -812,13 +908,29 @@ const repostPost = async (req, res) => {
             thumbnailUrl: originalPost.thumbnailUrl,
             blurHash: originalPost.blurHash,
             aspectRatio: originalPost.aspectRatio,
-            caption: `Reposted from @${originalPost.username}: ${originalPost.caption}`,
+            caption,
             tags: originalPost.tags,
             duration: originalPost.duration,
             isPublic: true,
             originalPostId: originalPost._id,
         });
-        res.status(201).json({ success: true, message: 'Post reposted to your profile', post: reposted });
+        // ── Activity inbox: notify original post owner ──
+        const originalOwnerId = originalPost.userId?.toString();
+        if (originalOwnerId && originalOwnerId !== req.user.id) {
+            (0, activity_service_1.createActivity)({
+                recipientId: originalOwnerId,
+                actorId: req.user.id,
+                type: 'repost_post',
+                postId: String(originalPost._id),
+                postThumbnailUrl: originalPost.thumbnailUrl || originalPost.videoUrl || '',
+            }).catch(() => { });
+        }
+        res.status(201).json({
+            success: true,
+            message: 'Post reposted to your profile',
+            post: reposted,
+            note,
+        });
     }
     catch (err) {
         res.status(500).json({ success: false, message: err.message });
@@ -919,6 +1031,19 @@ const reactToComment = async (req, res) => {
             const field = reaction === 'like' ? 'likesCount' : 'dislikesCount';
             await comment_model_1.Comment.findByIdAndUpdate(commentObjId, { $inc: { [field]: 1 } });
             const updated = await comment_model_1.Comment.findById(commentObjId).select('likesCount dislikesCount').lean();
+            // ── Activity inbox: notify comment author on like (not dislike) ──
+            if (reaction === 'like') {
+                const commentAuthorId = comment.userId?.toString();
+                if (commentAuthorId && commentAuthorId !== req.user.id) {
+                    (0, activity_service_1.createActivity)({
+                        recipientId: commentAuthorId,
+                        actorId: req.user.id,
+                        type: 'like_comment',
+                        commentId: String(commentObjId),
+                        commentText: comment.text?.slice(0, 150) ?? '',
+                    }).catch(() => { });
+                }
+            }
             res.status(200).json({ success: true, reaction, ...updated });
         }
     }
@@ -978,6 +1103,18 @@ const replyToComment = async (req, res) => {
             }
             catch (_) { }
         }
+        // ── Activity inbox: notify parent comment author on reply ──
+        const parentAuthorId = parent.userId?.toString();
+        if (parentAuthorId && parentAuthorId !== req.user.id) {
+            (0, activity_service_1.createActivity)({
+                recipientId: parentAuthorId,
+                actorId: req.user.id,
+                type: 'reply_comment',
+                postId: String(parent.postId),
+                commentId: String(parent._id),
+                commentText: text.slice(0, 150),
+            }).catch(() => { });
+        }
         res.status(201).json({
             success: true,
             reply: {
@@ -1029,3 +1166,202 @@ const getReplies = async (req, res) => {
     }
 };
 exports.getReplies = getReplies;
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /feed/:id/reposts  — fetch all reposts (with notes) for a post
+// ─────────────────────────────────────────────────────────────────────────────
+const getReposts = async (req, res) => {
+    try {
+        const postId = req.params.id;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
+        // All posts that are reposts of this original
+        const reposts = await post_model_1.Post.find({
+            originalPostId: new mongoose_1.Types.ObjectId(postId),
+            isDeleted: { $ne: true },
+        })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .select('userId username userProfilePic caption createdAt likesCount')
+            .lean();
+        const total = await post_model_1.Post.countDocuments({
+            originalPostId: new mongoose_1.Types.ObjectId(postId),
+            isDeleted: { $ne: true },
+        });
+        // Attach isLiked for current user if authenticated
+        let likedSet = new Set();
+        if (req.user && reposts.length > 0) {
+            const repostIds = reposts.map((r) => r._id);
+            const likes = await (await Promise.resolve().then(() => __importStar(require('./post_like.model')))).PostLike
+                .find({ userId: new mongoose_1.Types.ObjectId(req.user.id), postId: { $in: repostIds } })
+                .select('postId')
+                .lean();
+            likedSet = new Set(likes.map((l) => String(l.postId)));
+        }
+        // Check if viewer follows these users
+        let followingSet = new Set();
+        if (req.user && reposts.length > 0) {
+            const { Follow } = await Promise.resolve().then(() => __importStar(require('../auth/follow.model')));
+            const follows = await Follow.find({
+                followerId: new mongoose_1.Types.ObjectId(req.user.id),
+                followingId: { $in: reposts.map((r) => r.userId) },
+            }).select('followingId').lean();
+            followingSet = new Set(follows.map((f) => String(f.followingId)));
+        }
+        const enriched = reposts.map((r) => ({
+            repostId: String(r._id),
+            userId: String(r.userId),
+            username: r.username,
+            userProfilePic: r.userProfilePic,
+            // caption IS the note for reposts (see repostPost logic)
+            note: r.caption?.startsWith('Reposted from') ? '' : (r.caption ?? ''),
+            createdAt: r.createdAt,
+            likesCount: r.likesCount ?? 0,
+            isLiked: likedSet.has(String(r._id)),
+            isFollowing: followingSet.has(String(r.userId)),
+            isOwn: req.user ? String(r.userId) === req.user.id : false,
+        }));
+        res.status(200).json({ success: true, reposts: enriched, total });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+exports.getReposts = getReposts;
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE /feed/:id/reposts/:repostId  — delete own repost note
+// ─────────────────────────────────────────────────────────────────────────────
+const deleteRepost = async (req, res) => {
+    try {
+        if (!req.user) {
+            res.status(401).json({ success: false, message: 'Unauthorized' });
+            return;
+        }
+        const { repostId } = req.params;
+        const repost = await post_model_1.Post.findById(repostId);
+        if (!repost) {
+            res.status(404).json({ success: false, message: 'Repost not found' });
+            return;
+        }
+        if (String(repost.userId) !== req.user.id) {
+            res.status(403).json({ success: false, message: 'Not authorized' });
+            return;
+        }
+        // Decrement sharesCount on original
+        if (repost.originalPostId) {
+            await post_model_1.Post.findByIdAndUpdate(repost.originalPostId, { $inc: { sharesCount: -1 } });
+        }
+        await post_model_1.Post.findByIdAndDelete(repostId);
+        res.status(200).json({ success: true, message: 'Repost deleted' });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+exports.deleteRepost = deleteRepost;
+// ── Not Interested Endpoint ──────────────────────────────────────────────────
+const markNotInterested = async (req, res) => {
+    try {
+        if (!req.user) {
+            res.status(401).json({ success: false, message: 'Unauthorized.' });
+            return;
+        }
+        const { id } = req.params;
+        const post = await post_model_1.Post.findById(id).select('userId');
+        if (!post) {
+            res.status(404).json({ success: false, message: 'Post not found.' });
+            return;
+        }
+        await user_model_1.User.findByIdAndUpdate(req.user.id, {
+            $addToSet: {
+                notInterestedPosts: post._id,
+                notInterestedAuthors: post.userId,
+            },
+        });
+        res.status(200).json({ success: true, message: 'Post marked as not interested.' });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.markNotInterested = markNotInterested;
+// ── Promotion Packages Endpoint ──────────────────────────────────────────────
+const getPromotionPackages = async (req, res) => {
+    try {
+        const user = req.user ? await user_model_1.User.findById(req.user.id).select('beanWallet').lean() : null;
+        const currentBeans = user?.beanWallet ?? 0;
+        const packages = [
+            { id: 'pkg_100', beans: 100, views: 1000, label: 'Starter Boost', description: '~ 1,000 views' },
+            { id: 'pkg_500', beans: 500, views: 6000, label: 'Popular Boost', description: '~ 6,000 views' },
+            { id: 'pkg_1000', beans: 1000, views: 15000, label: 'Superstar Boost', description: '~ 15,000 views' },
+        ];
+        res.status(200).json({
+            success: true,
+            currentBeans,
+            packages,
+        });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.getPromotionPackages = getPromotionPackages;
+// ── Promote Post Endpoint ────────────────────────────────────────────────────
+const promotePost = async (req, res) => {
+    try {
+        if (!req.user) {
+            res.status(401).json({ success: false, message: 'Unauthorized.' });
+            return;
+        }
+        const { id } = req.params;
+        const { goal = 'views', beans = 500 } = req.body;
+        const beansCost = Number(beans) || 500;
+        const user = await user_model_1.User.findById(req.user.id);
+        if (!user || (user.beanWallet ?? 0) < beansCost) {
+            res.status(400).json({
+                success: false,
+                message: `Insufficient Beans balance (${user?.beanWallet ?? 0}). Need at least ${beansCost} Beans.`,
+            });
+            return;
+        }
+        const post = await post_model_1.Post.findById(id);
+        if (!post) {
+            res.status(404).json({ success: false, message: 'Post not found.' });
+            return;
+        }
+        // Deduct beans from user beanWallet
+        user.beanWallet = (user.beanWallet ?? 0) - beansCost;
+        await user.save();
+        // Map beans to target views
+        let targetCount = beansCost * 10;
+        if (beansCost >= 1000)
+            targetCount = 15000;
+        else if (beansCost >= 500)
+            targetCount = 6000;
+        else
+            targetCount = 1000;
+        const campaign = await promotion_model_1.PromotionCampaign.create({
+            promoterId: req.user.id,
+            postId: post._id,
+            goal,
+            beansCost,
+            targetCount,
+            deliveredCount: 0,
+            status: 'active',
+        });
+        post.isPromoted = true;
+        post.promotionBoost = (post.promotionBoost || 0) + 10;
+        await post.save();
+        res.status(200).json({
+            success: true,
+            message: 'Video promotion campaign activated successfully!',
+            campaign,
+            remainingBeans: user.beanWallet,
+        });
+    }
+    catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.promotePost = promotePost;
