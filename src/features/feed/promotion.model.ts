@@ -8,6 +8,8 @@ export interface IPromotionCampaign extends Document {
   targetCount: number;
   deliveredCount: number;
   status: 'active' | 'completed' | 'paused';
+  frequencyCapSet: Array<{ userId: string; date: string }>;
+  packageId?: Types.ObjectId;
   createdAt: Date;
 }
 
@@ -20,11 +22,14 @@ const PromotionCampaignSchema = new Schema<IPromotionCampaign>(
     targetCount: { type: Number, required: true },
     deliveredCount: { type: Number, default: 0 },
     status: { type: String, enum: ['active', 'completed', 'paused'], default: 'active' },
+    packageId: { type: Schema.Types.ObjectId, ref: 'PromotionPackage' },
+    frequencyCapSet: [{ userId: { type: String }, date: { type: String } }],
   },
   { timestamps: true }
 );
 
 PromotionCampaignSchema.index({ status: 1, postId: 1 });
+PromotionCampaignSchema.index({ status: 1, deliveredCount: 1 });
 
 export const PromotionCampaign = model<IPromotionCampaign>('PromotionCampaign', PromotionCampaignSchema);
 

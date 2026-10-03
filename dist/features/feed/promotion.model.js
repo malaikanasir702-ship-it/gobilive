@@ -10,8 +10,11 @@ const PromotionCampaignSchema = new mongoose_1.Schema({
     targetCount: { type: Number, required: true },
     deliveredCount: { type: Number, default: 0 },
     status: { type: String, enum: ['active', 'completed', 'paused'], default: 'active' },
+    packageId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'PromotionPackage' },
+    frequencyCapSet: [{ userId: { type: String }, date: { type: String } }],
 }, { timestamps: true });
 PromotionCampaignSchema.index({ status: 1, postId: 1 });
+PromotionCampaignSchema.index({ status: 1, deliveredCount: 1 });
 exports.PromotionCampaign = (0, mongoose_1.model)('PromotionCampaign', PromotionCampaignSchema);
 const PromotionPackageSchema = new mongoose_1.Schema({
     name: { type: String, required: true },

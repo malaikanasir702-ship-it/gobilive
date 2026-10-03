@@ -120,32 +120,79 @@ const getFeed = async (req, res) => {
                 }
             }
         }
+        // ── Scoring-based sort for forYou tab ──────────────────────────────────
+        // engagement score = likes*2 + comments*3 + shares*2.5 + views*0.5
+        // freshness decay = e^(-hours/48)  (half-life 48h)
         const sortOptions = tab === 'trending'
             ? { likesCount: -1, viewsCount: -1, createdAt: -1 }
-            : { createdAt: -1 };
+            : tab === 'forYou'
+                ? { promotionBoost: -1, likesCount: -1, createdAt: -1 }
+                : { createdAt: -1 };
         const posts = await post_model_1.Post.find(filter)
             .sort(sortOptions)
             .skip(skip)
             .limit(limit)
             .populate('userId', 'profilePic activeFrameId')
             .lean();
-        // Real Promotion Distribution: inject active promoted post into page 1 for 'forYou' feed
-        if (page === 1 && tab === 'forYou') {
+        // ── Weighted Multi-Campaign Promotion Injection ──────────────────────────
+        // Strategy: inject 1 boosted post every 3 slots (positions 2, 5, 8...)
+        // - Cycle through active campaigns least-served-first
+        // - Frequency cap: skip campaigns already seen by this viewer today
+        // - Auto-complete campaign when deliveredCount >= targetCount
+        if (tab === 'forYou') {
             try {
-                const activeCampaign = await promotion_model_1.PromotionCampaign.findOne({ status: 'active' }).populate('postId');
-                if (activeCampaign && activeCampaign.postId) {
-                    const rawPromoted = activeCampaign.postId.toObject ? activeCampaign.postId.toObject() : activeCampaign.postId;
-                    if (rawPromoted && !posts.some(p => String(p._id) === String(rawPromoted._id))) {
-                        rawPromoted.isPromoted = true;
-                        posts.splice(1, 0, rawPromoted);
+                const viewerId = req.user?.id;
+                const today = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+                // Fetch all active campaigns sorted by least delivered (fair rotation)
+                const activeCampaigns = await promotion_model_1.PromotionCampaign.find({ status: 'active' })
+                    .populate('postId')
+                    .sort({ deliveredCount: 1 })
+                    .lean();
+                let injectionSlot = 2; // first injection at index 2, then every 3
+                const usedPostIds = new Set(posts.map((p) => String(p._id)));
+                for (const campaign of activeCampaigns) {
+                    if (injectionSlot >= posts.length + activeCampaigns.length)
+                        break;
+                    if (!campaign.postId)
+                        continue;
+                    const rawPost = campaign.postId;
+                    const postId = String(rawPost._id || rawPost.id);
+                    // Skip if already in feed
+                    if (usedPostIds.has(postId))
+                        continue;
+                    // Frequency cap: skip if viewer already saw this today
+                    if (viewerId && campaign.frequencyCapSet) {
+                        const alreadySeen = campaign.frequencyCapSet.some((entry) => String(entry.userId) === viewerId && entry.date === today);
+                        if (alreadySeen)
+                            continue;
                     }
-                    activeCampaign.deliveredCount = (activeCampaign.deliveredCount || 0) + 1;
-                    if (activeCampaign.deliveredCount >= activeCampaign.targetCount) {
-                        activeCampaign.status = 'completed';
-                        await post_model_1.Post.updateOne({ _id: activeCampaign.postId }, { $set: { isPromoted: false } });
-                    }
-                    await activeCampaign.save();
-                    await post_model_1.Post.updateOne({ _id: activeCampaign.postId }, { $inc: { viewsCount: 1 } });
+                    const boostedPost = { ...(rawPost.toObject ? rawPost.toObject() : rawPost), isPromoted: true };
+                    const insertAt = Math.min(injectionSlot, posts.length);
+                    posts.splice(insertAt, 0, boostedPost);
+                    usedPostIds.add(postId);
+                    injectionSlot += 4; // next injection 4 slots later
+                    // Update campaign in background (non-blocking)
+                    setImmediate(async () => {
+                        try {
+                            const fresh = await promotion_model_1.PromotionCampaign.findById(campaign._id);
+                            if (!fresh)
+                                return;
+                            fresh.deliveredCount = (fresh.deliveredCount || 0) + 1;
+                            // Record frequency cap
+                            if (viewerId) {
+                                if (!fresh.frequencyCapSet)
+                                    fresh.frequencyCapSet = [];
+                                fresh.frequencyCapSet.push({ userId: viewerId, date: today });
+                            }
+                            if (fresh.deliveredCount >= fresh.targetCount) {
+                                fresh.status = 'completed';
+                                await post_model_1.Post.updateOne({ _id: fresh.postId }, { $set: { isPromoted: false } });
+                            }
+                            await fresh.save();
+                            await post_model_1.Post.updateOne({ _id: fresh.postId }, { $inc: { viewsCount: 1 } });
+                        }
+                        catch (_) { /* non-critical */ }
+                    });
                 }
             }
             catch (_) { /* non-critical */ }
@@ -180,12 +227,14 @@ const getFeed = async (req, res) => {
                 post_like_model_1.PostLike.find({ userId, postId: { $in: postIds } }).select('postId').lean(),
                 post_save_model_1.PostSave.find({ userId, postId: { $in: postIds } }).select('postId').lean(),
             ]);
-            const likedSet = new Set(likes.map(l => String(l.postId)));
-            const savedSet = new Set(saves.map(s => String(s.postId)));
+            const likedSet = new Set(likes.map((l) => String(l.postId)));
+            const savedSet = new Set(saves.map((s) => String(s.postId)));
             for (const p of enrichedPosts) {
                 const pid = String(p._id ?? p.id);
                 p.isLiked = likedSet.has(pid);
                 p.isSaved = savedSet.has(pid);
+                // Mark own posts so mobile can show Boost button
+                p.isOwnPost = String(p.userId) === req.user.id;
             }
         }
         const total = await post_model_1.Post.countDocuments(filter);
@@ -207,7 +256,7 @@ const createPost = async (req, res) => {
             res.status(401).json({ success: false, message: 'Unauthorized' });
             return;
         }
-        const { videoUrl, imageUrls, thumbnailUrl, blurHash, aspectRatio, caption, tags, duration, isPublic, postType, location, allowComments, } = req.body;
+        const { videoUrl, imageUrls, thumbnailUrl, blurHash, aspectRatio, caption, tags, duration, isPublic, postType, location, allowComments, originalPostId, } = req.body;
         const hasVideo = !!videoUrl;
         const hasImages = Array.isArray(imageUrls) && imageUrls.length > 0;
         if (!hasVideo && !hasImages) {
@@ -238,6 +287,7 @@ const createPost = async (req, res) => {
             isDeleted: false,
             location: location || '',
             allowComments: allowComments !== false,
+            ...(originalPostId ? { originalPostId: new mongoose_1.Types.ObjectId(originalPostId) } : {}),
         });
         res.status(201).json({ success: true, post });
     }
